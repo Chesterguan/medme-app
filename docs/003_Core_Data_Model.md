@@ -58,7 +58,7 @@ CREATE TABLE ocr_result (
     id            INTEGER PRIMARY KEY,
     document_id   INTEGER NOT NULL REFERENCES document(id) ON DELETE CASCADE,
     page_no       INTEGER NOT NULL,         -- 从 1 起
-    backend       TEXT    NOT NULL,         -- 'onnx' | 'vlm'
+    backend       TEXT    NOT NULL,         -- 'native' | 'onnx' | 'vlm'
     model_version TEXT    NOT NULL,         -- 如 'ppocr-v5' / 'paddleocr-vl-0.9b'
     text          TEXT    NOT NULL,
     confidence    REAL,                     -- 0..1,页级平均
@@ -127,7 +127,7 @@ END;
 | 字段 | 允许值 |
 |---|---|
 | `document.doc_type` | `lab_report` · `imaging_report` · `discharge_summary` · `prescription` · `clinical_note` · `pathology` · `other` · `unknown` |
-| `ocr_result.backend` | `onnx` · `vlm` |
+| `ocr_result.backend` | `native`(文本层/DOCX,无 OCR)· `onnx` · `vlm` |
 | `clinical_event.event_type` | `diagnosis` · `lab_result` · `medication` · `procedure` · `imaging` · `allergy` · `vital_sign` |
 | `clinical_event.code_system` | `ICD-10` · `SNOMED` · `LOINC` · `RxNorm` · `OMOP` · `local` · `null` |
 | `import_batch.source` | `drag` · `folder` · `watch` · `camera` · `scan` |
@@ -168,7 +168,7 @@ pub struct Document {
     pub created_at: DateTime<Utc>,
 }
 
-pub enum OcrBackendKind { Onnx, Vlm }
+pub enum OcrBackendKind { Native, Onnx, Vlm }
 
 pub struct OcrResult {
     pub id: i64,
