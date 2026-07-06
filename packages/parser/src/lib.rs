@@ -16,7 +16,7 @@ pub fn extract(path: &Path) -> anyhow::Result<Extracted> {
         "txt" => (std::fs::read_to_string(path)?, 1),
         "pdf" => {
             let t = pdf_extract::extract_text(path)?;
-            let pages = t.matches('\u{0C}').count().max(0) as i32 + 1; // 换页符估页数
+            let pages = t.matches('\u{0C}').count() as i32 + 1; // 换页符估页数
             (t, pages)
         }
         other => anyhow::bail!("unsupported extension: {other}"),
@@ -67,21 +67,23 @@ fn parse_ymd(tok: &str, ymd: YmdCtor) -> Option<DateTime<Utc>> {
 }
 
 fn parse_cn_date(text: &str, ymd: YmdCtor) -> Option<DateTime<Utc>> {
-    let bytes: Vec<char> = text.chars().collect();
-    let s: String = bytes.iter().collect();
-    if let Some(yi) = s.find('年') {
-        let before: String = s[..yi].chars().rev().take_while(|c| c.is_ascii_digit())
-            .collect::<String>().chars().rev().collect();
-        let rest = &s[yi + '年'.len_utf8()..];
-        if let (Some(mi), Some(di)) = (rest.find('月'), rest.find('日')) {
-            let m: String = rest[..mi].chars().filter(|c| c.is_ascii_digit()).collect();
-            let d: String = rest[mi + '月'.len_utf8()..di].chars().filter(|c| c.is_ascii_digit()).collect();
-            if let (Ok(y), Ok(m), Ok(d)) = (before.parse(), m.parse(), d.parse()) {
-                return ymd(y, m, d);
-            }
-        }
+    let yi = text.find('年')?;
+    // 年 之前紧邻的数字 = 年份
+    let before: String = text[..yi]
+        .chars().rev().take_while(|c| c.is_ascii_digit())
+        .collect::<String>().chars().rev().collect();
+    let rest = &text[yi + '年'.len_utf8()..];
+    let mi = rest.find('月')?;
+    let month_end = mi + '月'.len_utf8();
+    let di = rest.find('日')?;
+    // 月 必须在 日 之前;否则不是合法日期,放弃(checked slice 避免 begin>end panic)
+    let day_slice = rest.get(month_end..di)?;
+    let m: String = rest[..mi].chars().filter(|c| c.is_ascii_digit()).collect();
+    let d: String = day_slice.chars().filter(|c| c.is_ascii_digit()).collect();
+    match (before.parse(), m.parse(), d.parse()) {
+        (Ok(y), Ok(m), Ok(d)) => ymd(y, m, d),
+        _ => None,
     }
-    None
 }
 
 pub fn classify(text: &str) -> DocType {
@@ -115,5 +117,16 @@ mod tests {
         assert_eq!(detect_language("hello world").as_deref(), Some("en"));
         assert_eq!(detect_language("你好世界").as_deref(), Some("zh"));
         assert_eq!(detect_language("hello 世界").as_deref(), Some("mixed"));
+    }
+
+    #[test]
+    fn cn_date_parses_and_never_panics() {
+        // 合法中文日期
+        let d = guess_date("检查日期 2021年3月4日 完成").unwrap();
+        assert_eq!(d.format("%Y-%m-%d").to_string(), "2021-03-04");
+        // 日 在 月 之前(如 "每日…X月")→ 不 panic,返回 None
+        assert!(guess_date("2020年3日4月").is_none());
+        // 只有 年,无 月日 → None
+        assert!(guess_date("2020年记录").is_none());
     }
 }
