@@ -693,6 +693,7 @@ dependencies = [
  "clap",
  "core-model",
  "parser",
+ "pipeline",
 ]
 
 [[package]]
