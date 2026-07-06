@@ -9,6 +9,7 @@ pub struct Extracted {
     pub page_count: i32,
     pub language: Option<String>,
     pub doc_date: Option<DateTime<Utc>>,
+    pub doc_date_end: Option<DateTime<Utc>>, // 区间结束(住院类文档);单点文档为 None
     pub doc_type: DocType,
 }
 
@@ -27,9 +28,11 @@ pub fn extract(path: &Path) -> anyhow::Result<Extracted> {
         }
         other => anyhow::bail!("unsupported extension: {other}"),
     };
+    let (doc_date, doc_date_end) = guess_date_range(&text);
     Ok(Extracted {
         language: detect_language(&text),
-        doc_date: guess_date(&text),
+        doc_date,
+        doc_date_end,
         doc_type: classify(&text),
         text,
         page_count,
@@ -47,29 +50,41 @@ pub fn detect_language(text: &str) -> Option<String> {
     }
 }
 
-/// 从文本任意位置抽取第一个合法日期。先 ISO(YYYY-MM-DD / YYYY/MM/DD),再中文(YYYY年MM月DD日)。
-/// 用子串匹配,能抓到粘在标签后的日期(如 "出院日期:2023-05-01");中文式要求"年"前紧邻 4 位数字,避开"年龄"。
-pub fn guess_date(text: &str) -> Option<DateTime<Utc>> {
+/// 抽取文本中所有合法日期,返回 (最早, 最晚)。最晚为 None 当只有一个不同日期时。
+/// 用于住院等跨度文档:入院=起、出院=止;单点文档 end=None。
+pub fn guess_date_range(text: &str) -> (Option<DateTime<Utc>>, Option<DateTime<Utc>>) {
     static ISO: OnceLock<Regex> = OnceLock::new();
     static CN: OnceLock<Regex> = OnceLock::new();
     let iso = ISO.get_or_init(|| {
-        Regex::new(r"(\d{4})[-/](\d{1,2})[-/](\d{1,2})").expect("static ISO date regex compiles")
+        Regex::new(r"(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})").expect("static ISO date regex compiles")
     });
     let cn = CN.get_or_init(|| {
         Regex::new(r"(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日")
             .expect("static CN date regex compiles")
     });
+    let mut dates: Vec<DateTime<Utc>> = Vec::new();
     for caps in iso.captures_iter(text) {
-        if let Some(dt) = build_date(&caps) {
-            return Some(dt);
+        if let Some(d) = build_date(&caps) {
+            dates.push(d);
         }
     }
     for caps in cn.captures_iter(text) {
-        if let Some(dt) = build_date(&caps) {
-            return Some(dt);
+        if let Some(d) = build_date(&caps) {
+            dates.push(d);
         }
     }
-    None
+    dates.sort();
+    dates.dedup();
+    match dates.len() {
+        0 => (None, None),
+        1 => (Some(dates[0]), None),
+        _ => (Some(dates[0]), Some(dates[dates.len() - 1])),
+    }
+}
+
+/// 单点日期(向后兼容):取最早。
+pub fn guess_date(text: &str) -> Option<DateTime<Utc>> {
+    guess_date_range(text).0
 }
 
 fn build_date(caps: &regex::Captures) -> Option<DateTime<Utc>> {
@@ -83,15 +98,22 @@ fn build_date(caps: &regex::Captures) -> Option<DateTime<Utc>> {
 }
 
 pub fn classify(text: &str) -> DocType {
-    let t = text;
-    let has = |kw: &str| t.contains(kw);
+    let lower = text.to_lowercase(); // 拉丁字母小写化;中文不变,仍能匹配
+    let has = |kw: &str| lower.contains(kw);
+    // 短英文缩写用整词匹配,避免 "doctor"(含 ct)/"available"(含 lab)误命中
+    let words: std::collections::HashSet<&str> =
+        lower.split(|c: char| !c.is_alphanumeric()).filter(|s| !s.is_empty()).collect();
+    let word = |w: &str| words.contains(w);
+
     if has("出院记录") || has("discharge") {
         DocType::DischargeSummary
     } else if has("处方") || has("prescription") {
         DocType::Prescription
-    } else if has("检验") || has("化验") || has("lab") {
+    } else if has("检验") || has("化验") || has("laborator") || word("lab") {
         DocType::LabReport
-    } else if has("影像") || has("CT") || has("MRI") || has("超声") {
+    } else if has("影像") || has("超声") || has("ultrasound") || has("imaging")
+        || has("radiolog") || has("computed tomograph") || has("magnetic resonance")
+        || word("ct") || word("mri") || word("xray") || has("x-ray") {
         DocType::ImagingReport
     } else if has("病理") || has("pathology") {
         DocType::Pathology
@@ -149,5 +171,34 @@ mod tests {
             .unwrap().format("%Y-%m-%d").to_string(), "2024-01-15");
         // 空占位符 → 无有效日期
         assert!(guess_date("检测日期:____年__月__日").is_none());
+    }
+
+    #[test]
+    fn classify_case_insensitive_and_english() {
+        assert_eq!(classify("Discharge Summary\nDiagnosis: pneumonia"), DocType::DischargeSummary);
+        assert_eq!(classify("Laboratory Report\nHemoglobin 140"), DocType::LabReport);
+        assert_eq!(classify("Ultrasound Report\nfatty liver"), DocType::ImagingReport);
+        assert_eq!(classify("chest CT scan report\nnodule"), DocType::ImagingReport);
+        // 整词边界:不因 "doctor"(含 ct)/"available"(含 lab) 误判为影像/化验
+        assert_eq!(classify("The doctor saw the patient; results available."), DocType::Unknown);
+    }
+
+    #[test]
+    fn guess_date_supports_dots() {
+        assert_eq!(guess_date("报告日期 2023.05.01 完成").unwrap().format("%Y-%m-%d").to_string(), "2023-05-01");
+    }
+
+    #[test]
+    fn guess_date_range_captures_span() {
+        // 住院:入院 + 出院 → 区间
+        let (s, e) = guess_date_range("入院日期:2023-01-01 出院日期:2023-01-20");
+        assert_eq!(s.unwrap().format("%Y-%m-%d").to_string(), "2023-01-01");
+        assert_eq!(e.unwrap().format("%Y-%m-%d").to_string(), "2023-01-20");
+        // 单点:end 为 None
+        let (s1, e1) = guess_date_range("检验日期 2024-07-08");
+        assert_eq!(s1.unwrap().format("%Y-%m-%d").to_string(), "2024-07-08");
+        assert!(e1.is_none());
+        // 无日期
+        assert_eq!(guess_date_range("no dates here"), (None, None));
     }
 }
