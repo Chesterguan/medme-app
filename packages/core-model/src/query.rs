@@ -1,6 +1,6 @@
-use chrono::{DateTime, Utc};
-use crate::{Vault, MedmeError, DocType};
 use crate::types::parse_dt;
+use crate::{DocType, MedmeError, Vault};
+use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone)]
 pub struct SearchHit {
@@ -27,21 +27,24 @@ impl Vault {
             .map(|t| format!("\"{}\"", t.replace('"', "\"\"")))
             .collect::<Vec<_>>()
             .join(" ");
-        if match_q.is_empty() { return Ok(vec![]); }
+        if match_q.is_empty() {
+            return Ok(vec![]);
+        }
         let mut stmt = self.conn().prepare(
             "SELECT document_id, title, snippet(document_fts, 1, '[', ']', '…', 12) AS snip
              FROM document_fts WHERE document_fts MATCH ?1 LIMIT ?2",
         )?;
-        let rows = stmt.query_map(
-            rusqlite::params![match_q, limit as i64],
-            |r| Ok(SearchHit {
+        let rows = stmt.query_map(rusqlite::params![match_q, limit as i64], |r| {
+            Ok(SearchHit {
                 document_id: r.get(0)?,
-                title: r.get(1)?,   // FTS 里存的是分词后的 title;仅作展示提示
+                title: r.get(1)?, // FTS 里存的是分词后的 title;仅作展示提示
                 snippet: r.get(2)?,
-            }),
-        )?;
+            })
+        })?;
         let mut out = Vec::new();
-        for r in rows { out.push(r?); }
+        for r in rows {
+            out.push(r?);
+        }
         Ok(out)
     }
 
@@ -60,40 +63,63 @@ impl Vault {
             })
         })?;
         let mut out = Vec::new();
-        for r in rows { out.push(r?); }
+        for r in rows {
+            out.push(r?);
+        }
         Ok(out)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::Vault;
     use crate::types::{NewDocument, NewOcr};
+    use crate::Vault;
     use crate::{DocType, OcrBackendKind};
 
     fn seed(v: &Vault, title: &str, text: &str, date: Option<&str>) {
         let imp = v.import(title, "text/plain", text.as_bytes()).unwrap();
-        let doc_date = date.map(|d| chrono::DateTime::parse_from_rfc3339(d)
-            .unwrap().with_timezone(&chrono::Utc));
-        let doc = v.add_document(NewDocument {
-            source_file_id: imp.source_file.id,
-            doc_type: DocType::LabReport,
-            doc_date, title: Some(title.into()),
-            language: Some("mixed".into()), page_count: 1,
-        }).unwrap();
+        let doc_date = date.map(|d| {
+            chrono::DateTime::parse_from_rfc3339(d)
+                .unwrap()
+                .with_timezone(&chrono::Utc)
+        });
+        let doc = v
+            .add_document(NewDocument {
+                source_file_id: imp.source_file.id,
+                doc_type: DocType::LabReport,
+                doc_date,
+                title: Some(title.into()),
+                language: Some("mixed".into()),
+                page_count: 1,
+            })
+            .unwrap();
         v.add_ocr(NewOcr {
-            document_id: doc.id, page_no: 1,
-            backend: OcrBackendKind::Native, model_version: "text-layer".into(),
-            text: text.into(), confidence: None,
-        }).unwrap();
+            document_id: doc.id,
+            page_no: 1,
+            backend: OcrBackendKind::Native,
+            model_version: "text-layer".into(),
+            text: text.into(),
+            confidence: None,
+        })
+        .unwrap();
     }
 
     #[test]
     fn search_matches_chinese_and_english() {
         let dir = tempfile::tempdir().unwrap();
         let v = Vault::open(dir.path()).unwrap();
-        seed(&v, "血常规", "肌酐 Creatinine 120 升高", Some("2023-05-01T00:00:00Z"));
-        seed(&v, "用药单", "美托洛尔 Metoprolol 25mg", Some("2024-01-02T00:00:00Z"));
+        seed(
+            &v,
+            "血常规",
+            "肌酐 Creatinine 120 升高",
+            Some("2023-05-01T00:00:00Z"),
+        );
+        seed(
+            &v,
+            "用药单",
+            "美托洛尔 Metoprolol 25mg",
+            Some("2024-01-02T00:00:00Z"),
+        );
 
         assert_eq!(v.search("Creatinine", 10).unwrap().len(), 1);
         assert_eq!(v.search("肌酐", 10).unwrap().len(), 1);
@@ -105,7 +131,12 @@ mod tests {
     fn search_handles_fts5_special_chars_gracefully() {
         let dir = tempfile::tempdir().unwrap();
         let v = Vault::open(dir.path()).unwrap();
-        seed(&v, "炎症", "C-reactive protein 反应蛋白 升高", Some("2023-05-01T00:00:00Z"));
+        seed(
+            &v,
+            "炎症",
+            "C-reactive protein 反应蛋白 升高",
+            Some("2023-05-01T00:00:00Z"),
+        );
 
         // 连字符查询过去会报 Sqlite 错误;现在应正常命中
         let hits = v.search("C-reactive", 10).unwrap();

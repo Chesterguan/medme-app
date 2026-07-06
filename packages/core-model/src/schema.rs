@@ -1,5 +1,5 @@
-use rusqlite::Connection;
 use crate::MedmeError;
+use rusqlite::Connection;
 
 const SCHEMA_V1: &str = r#"
 CREATE TABLE source_file (
@@ -45,7 +45,9 @@ CREATE VIRTUAL TABLE document_fts USING fts5(
 pub fn migrate(conn: &Connection) -> Result<(), MedmeError> {
     let v: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     if v < 1 {
-        conn.execute_batch(&format!("BEGIN;\n{SCHEMA_V1}\nPRAGMA user_version = 1;\nCOMMIT;"))?;
+        conn.execute_batch(&format!(
+            "BEGIN;\n{SCHEMA_V1}\nPRAGMA user_version = 1;\nCOMMIT;"
+        ))?;
     }
     Ok(())
 }

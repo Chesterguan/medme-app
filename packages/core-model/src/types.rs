@@ -1,11 +1,17 @@
+use crate::{cas, MedmeError, Vault};
 use chrono::{DateTime, Utc};
 use rusqlite::OptionalExtension;
-use crate::{Vault, MedmeError, cas};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DocType {
-    LabReport, ImagingReport, DischargeSummary, Prescription,
-    ClinicalNote, Pathology, Other, Unknown,
+    LabReport,
+    ImagingReport,
+    DischargeSummary,
+    Prescription,
+    ClinicalNote,
+    Pathology,
+    Other,
+    Unknown,
 }
 impl DocType {
     pub fn as_str(&self) -> &'static str {
@@ -36,12 +42,18 @@ impl DocType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum OcrBackendKind { Native, Onnx, Vlm }
+pub enum OcrBackendKind {
+    Native,
+    Onnx,
+    Vlm,
+}
 impl OcrBackendKind {
     pub fn as_str(&self) -> &'static str {
-        match self { OcrBackendKind::Native => "native",
-                     OcrBackendKind::Onnx => "onnx",
-                     OcrBackendKind::Vlm => "vlm" }
+        match self {
+            OcrBackendKind::Native => "native",
+            OcrBackendKind::Onnx => "onnx",
+            OcrBackendKind::Vlm => "vlm",
+        }
     }
 }
 
@@ -93,15 +105,23 @@ pub struct NewOcr {
 }
 
 impl Vault {
-    pub(crate) fn now_rfc3339() -> String { Utc::now().to_rfc3339() }
+    pub(crate) fn now_rfc3339() -> String {
+        Utc::now().to_rfc3339()
+    }
 
-    pub fn import(&self, original_name: &str, mime: &str, bytes: &[u8])
-        -> Result<Import, MedmeError>
-    {
+    pub fn import(
+        &self,
+        original_name: &str,
+        mime: &str,
+        bytes: &[u8],
+    ) -> Result<Import, MedmeError> {
         let hash = cas::sha256_hex(bytes);
         // 已登记?
         if let Some(sf) = self.source_file_by_hash(&hash)? {
-            return Ok(Import { source_file: sf, deduped: true });
+            return Ok(Import {
+                source_file: sf,
+                deduped: true,
+            });
         }
         let (_h, relpath, _written) = self.store_object(bytes)?;
         let now = Self::now_rfc3339();
@@ -111,9 +131,13 @@ impl Vault {
              VALUES (?1,?2,?3,?4,?5,?6)",
             rusqlite::params![hash, original_name, mime, bytes.len() as i64, relpath, now],
         )?;
-        let sf = self.source_file_by_hash(&hash)?
+        let sf = self
+            .source_file_by_hash(&hash)?
             .ok_or_else(|| MedmeError::Other("insert then missing".into()))?;
-        Ok(Import { source_file: sf, deduped: false })
+        Ok(Import {
+            source_file: sf,
+            deduped: false,
+        })
     }
 
     fn source_file_by_hash(&self, hash: &str) -> Result<Option<SourceFile>, MedmeError> {
@@ -136,7 +160,9 @@ impl Vault {
 
     #[cfg(test)]
     pub(crate) fn debug_count(&self, table: &str) -> i64 {
-        self.conn().query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0)).unwrap()
+        self.conn()
+            .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
+            .unwrap()
     }
 
     pub fn add_document(&self, d: NewDocument) -> Result<Document, MedmeError> {
@@ -147,8 +173,13 @@ impl Vault {
              (source_file_id, doc_type, doc_date, title, language, page_count, created_at)
              VALUES (?1,?2,?3,?4,?5,?6,?7)",
             rusqlite::params![
-                d.source_file_id, d.doc_type.as_str(), date_s,
-                d.title, d.language, d.page_count, now
+                d.source_file_id,
+                d.doc_type.as_str(),
+                date_s,
+                d.title,
+                d.language,
+                d.page_count,
+                now
             ],
         )?;
         let id = self.conn().last_insert_rowid();
@@ -172,14 +203,21 @@ impl Vault {
              (document_id, page_no, backend, model_version, text, confidence, created_at)
              VALUES (?1,?2,?3,?4,?5,?6,?7)",
             rusqlite::params![
-                o.document_id, o.page_no, o.backend.as_str(),
-                o.model_version, o.text, o.confidence, now
+                o.document_id,
+                o.page_no,
+                o.backend.as_str(),
+                o.model_version,
+                o.text,
+                o.confidence,
+                now
             ],
         )?;
         let ocr_id = tx.last_insert_rowid();
         // FTS body:分词后写入(偏离 003 的触发器方案,原因见 Global Constraints)
         let title: Option<String> = tx.query_row(
-            "SELECT title FROM document WHERE id = ?1", [o.document_id], |r| r.get(0),
+            "SELECT title FROM document WHERE id = ?1",
+            [o.document_id],
+            |r| r.get(0),
         )?;
         let body = crate::tokenize::tokenize(&o.text);
         let title_tok = title.as_deref().map(crate::tokenize::tokenize);
@@ -197,8 +235,10 @@ pub(crate) fn parse_dt(s: String) -> DateTime<Utc> {
         .map(|d| d.with_timezone(&Utc))
         // 解析失败(如手工改库/损坏行)时回退到 Unix epoch 哨兵值:明显异常、可被发现,
         // 而非用 now() 伪装成真实导入时间。正常路径下本代码写入的都是合法 RFC3339,不会触发。
-        .unwrap_or_else(|_| DateTime::from_timestamp(0, 0)
-            .expect("Unix epoch (timestamp 0) is always a valid DateTime"))
+        .unwrap_or_else(|_| {
+            DateTime::from_timestamp(0, 0)
+                .expect("Unix epoch (timestamp 0) is always a valid DateTime")
+        })
 }
 
 #[cfg(test)]
@@ -210,11 +250,15 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let v = Vault::open(dir.path()).unwrap();
 
-        let a = v.import("report.pdf", "application/pdf", b"PDFDATA").unwrap();
+        let a = v
+            .import("report.pdf", "application/pdf", b"PDFDATA")
+            .unwrap();
         assert!(!a.deduped);
 
         // 同内容、不同文件名 → 命中去重,仍是同一 source_file
-        let b = v.import("renamed.pdf", "application/pdf", b"PDFDATA").unwrap();
+        let b = v
+            .import("renamed.pdf", "application/pdf", b"PDFDATA")
+            .unwrap();
         assert!(b.deduped);
         assert_eq!(a.source_file.id, b.source_file.id);
 
@@ -235,38 +279,47 @@ mod tests {
     #[test]
     fn add_document_and_ocr_populates_fts() {
         use crate::types::{NewDocument, NewOcr};
-        use crate::OcrBackendKind;
         use crate::DocType;
+        use crate::OcrBackendKind;
 
         let dir = tempfile::tempdir().unwrap();
         let v = Vault::open(dir.path()).unwrap();
         let imp = v.import("r.txt", "text/plain", b"x").unwrap();
 
-        let doc = v.add_document(NewDocument {
-            source_file_id: imp.source_file.id,
-            doc_type: DocType::LabReport,
-            doc_date: None,
-            title: Some("血常规".into()),
-            language: Some("zh".into()),
-            page_count: 1,
-        }).unwrap();
+        let doc = v
+            .add_document(NewDocument {
+                source_file_id: imp.source_file.id,
+                doc_type: DocType::LabReport,
+                doc_date: None,
+                title: Some("血常规".into()),
+                language: Some("zh".into()),
+                page_count: 1,
+            })
+            .unwrap();
         assert!(doc.id > 0);
 
-        let ocr_id = v.add_ocr(NewOcr {
-            document_id: doc.id,
-            page_no: 1,
-            backend: OcrBackendKind::Native,
-            model_version: "text-layer".into(),
-            text: "肌酐 Creatinine 120 umol/L".into(),
-            confidence: None,
-        }).unwrap();
+        let ocr_id = v
+            .add_ocr(NewOcr {
+                document_id: doc.id,
+                page_no: 1,
+                backend: OcrBackendKind::Native,
+                model_version: "text-layer".into(),
+                text: "肌酐 Creatinine 120 umol/L".into(),
+                confidence: None,
+            })
+            .unwrap();
         assert!(ocr_id > 0);
         assert_eq!(v.debug_count("document_fts"), 1);
 
         // body 应为分词后文本,含中英 token
-        let body: String = v.conn().query_row(
-            "SELECT body FROM document_fts WHERE document_id = ?1", [doc.id], |r| r.get(0),
-        ).unwrap();
+        let body: String = v
+            .conn()
+            .query_row(
+                "SELECT body FROM document_fts WHERE document_id = ?1",
+                [doc.id],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert!(body.contains("肌酐"));
         assert!(body.contains("Creatinine"));
         assert!(body.split_whitespace().count() >= 3); // 已分词

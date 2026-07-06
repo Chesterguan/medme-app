@@ -7,10 +7,10 @@ pub mod types;
 
 pub use error::MedmeError;
 pub use query::{SearchHit, TimelineEntry};
-pub use types::{SourceFile, DocType, OcrBackendKind, Import, Document, NewDocument, NewOcr};
+pub use types::{DocType, Document, Import, NewDocument, NewOcr, OcrBackendKind, SourceFile};
 
-use std::path::{Path, PathBuf};
 use rusqlite::Connection;
+use std::path::{Path, PathBuf};
 
 pub struct Vault {
     conn: Connection,
@@ -24,14 +24,21 @@ impl Vault {
         let conn = Connection::open(root.join("medme.db"))?;
         conn.execute_batch("PRAGMA foreign_keys = ON;")?;
         schema::migrate(&conn)?;
-        Ok(Vault { conn, root: root.to_path_buf() })
+        Ok(Vault {
+            conn,
+            root: root.to_path_buf(),
+        })
     }
 
     pub fn user_version(&self) -> Result<i64, MedmeError> {
-        Ok(self.conn.query_row("PRAGMA user_version", [], |r| r.get(0))?)
+        Ok(self
+            .conn
+            .query_row("PRAGMA user_version", [], |r| r.get(0))?)
     }
 
-    pub(crate) fn conn(&self) -> &rusqlite::Connection { &self.conn }
+    pub(crate) fn conn(&self) -> &rusqlite::Connection {
+        &self.conn
+    }
 }
 
 #[cfg(test)]

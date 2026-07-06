@@ -1,8 +1,8 @@
+use crate::{MedmeError, Vault};
 use sha2::{Digest, Sha256};
 use std::io::Write;
 use std::path::Path;
 use tempfile::NamedTempFile;
-use crate::{Vault, MedmeError};
 
 pub fn sha256_hex(bytes: &[u8]) -> String {
     let mut h = Sha256::new();
@@ -16,7 +16,9 @@ pub fn object_relpath(hash: &str) -> String {
 
 fn hex(bytes: &[u8]) -> String {
     let mut s = String::with_capacity(bytes.len() * 2);
-    for b in bytes { s.push_str(&format!("{b:02x}")); }
+    for b in bytes {
+        s.push_str(&format!("{b:02x}"));
+    }
     s
 }
 
@@ -43,7 +45,9 @@ impl Vault {
         Ok((hash, rel, true))
     }
 
-    pub(crate) fn root(&self) -> &Path { &self.root }
+    pub(crate) fn root(&self) -> &Path {
+        &self.root
+    }
 }
 
 #[cfg(test)]
@@ -74,8 +78,11 @@ mod tests {
         let mut n = 0;
         for e in std::fs::read_dir(p).unwrap() {
             let e = e.unwrap();
-            if e.file_type().unwrap().is_dir() { n += walk_files(&e.path()); }
-            else { n += 1; }
+            if e.file_type().unwrap().is_dir() {
+                n += walk_files(&e.path());
+            } else {
+                n += 1;
+            }
         }
         n
     }
