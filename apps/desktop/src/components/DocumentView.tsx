@@ -109,6 +109,16 @@ export default function DocumentView({
     if (!lightbox) setDicomSlices(null);
   }, [lightbox]);
 
+  // 全屏查看时按 ESC 返回(看图软件的标准操作,避免放大后不知如何退出)
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightbox(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightbox]);
+
   const dateStr = doc.doc_date_end
     ? `${fmtDate(doc.doc_date)} → ${fmtDate(doc.doc_date_end)}`
     : fmtDate(doc.doc_date);
@@ -253,9 +263,9 @@ export default function DocumentView({
             <span className="text-sm font-mono truncate">{sf.original_name}</span>
             <button
               onClick={() => setLightbox(false)}
-              className="flex items-center gap-1.5 text-sm hover:text-white cursor-pointer"
+              className="flex items-center gap-1.5 text-sm font-medium text-white bg-white/15 hover:bg-white/25 rounded-full pl-4 pr-3 py-1.5 cursor-pointer transition-colors"
             >
-              关闭 <X className="w-4 h-4" />
+              关闭 · ESC <X className="w-4 h-4" />
             </button>
           </div>
           <div
