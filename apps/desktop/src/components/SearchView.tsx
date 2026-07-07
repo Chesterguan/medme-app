@@ -45,10 +45,7 @@ export default function SearchView({ onSelect }: { onSelect: (id: number) => voi
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50 p-6 md:p-10">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-2xl font-bold text-slate-900 mb-6">
-          搜索
-          <span className="ml-2 text-sm font-mono text-slate-500">Search</span>
-        </h1>
+        <h1 className="text-2xl font-bold text-slate-900 mb-6">搜索</h1>
         <div className="relative">
           <SearchIcon className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
           <input

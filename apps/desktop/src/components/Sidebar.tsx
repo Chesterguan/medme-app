@@ -10,9 +10,9 @@ import {
 } from "lucide-react";
 
 const NAV = [
-  { id: "timeline", label: "生命时间线", sub: "Medical Lifeline", icon: Activity },
-  { id: "search", label: "搜索", sub: "Search", icon: Search },
-  { id: "import", label: "导入 · 导出", sub: "Import · Export", icon: UploadCloud },
+  { id: "timeline", label: "生命时间线", icon: Activity },
+  { id: "search", label: "搜索", icon: Search },
+  { id: "import", label: "导入 · 导出", icon: UploadCloud },
 ];
 
 export default function Sidebar({
@@ -76,16 +76,13 @@ export default function Sidebar({
                   className={`w-5 h-5 shrink-0 ${active ? "text-blue-600" : "text-slate-400"}`}
                 />
                 {!collapsed && (
-                  <div className="min-w-0">
-                    <span
-                      className={`text-sm font-medium block ${
-                        active ? "text-blue-900" : "text-slate-700"
-                      }`}
-                    >
-                      {item.label}
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-400 block">{item.sub}</span>
-                  </div>
+                  <span
+                    className={`text-sm font-medium ${
+                      active ? "text-blue-900" : "text-slate-700"
+                    }`}
+                  >
+                    {item.label}
+                  </span>
                 )}
               </div>
               {!collapsed && item.id === "timeline" && (

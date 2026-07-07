@@ -96,10 +96,7 @@ export default function ImportView({ onImported }: { onImported: () => void }) {
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50 p-6 md:p-10">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-2xl font-bold text-slate-900 mb-6">
-          导入 · 导出
-          <span className="ml-2 text-sm font-mono text-slate-500">Import · Export</span>
-        </h1>
+        <h1 className="text-2xl font-bold text-slate-900 mb-6">导入 · 导出</h1>
 
         <div
           className={`rounded-2xl border-2 border-dashed p-12 text-center transition-all ${
