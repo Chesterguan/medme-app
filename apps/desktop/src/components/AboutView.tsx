@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ShieldCheck, Globe, Github } from "lucide-react";
+import { ShieldCheck, Globe, Code2 } from "lucide-react";
 import { api } from "../api";
 
 const HOMEPAGE_URL = "https://lexuan-lin.github.io/shadow_medical_record-/";
@@ -151,7 +151,7 @@ export default function AboutView({ onNav }: { onNav: (id: string) => void }) {
             onClick={() => api.openUrl(REPO_URL).catch(() => {})}
             className="flex items-center gap-1.5 text-slate-500 hover:text-blue-600 cursor-pointer transition-colors"
           >
-            <Github className="w-4 h-4" /> 源代码
+            <Code2 className="w-4 h-4" /> 源代码
           </button>
         </div>
 
