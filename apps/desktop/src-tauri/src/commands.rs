@@ -2,9 +2,13 @@ use crate::dto::*;
 use core_model::Vault;
 use std::sync::Mutex;
 use tauri::State;
+use tauri_plugin_opener::OpenerExt;
 
 pub struct AppState {
     pub vault: Mutex<Vault>,
+    /// 收件箱 notify 监听器,需要在 AppState 里存活,否则一超出作用域就会被 drop 从而
+    /// 停止监听。setup() 里启动后写入;生命周期与 App 一致。
+    pub inbox_watcher: Mutex<Option<notify::RecommendedWatcher>>,
 }
 
 fn lock<'a>(s: &'a State<'a, AppState>) -> Result<std::sync::MutexGuard<'a, Vault>, String> {
@@ -161,4 +165,32 @@ pub fn get_patient_profile(state: State<AppState>) -> Result<PatientProfile, Str
     Ok(PatientProfile {
         name: p.name, gender: p.gender, birth_date: p.birth_date, age: p.age, record_count: p.record_count,
     })
+}
+
+/// 收件箱(Watch Folder)当前路径。
+#[tauri::command]
+pub fn get_inbox_path(app: tauri::AppHandle) -> String {
+    crate::inbox::read_inbox_path(&app).to_string_lossy().to_string()
+}
+
+/// 修改收件箱路径:持久化到 config.json、创建目录、立即重扫一次。
+/// 注意:不会重新定位正在运行的 notify watcher(仍监听旧目录),需重启应用才会
+/// 切到新目录监听;新路径下一次启动扫描/手动导入始终立即生效。
+#[tauri::command]
+pub fn set_inbox_path(app: tauri::AppHandle, state: State<AppState>, path: String) -> Result<(), String> {
+    let new_path = std::path::PathBuf::from(&path);
+    std::fs::create_dir_all(&new_path).map_err(|e| e.to_string())?;
+    crate::inbox::write_inbox_path(&app, &new_path).map_err(|e| e.to_string())?;
+    crate::inbox::scan_inbox(&app, &state);
+    Ok(())
+}
+
+/// 在系统文件管理器中打开收件箱目录(不存在则先创建)。
+#[tauri::command]
+pub fn open_inbox(app: tauri::AppHandle) -> Result<(), String> {
+    let inbox = crate::inbox::read_inbox_path(&app);
+    std::fs::create_dir_all(&inbox).map_err(|e| e.to_string())?;
+    app.opener()
+        .open_path(inbox.to_string_lossy().to_string(), None::<String>)
+        .map_err(|e| e.to_string())
 }

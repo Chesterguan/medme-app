@@ -1,5 +1,6 @@
 mod commands;
 mod dto;
+mod inbox;
 
 use commands::AppState;
 use core_model::Vault;
@@ -16,7 +17,22 @@ pub fn run() {
             let vault = Vault::open(&dir.join("vault")).expect("open vault");
             app.manage(AppState {
                 vault: Mutex::new(vault),
+                inbox_watcher: Mutex::new(None),
             });
+
+            // Watch Folder(见 docs/011_Storage_Sync.md §7):确保收件箱目录存在、启动扫描
+            // 一次(补上应用未运行期间落地的文件),再开始监听后续变动。
+            let handle = app.handle().clone();
+            match inbox::start(&handle) {
+                Ok(watcher) => {
+                    let state = app.state::<AppState>();
+                    *state.inbox_watcher.lock().expect("inbox_watcher lock") = Some(watcher);
+                }
+                Err(e) => {
+                    eprintln!("[inbox] failed to start watch folder: {e}");
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -29,6 +45,9 @@ pub fn run() {
             commands::render_dicom,
             commands::export_vault,
             commands::get_patient_profile,
+            commands::get_inbox_path,
+            commands::set_inbox_path,
+            commands::open_inbox,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { UploadCloud, ScanLine } from "lucide-react";
+import { UploadCloud, ScanLine, FolderOpen, Inbox } from "lucide-react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { api } from "../api";
 import type { ImportOutcome } from "../types";
@@ -16,6 +16,11 @@ export default function ImportView({ onImported }: { onImported: () => void }) {
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<ImportOutcome[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [inboxPath, setInboxPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.getInboxPath().then(setInboxPath).catch(() => {});
+  }, []);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -75,6 +80,28 @@ export default function ImportView({ onImported }: { onImported: () => void }) {
           </div>
           <div className="text-xs font-mono text-slate-400 mt-2">
             PDF · 图片(PNG / JPG / TIFF)· TXT · 原始文件永久保存,自动去重
+          </div>
+        </div>
+
+        {/* 自动收件箱(Watch Folder):手机拍照云同步到这里即自动入库 */}
+        <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="flex items-center gap-2 text-slate-800 font-medium mb-2">
+            <Inbox className="w-5 h-5 text-blue-500" /> 自动收件箱
+          </div>
+          <div className="text-sm text-slate-500 leading-relaxed mb-3">
+            手机拍照存到这里(或其云同步目录)即自动入库,无需手动导入。
+          </div>
+          <div className="flex items-center justify-between gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5">
+            <span className="text-xs font-mono text-slate-600 truncate">
+              {inboxPath ?? "加载中…"}
+            </span>
+            <button
+              type="button"
+              onClick={() => api.openInbox().catch((e) => setError(String(e)))}
+              className="shrink-0 flex items-center gap-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg px-3 py-1.5 transition-colors"
+            >
+              <FolderOpen className="w-3.5 h-3.5" /> 打开收件箱文件夹
+            </button>
           </div>
         </div>
 

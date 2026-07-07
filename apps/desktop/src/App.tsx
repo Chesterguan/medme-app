@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import Sidebar from "./components/Sidebar";
 import PatientBanner from "./components/PatientBanner";
 import Timeline from "./components/Timeline";
@@ -42,6 +43,20 @@ export default function App() {
     loadTimeline();
     setReloadKey((k) => k + 1); // 让病人 banner 重新归纳
   };
+
+  // 收件箱(Watch Folder)自动导入完成后,后端会发出 vault-changed;这里刷新时间线 + banner
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen("vault-changed", () => {
+      afterImport();
+    }).then((f) => {
+      unlisten = f;
+    });
+    return () => {
+      if (unlisten) unlisten();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="w-screen h-screen flex bg-slate-50 overflow-hidden text-slate-800">

@@ -25,4 +25,8 @@ serde_json = "1"
 core-model = { path = "../../../packages/core-model" }
 pipeline = { path = "../../../packages/pipeline" }
 dicom = { path = "../../../packages/dicom" }
+notify = "8.2.0"
+
+[dev-dependencies]
+tempfile = { workspace = true }
 

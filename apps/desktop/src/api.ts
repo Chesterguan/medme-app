@@ -22,4 +22,7 @@ export const api = {
   exportVault: (destPath: string) =>
     invoke<ExportSummary>("export_vault", { destPath }),
   getPatientProfile: () => invoke<PatientProfile>("get_patient_profile"),
+  getInboxPath: () => invoke<string>("get_inbox_path"),
+  setInboxPath: (path: string) => invoke<void>("set_inbox_path", { path }),
+  openInbox: () => invoke<void>("open_inbox"),
 };
