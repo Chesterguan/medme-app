@@ -168,14 +168,16 @@ impl Vault {
                 deduped: true,
             });
         }
-        let (_h, relpath, _written) = self.store_object(bytes)?;
+        self.store_object(bytes)?;
         let now = Self::now_rfc3339();
-        self.conn().execute(
-            "INSERT INTO source_file
-             (content_hash, original_name, mime_type, byte_size, storage_path, imported_at)
-             VALUES (?1,?2,?3,?4,?5,?6)",
-            rusqlite::params![hash, original_name, mime, bytes.len() as i64, relpath, now],
-        )?;
+        self.append_event(crate::event::Event::FileImported {
+            content_hash: hash.clone(),
+            original_name: original_name.to_string(),
+            mime_type: mime.to_string(),
+            byte_size: bytes.len() as i64,
+            imported_at: now,
+        })?;
+        self.materialize()?;
         let sf = self
             .source_file_by_hash(&hash)?
             .ok_or_else(|| MedmeError::Other("insert then missing".into()))?;
@@ -211,70 +213,53 @@ impl Vault {
     }
 
     pub fn add_document(&self, d: NewDocument) -> Result<Document, MedmeError> {
+        let sf = self.source_file_by_id(d.source_file_id)?.ok_or_else(|| {
+            MedmeError::Other(format!("source_file {} not found", d.source_file_id))
+        })?;
         let now = Self::now_rfc3339();
-        let date_s = d.doc_date.map(|x| x.to_rfc3339());
-        let date_end_s = d.doc_date_end.map(|x| x.to_rfc3339());
-        self.conn().execute(
-            "INSERT INTO document
-             (source_file_id, doc_type, doc_date, doc_date_end, title, language, page_count, created_at)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
-            rusqlite::params![
-                d.source_file_id,
-                d.doc_type.as_str(),
-                date_s,
-                date_end_s,
-                d.title,
-                d.language,
-                d.page_count,
-                now
-            ],
-        )?;
-        let id = self.conn().last_insert_rowid();
-        Ok(Document {
-            id,
-            source_file_id: d.source_file_id,
-            doc_type: d.doc_type,
-            doc_date: d.doc_date,
-            doc_date_end: d.doc_date_end,
+        let source_file_id = d.source_file_id;
+        self.append_event(crate::event::Event::DocumentAdded {
+            source_file_hash: sf.content_hash,
+            doc_type: d.doc_type.as_str().to_string(),
+            doc_date: d.doc_date.map(|x| x.to_rfc3339()),
+            doc_date_end: d.doc_date_end.map(|x| x.to_rfc3339()),
             title: d.title,
             language: d.language,
             page_count: d.page_count,
-            encounter_id: None,
-            created_at: parse_dt(now),
-        })
+            created_at: now,
+        })?;
+        self.materialize()?;
+        self.document_by_source_file_id(source_file_id)?
+            .ok_or_else(|| MedmeError::Other("document missing after materialize".into()))
     }
 
     pub fn add_ocr(&self, o: NewOcr) -> Result<i64, MedmeError> {
+        let doc = self
+            .document_by_id(o.document_id)?
+            .ok_or_else(|| MedmeError::Other(format!("document {} not found", o.document_id)))?;
+        let sf = self.source_file_by_id(doc.source_file_id)?.ok_or_else(|| {
+            MedmeError::Other(format!("source_file {} not found", doc.source_file_id))
+        })?;
+        let (text_hash, _rel, _written) = self.store_object(o.text.as_bytes())?;
         let now = Self::now_rfc3339();
-        let tx = self.conn().unchecked_transaction()?;
-        tx.execute(
-            "INSERT INTO ocr_result
-             (document_id, page_no, backend, model_version, text, confidence, created_at)
-             VALUES (?1,?2,?3,?4,?5,?6,?7)",
-            rusqlite::params![
-                o.document_id,
-                o.page_no,
-                o.backend.as_str(),
-                o.model_version,
-                o.text,
-                o.confidence,
-                now
-            ],
-        )?;
-        let ocr_id = tx.last_insert_rowid();
-        // FTS body:分词后写入(偏离 003 的触发器方案,原因见 Global Constraints)
-        let title: Option<String> = tx.query_row(
-            "SELECT title FROM document WHERE id = ?1",
-            [o.document_id],
+        let (document_id, page_no) = (o.document_id, o.page_no);
+        self.append_event(crate::event::Event::OcrAdded {
+            document_ref: crate::event::DocRef {
+                source_file_hash: sf.content_hash,
+            },
+            page_no: o.page_no,
+            backend: o.backend.as_str().to_string(),
+            model_version: o.model_version,
+            text_hash,
+            confidence: o.confidence,
+            created_at: now,
+        })?;
+        self.materialize()?;
+        let ocr_id: i64 = self.conn().query_row(
+            "SELECT id FROM ocr_result WHERE document_id = ?1 AND page_no = ?2",
+            rusqlite::params![document_id, page_no],
             |r| r.get(0),
         )?;
-        let body = crate::tokenize::tokenize(&o.text);
-        let title_tok = title.as_deref().map(crate::tokenize::tokenize);
-        tx.execute(
-            "INSERT INTO document_fts(document_id, title, body) VALUES (?1,?2,?3)",
-            rusqlite::params![o.document_id, title_tok, body],
-        )?;
-        tx.commit()?;
         Ok(ocr_id)
     }
 }

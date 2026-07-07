@@ -172,7 +172,7 @@ impl Vault {
     }
 
     /// 复用 `document_by_id` 的列顺序;`cond` 是不带 WHERE 的谓词片段(如 "encounter_id = ?1")。
-    fn documents_where(
+    pub(crate) fn documents_where(
         &self,
         cond: &str,
         params: &[&dyn rusqlite::ToSql],
@@ -187,6 +187,18 @@ impl Vault {
             out.push(r?);
         }
         Ok(out)
+    }
+
+    /// Look up the (unique, per v0.1) document for a source file — used by
+    /// `add_document` to return the materialized row after appending its event.
+    pub(crate) fn document_by_source_file_id(
+        &self,
+        source_file_id: i64,
+    ) -> Result<Option<Document>, MedmeError> {
+        Ok(self
+            .documents_where("source_file_id = ?1", &[&source_file_id])?
+            .into_iter()
+            .next())
     }
 
     pub fn rebuild_encounters(&self) -> Result<(), MedmeError> {

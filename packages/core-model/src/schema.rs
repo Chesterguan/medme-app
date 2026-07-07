@@ -42,6 +42,17 @@ CREATE VIRTUAL TABLE document_fts USING fts5(
 );
 "#;
 
+/// Small key/value table for the event-sourcing watermark (`applied_seq`) and
+/// `device_id`. Created outside the `user_version` migration ladder (rather
+/// than as a new numbered migration) so it doesn't disturb the existing
+/// `user_version` assertions in tests — it's an orthogonal, additive concern.
+pub fn ensure_meta_table(conn: &Connection) -> Result<(), MedmeError> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
+    )?;
+    Ok(())
+}
+
 pub fn migrate(conn: &Connection) -> Result<(), MedmeError> {
     let v: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     if v < 1 {
