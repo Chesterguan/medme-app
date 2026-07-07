@@ -1,9 +1,87 @@
+use chrono::{DateTime, Utc};
 use core_model::{DocType, NewDocument, NewOcr, OcrBackendKind, Vault};
 use std::collections::HashMap;
 use std::path::Path;
 
 fn is_pdf(path: &Path) -> bool {
     mime_for(path) == "application/pdf"
+}
+
+fn is_dicom(path: &Path) -> bool {
+    mime_for(path) == "application/dicom"
+}
+
+/// Builds a readable title from DICOM tags: modality+body part is most
+/// specific ("CT · 头部"), then StudyDescription, then modality alone,
+/// falling back to the original filename if nothing else is present.
+fn dicom_title(meta: &dicom::DicomMeta, name: &str) -> String {
+    if let (Some(m), Some(b)) = (&meta.modality, &meta.body_part) {
+        return format!("{m} · {b}");
+    }
+    if let Some(d) = &meta.description {
+        return d.clone();
+    }
+    if let Some(m) = &meta.modality {
+        return m.clone();
+    }
+    name.to_string()
+}
+
+/// A short, searchable summary line synthesized from DICOM tags — DICOM has
+/// no OCR text, so this stands in as the document's `ocr_result` body.
+fn dicom_summary(meta: &dicom::DicomMeta) -> String {
+    let parts = [
+        meta.modality.as_deref(),
+        meta.study_date.as_deref().and_then(|d| d.split('T').next()),
+        meta.description.as_deref(),
+        meta.institution.as_deref(),
+        meta.patient_name.as_deref(),
+    ];
+    parts.into_iter().flatten().collect::<Vec<_>>().join(" ")
+}
+
+/// 按 DICOM 标签建 document + ocr_result(Native 后端,合成摘要文本)。
+/// 免 OCR:DICOM 自带结构化元数据(见 docs/010_Imaging_DICOM.md)。
+fn add_dicom_document(
+    vault: &Vault,
+    sid: i64,
+    name: &str,
+    bytes: &[u8],
+    deduped: bool,
+) -> anyhow::Result<IngestOutcome> {
+    let meta = dicom::parse_meta(bytes)?;
+    let doc_date: Option<DateTime<Utc>> = meta
+        .study_date
+        .as_deref()
+        .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+        .map(|d| d.with_timezone(&Utc));
+    let title = dicom_title(&meta, name);
+    let summary = dicom_summary(&meta);
+
+    let doc = vault.add_document(NewDocument {
+        source_file_id: sid,
+        doc_type: DocType::ImagingReport,
+        doc_date,
+        doc_date_end: None,
+        title: Some(title),
+        language: None,
+        page_count: 1,
+    })?;
+    vault.add_ocr(NewOcr {
+        document_id: doc.id,
+        page_no: 1,
+        backend: OcrBackendKind::Native,
+        model_version: "dicom-meta".into(),
+        text: summary,
+        confidence: None,
+    })?;
+    let status = if deduped { IngestStatus::Backfilled } else { IngestStatus::New };
+    Ok(IngestOutcome {
+        source_file_id: sid,
+        name: name.to_string(),
+        status,
+        doc_type: Some(doc.doc_type),
+    })
 }
 
 /// 按文本层(txt / 已抽取文本的 PDF)建 document + ocr_result(Native 后端)。
@@ -53,6 +131,7 @@ pub fn mime_for(path: &Path) -> &'static str {
         "png" => "image/png",
         "jpg" | "jpeg" => "image/jpeg",
         "tif" | "tiff" => "image/tiff",
+        "dcm" => "application/dicom",
         _ => "application/octet-stream",
     }
 }
@@ -92,6 +171,12 @@ pub fn ingest(vault: &Vault, path: &Path) -> anyhow::Result<IngestOutcome> {
             status: IngestStatus::Deduped,
             doc_type: None,
         });
+    }
+
+    // .dcm 走独立分支(不经 parser/OCR):DICOM 自带结构化元数据,免 OCR 即可
+    // 拿到类型/日期/机构(见 docs/010_Imaging_DICOM.md)。
+    if is_dicom(path) {
+        return add_dicom_document(vault, sid, &name, &bytes, imp.deduped);
     }
 
     // 无文本层的判定阈值:去空白后 < 20 字符视为"实际没有文本层"(扫描图 PDF 常见,
@@ -272,6 +357,35 @@ mod tests {
         assert_eq!(tl[0].doc_date.unwrap().format("%Y-%m-%d").to_string(), "2025-09-01");
         // 无 OCR 文本
         assert_eq!(v.ocr_text(tl[0].document_id).unwrap(), "");
+    }
+
+    /// .dcm 走独立分支:元数据(非 OCR)驱动 doc_type/日期/标题,原文件+摘要
+    /// 均可查。样本文件随仓库提交,读取本地路径,离线可跑。
+    #[test]
+    fn ingest_dicom_ct_builds_imaging_document() {
+        let vdir = tempfile::tempdir().unwrap();
+        let v = Vault::open(vdir.path()).unwrap();
+        let p = std::path::Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../examples/demo-dataset/dicom/CT_small.dcm"
+        ));
+        let o = ingest(&v, p).unwrap();
+        assert_eq!(o.status, IngestStatus::New);
+        assert_eq!(o.doc_type, Some(core_model::DocType::ImagingReport));
+
+        let tl = v.timeline().unwrap();
+        assert_eq!(tl.len(), 1);
+        assert_eq!(tl[0].doc_type, core_model::DocType::ImagingReport);
+        assert_eq!(tl[0].doc_date.unwrap().format("%Y-%m-%d").to_string(), "2004-01-19");
+
+        let text = v.ocr_text(tl[0].document_id).unwrap();
+        assert!(text.contains("CT"), "unexpected summary text: {text}");
+        assert!(text.contains("JFK IMAGING CENTER"), "unexpected summary text: {text}");
+
+        // 去重再导入:不重复建 document,时间线仍只有一条
+        let o2 = ingest(&v, p).unwrap();
+        assert_eq!(o2.status, IngestStatus::Deduped);
+        assert_eq!(v.timeline().unwrap().len(), 1);
     }
 
     /// 扫描图 PDF(无文本层):应通过 recognize_pdf 补 OCR 文本,分类/日期取自

@@ -26,6 +26,7 @@ pub fn run() {
             commands::get_document,
             commands::import_paths,
             commands::read_source_bytes,
+            commands::render_dicom,
             commands::export_vault,
             commands::get_patient_profile,
         ])

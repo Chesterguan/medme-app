@@ -7,7 +7,9 @@ edition = "2021"
 core-model = { path = "../core-model" }
 parser = { path = "../parser" }
 ocr = { path = "../ocr" }
+dicom = { path = "../dicom" }
 anyhow.workspace = true
+chrono.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

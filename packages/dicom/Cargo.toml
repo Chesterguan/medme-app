@@ -1,0 +1,11 @@
+[package]
+name = "dicom"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dicom-object = "0.10"
+dicom-pixeldata = { version = "0.10", features = ["image"] }
+image = "0.25"
+anyhow.workspace = true
+chrono.workspace = true

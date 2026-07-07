@@ -135,6 +135,17 @@ pub fn read_source_bytes(state: State<AppState>, id: i64) -> Result<Vec<u8>, Str
 }
 
 #[tauri::command]
+pub fn render_dicom(state: State<AppState>, id: i64) -> Result<Vec<u8>, String> {
+    let v = lock(&state)?;
+    let sf = v
+        .source_file_by_id(id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("source_file {id} not found"))?;
+    let bytes = std::fs::read(v.root_join(&sf.storage_path)).map_err(|e| e.to_string())?;
+    dicom::render_png(&bytes).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn export_vault(_state: State<AppState>, _dest_path: String) -> Result<ExportSummary, String> {
     // C2/后续:真正打包 objects/ + JSON 清单。此处占位返回 0,避免未实现命令。
     Ok(ExportSummary {
