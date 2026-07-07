@@ -1,8 +1,8 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AlertTriangle, RotateCcw } from "lucide-react";
 
-// 顶层错误边界:渲染/生命周期阶段的同步抛错(最容易触发的是 dwv 的
-// app.init/loadImageObject,见 DicomViewer.tsx)否则会把整个应用白屏。
+// 顶层错误边界:渲染/生命周期阶段的同步抛错(最容易触发的是 Cornerstone3D
+// 的初始化 / setStack,见 DicomViewer.tsx)否则会把整个应用白屏。
 // 捕获后展示一个可恢复的简单提示,而不是让用户面对空白页面。
 
 interface Props {

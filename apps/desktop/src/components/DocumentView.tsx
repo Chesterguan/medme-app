@@ -82,8 +82,8 @@ export default function DocumentView({
     };
   }, [sf.id, hasOriginal, isDicom, sf.mime_type]);
 
-  // 全屏查看 DICOM:按需读取整叠切片的原始字节,交给 dwv 做交互式堆栈渲染
-  // (窗宽窗位 / 缩放 / 序列滚动)。先取该检查的切片清单(已按堆栈顺序),逐张读取;
+  // 全屏查看 DICOM:按需读取整叠切片的原始字节,交给 Cornerstone3D 做交互式堆栈渲染
+  // (滚轮滚动 / 窗宽窗位预设 / 缩放平移 / 测量)。先取该检查的切片清单(已按堆栈顺序),逐张读取;
   // 无切片记录时退回该文档自身的 source(单张 DICOM)。
   useEffect(() => {
     if (!isDicom || !lightbox) return;
