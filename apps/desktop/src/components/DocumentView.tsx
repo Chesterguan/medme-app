@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Image as ImageIcon, FileType2 } from "lucide-react";
+import { ArrowLeft, FileType2, ImageIcon, X, Maximize2, FileQuestion } from "lucide-react";
 import { api } from "../api";
 import type { DocumentDetail } from "../types";
-import { FileQuestion } from "lucide-react";
 import { TYPE_LABEL, TYPE_BADGE, TYPE_ICON, fmtDate, fmtBytes } from "../docmeta";
 import ReportContent from "./ReportContent";
 
-// 模态感知的详情视图:
-//  - 影像(图片)/ PDF:原件为主(病人拿给医生看的就是原图),OCR 文本为辅
-//  - 纯文本文档:文本即原件,单栏专注阅读
+// 内容(识别文本)为主,原件作为附件:缩略图/文件条,点击全屏查看。
+// OCR 已把内容读出来 → 阅读用文本,原图只在需要出示时全屏打开。
 export default function DocumentView({
   detail,
   onBack,
@@ -18,12 +16,13 @@ export default function DocumentView({
 }) {
   const { document: doc, source_file: sf, ocr_text } = detail;
   const [origUrl, setOrigUrl] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState(false);
   const isImage = sf.mime_type.startsWith("image/");
   const isPdf = sf.mime_type === "application/pdf";
-  const hasVisualOriginal = isImage || isPdf;
+  const hasOriginal = isImage || isPdf;
 
   useEffect(() => {
-    if (!hasVisualOriginal) return;
+    if (!hasOriginal) return;
     let url: string | null = null;
     api
       .readSourceBytes(doc.id)
@@ -36,18 +35,12 @@ export default function DocumentView({
     return () => {
       if (url) URL.revokeObjectURL(url);
     };
-  }, [doc.id, hasVisualOriginal, sf.mime_type]);
+  }, [doc.id, hasOriginal, sf.mime_type]);
 
   const dateStr = doc.doc_date_end
     ? `${fmtDate(doc.doc_date)} → ${fmtDate(doc.doc_date_end)}`
     : fmtDate(doc.doc_date);
-
-  const paneLabel = (
-    <span className="flex items-center gap-1.5">
-      {isImage ? <ImageIcon className="w-3.5 h-3.5" /> : <FileType2 className="w-3.5 h-3.5" />}
-      原件 · {isImage ? "IMAGE" : "PDF"}
-    </span>
-  );
+  const TypeIcon = TYPE_ICON[doc.doc_type] ?? FileQuestion;
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50">
@@ -60,18 +53,13 @@ export default function DocumentView({
           <ArrowLeft className="w-4 h-4" /> 返回
         </button>
         <div className="flex items-center gap-3 flex-wrap">
-          {(() => {
-            const Icon = TYPE_ICON[doc.doc_type] ?? FileQuestion;
-            return (
-              <div
-                className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                  TYPE_BADGE[doc.doc_type] ?? "bg-slate-100 text-slate-600"
-                }`}
-              >
-                <Icon className="w-5 h-5" />
-              </div>
-            );
-          })()}
+          <div
+            className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+              TYPE_BADGE[doc.doc_type] ?? "bg-slate-100 text-slate-600"
+            }`}
+          >
+            <TypeIcon className="w-5 h-5" />
+          </div>
           <h1 className="text-2xl font-bold text-slate-900">{doc.title ?? "(无标题)"}</h1>
           <span
             className={`text-xs font-mono px-2.5 py-1 rounded-full ${
@@ -87,64 +75,109 @@ export default function DocumentView({
           <span>{sf.mime_type}</span>
           <span>{fmtBytes(sf.byte_size)}</span>
           <span>导入 {fmtDate(sf.imported_at)}</span>
-          <span>{doc.page_count} 页</span>
         </div>
       </div>
 
-      {hasVisualOriginal ? (
-        // ── 影像 / PDF:原件为主(col-span-3),OCR 文本为辅(col-span-2)──
-        <div className="flex-1 overflow-hidden flex flex-col lg:grid lg:grid-cols-5">
-          <section className="flex flex-col overflow-hidden lg:col-span-3 border-b lg:border-b-0 lg:border-r border-slate-200 bg-slate-100/60">
-            <div className="px-6 py-2 text-[11px] font-mono text-slate-500 uppercase tracking-widest border-b border-slate-200 bg-white">
-              {paneLabel}
-            </div>
-            <div className="flex-1 overflow-auto p-6 flex items-center justify-center min-h-[40vh]">
-              {isImage && origUrl && (
-                <img
-                  src={origUrl}
-                  alt={sf.original_name}
-                  className="max-w-full max-h-full object-contain rounded-lg shadow-md border border-slate-200 bg-white"
-                />
+      {/* 主滚动区:原件附件 + 识别文本 */}
+      <div className="flex-1 overflow-y-auto p-6 md:p-10">
+        <div className="max-w-3xl mx-auto space-y-6">
+          {/* 原件 · 附件 */}
+          {hasOriginal && (
+            <div>
+              <div className="text-[11px] font-mono text-slate-400 uppercase tracking-widest mb-2">
+                原件 · 附件
+              </div>
+              {isImage ? (
+                origUrl ? (
+                  <button
+                    onClick={() => setLightbox(true)}
+                    className="group relative block rounded-xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-zoom-in bg-white"
+                  >
+                    <img
+                      src={origUrl}
+                      alt={sf.original_name}
+                      className="max-h-80 w-auto mx-auto"
+                    />
+                    <div className="absolute top-2 right-2 bg-black/50 text-white rounded-lg px-2 py-1 text-xs flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Maximize2 className="w-3.5 h-3.5" /> 查看大图
+                    </div>
+                  </button>
+                ) : (
+                  <div className="text-slate-400 text-sm">加载原件…</div>
+                )
+              ) : (
+                <button
+                  onClick={() => setLightbox(true)}
+                  className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm hover:shadow-md transition-all cursor-pointer w-full text-left"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                    <FileType2 className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-slate-800 truncate">
+                      {sf.original_name}
+                    </div>
+                    <div className="text-xs font-mono text-slate-400">
+                      PDF · {fmtBytes(sf.byte_size)} · 点击全屏查看
+                    </div>
+                  </div>
+                  <Maximize2 className="w-4 h-4 text-slate-400 shrink-0" />
+                </button>
               )}
-              {isPdf && origUrl && (
-                <iframe
-                  src={origUrl}
-                  title="原件 PDF"
-                  className="w-full h-full min-h-[70vh] rounded-lg border border-slate-200 bg-white"
-                />
+            </div>
+          )}
+
+          {/* 识别文本 / 文档内容(主) */}
+          <div>
+            <div className="text-[11px] font-mono text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+              {hasOriginal ? (
+                <>
+                  <ImageIcon className="w-3.5 h-3.5" /> 识别文本 · 可溯源
+                </>
+              ) : (
+                "文档内容 · 原文"
               )}
-              {!origUrl && <div className="text-slate-400 text-sm">加载原件…</div>}
             </div>
-          </section>
-          <section className="flex flex-col overflow-hidden lg:col-span-2">
-            <div className="px-6 py-2 text-[11px] font-mono text-slate-400 uppercase tracking-widest border-b border-slate-100 bg-white">
-              识别文本 · 可溯源
-            </div>
-            <div className="flex-1 overflow-auto p-6">
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
               {ocr_text.trim() ? (
                 <ReportContent text={ocr_text} />
               ) : (
                 <div className="text-slate-400 text-sm leading-relaxed">
-                  此扫描件尚未识别文字。<br />
-                  原始影像已完整保存(见左侧),可直接出示给医生;文字识别将由 OCR 补齐。
+                  此文件尚未识别出文字。原始文件已完整保存(见上方附件),可直接出示给医生。
                 </div>
               )}
             </div>
-          </section>
+          </div>
         </div>
-      ) : (
-        // ── 纯文本文档:文本即原件,单栏专注阅读 ──
-        <div className="flex-1 overflow-auto p-6 md:p-10">
-          <div className="max-w-3xl mx-auto">
-            <div className="text-[11px] font-mono text-slate-400 uppercase tracking-widest mb-3">
-              文档内容 · 原文
-            </div>
-            {ocr_text.trim() ? (
-              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                <ReportContent text={ocr_text} />
-              </div>
+      </div>
+
+      {/* 全屏查看 lightbox */}
+      {lightbox && origUrl && (
+        <div className="fixed inset-0 z-50 bg-black/85 flex flex-col" onClick={() => setLightbox(false)}>
+          <div className="flex justify-between items-center px-5 py-3 text-white/90 shrink-0">
+            <span className="text-sm font-mono truncate">{sf.original_name}</span>
+            <button
+              onClick={() => setLightbox(false)}
+              className="flex items-center gap-1.5 text-sm hover:text-white cursor-pointer"
+            >
+              关闭 <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-auto flex items-center justify-center p-4">
+            {isImage ? (
+              <img
+                src={origUrl}
+                alt={sf.original_name}
+                className="max-w-full max-h-full object-contain"
+                onClick={(e) => e.stopPropagation()}
+              />
             ) : (
-              <div className="text-slate-400 text-sm">此文件无文本内容。</div>
+              <iframe
+                src={origUrl}
+                title={sf.original_name}
+                className="w-full h-full max-w-5xl bg-white rounded-lg"
+                onClick={(e) => e.stopPropagation()}
+              />
             )}
           </div>
         </div>

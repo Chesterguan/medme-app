@@ -54,7 +54,7 @@ export default function App() {
           </div>
         )}
         {/* 底层视图常驻(不卸载),详情以覆盖层显示 → 返回时保留展开态/搜索词/滚动位置 */}
-        <div className="flex-1 relative overflow-hidden">
+        <div className="flex-1 relative overflow-hidden flex flex-col">
           {tab === "import" ? (
             <ImportView onImported={afterImport} />
           ) : tab === "search" ? (

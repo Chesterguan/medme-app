@@ -13,8 +13,12 @@
     "windows": [
       {
         "title": "MedMe 医我",
-        "width": 800,
-        "height": 600
+        "width": 1280,
+        "height": 860,
+        "minWidth": 1000,
+        "minHeight": 680,
+        "center": true,
+        "resizable": true
       }
     ],
     "security": {

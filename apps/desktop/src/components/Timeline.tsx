@@ -128,7 +128,7 @@ function EncounterCard({
             <span className="font-semibold text-base text-slate-900">
               {KIND_LABEL[enc.kind] ?? enc.kind}
             </span>
-            {enc.provider && <span className="text-sm text-slate-600 truncate">· {enc.provider}</span>}
+            {enc.provider && <span className="text-sm text-slate-600">· {enc.provider}</span>}
             {enc.transferred && (
               <span className="text-[11px] font-mono px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 flex items-center gap-1">
                 <ArrowLeftRight className="w-3 h-3" />
