@@ -10,6 +10,7 @@ pub enum DocType {
     Prescription,
     ClinicalNote,
     Pathology,
+    Surgery,
     Other,
     Unknown,
 }
@@ -22,6 +23,7 @@ impl DocType {
             DocType::Prescription => "prescription",
             DocType::ClinicalNote => "clinical_note",
             DocType::Pathology => "pathology",
+            DocType::Surgery => "surgery",
             DocType::Other => "other",
             DocType::Unknown => "unknown",
         }
@@ -35,6 +37,7 @@ impl DocType {
             "prescription" => DocType::Prescription,
             "clinical_note" => DocType::ClinicalNote,
             "pathology" => DocType::Pathology,
+            "surgery" => DocType::Surgery,
             "other" => DocType::Other,
             _ => DocType::Unknown,
         }
@@ -84,6 +87,45 @@ pub struct Document {
     pub title: Option<String>,
     pub language: Option<String>,
     pub page_count: i32,
+    pub encounter_id: Option<i64>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum EncounterKind {
+    Inpatient,
+    Outpatient,
+    Emergency,
+    Exam,
+}
+impl EncounterKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            EncounterKind::Inpatient => "inpatient",
+            EncounterKind::Outpatient => "outpatient",
+            EncounterKind::Emergency => "emergency",
+            EncounterKind::Exam => "exam",
+        }
+    }
+    #[allow(clippy::should_implement_trait)] // inherent infallible mapping (Outpatient fallback), not std::str::FromStr
+    pub fn from_str(s: &str) -> EncounterKind {
+        match s {
+            "inpatient" => EncounterKind::Inpatient,
+            "emergency" => EncounterKind::Emergency,
+            "exam" => EncounterKind::Exam,
+            _ => EncounterKind::Outpatient,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Encounter {
+    pub id: i64,
+    pub kind: EncounterKind,
+    pub provider: Option<String>,
+    pub start_date: Option<DateTime<Utc>>,
+    pub end_date: Option<DateTime<Utc>>,
+    pub title: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -196,6 +238,7 @@ impl Vault {
             title: d.title,
             language: d.language,
             page_count: d.page_count,
+            encounter_id: None,
             created_at: parse_dt(now),
         })
     }

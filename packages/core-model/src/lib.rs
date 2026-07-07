@@ -7,7 +7,10 @@ pub mod types;
 
 pub use error::MedmeError;
 pub use query::{SearchHit, TimelineEntry};
-pub use types::{DocType, Document, Import, NewDocument, NewOcr, OcrBackendKind, SourceFile};
+pub use types::{
+    DocType, Document, Encounter, EncounterKind, Import, NewDocument, NewOcr, OcrBackendKind,
+    SourceFile,
+};
 
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
@@ -49,7 +52,7 @@ mod tests {
     fn open_creates_vault_and_migrates() {
         let dir = tempfile::tempdir().unwrap();
         let v = Vault::open(dir.path()).unwrap();
-        assert_eq!(v.user_version().unwrap(), 2);
+        assert_eq!(v.user_version().unwrap(), 3);
         assert!(dir.path().join("objects").is_dir());
         assert!(dir.path().join("medme.db").is_file());
     }

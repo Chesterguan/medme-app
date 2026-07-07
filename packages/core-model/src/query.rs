@@ -1,7 +1,26 @@
-use crate::types::{parse_dt, Document, SourceFile};
+use crate::types::{parse_dt, Document, Encounter, EncounterKind, SourceFile};
 use crate::{DocType, MedmeError, Vault};
 use chrono::{DateTime, Utc};
 use rusqlite::OptionalExtension;
+
+/// Column list shared by `document_by_id` and `documents_where` — keep order aligned
+/// with the `Document` struct field order used when building rows.
+const DOCUMENT_COLUMNS: &str = "id, source_file_id, doc_type, doc_date, doc_date_end, title, language, page_count, encounter_id, created_at";
+
+fn row_to_document(r: &rusqlite::Row) -> rusqlite::Result<Document> {
+    Ok(Document {
+        id: r.get(0)?,
+        source_file_id: r.get(1)?,
+        doc_type: DocType::from_str(&r.get::<_, String>(2)?),
+        doc_date: r.get::<_, Option<String>>(3)?.map(parse_dt),
+        doc_date_end: r.get::<_, Option<String>>(4)?.map(parse_dt),
+        title: r.get(5)?,
+        language: r.get(6)?,
+        page_count: r.get(7)?,
+        encounter_id: r.get(8)?,
+        created_at: parse_dt(r.get::<_, String>(9)?),
+    })
+}
 
 #[derive(Debug, Clone)]
 pub struct SearchHit {
@@ -87,25 +106,160 @@ impl Vault {
         let row = self
             .conn()
             .query_row(
-                "SELECT id, source_file_id, doc_type, doc_date, doc_date_end, title, language, page_count, created_at
-                 FROM document WHERE id = ?1",
+                &format!("SELECT {DOCUMENT_COLUMNS} FROM document WHERE id = ?1"),
                 [id],
-                |r| {
-                    Ok(Document {
-                        id: r.get(0)?,
-                        source_file_id: r.get(1)?,
-                        doc_type: DocType::from_str(&r.get::<_, String>(2)?),
-                        doc_date: r.get::<_, Option<String>>(3)?.map(parse_dt),
-                        doc_date_end: r.get::<_, Option<String>>(4)?.map(parse_dt),
-                        title: r.get(5)?,
-                        language: r.get(6)?,
-                        page_count: r.get(7)?,
-                        created_at: parse_dt(r.get::<_, String>(8)?),
-                    })
-                },
+                row_to_document,
             )
             .optional()?;
         Ok(row)
+    }
+
+    /// 复用 `document_by_id` 的列顺序;`cond` 是不带 WHERE 的谓词片段(如 "encounter_id = ?1")。
+    fn documents_where(
+        &self,
+        cond: &str,
+        params: &[&dyn rusqlite::ToSql],
+    ) -> Result<Vec<Document>, MedmeError> {
+        let mut stmt = self.conn().prepare(&format!(
+            "SELECT {DOCUMENT_COLUMNS} FROM document WHERE {cond}
+             ORDER BY doc_date IS NULL, doc_date DESC, id DESC"
+        ))?;
+        let rows = stmt.query_map(params, row_to_document)?;
+        let mut out = Vec::new();
+        for r in rows {
+            out.push(r?);
+        }
+        Ok(out)
+    }
+
+    pub fn rebuild_encounters(&self) -> Result<(), MedmeError> {
+        use std::collections::HashSet;
+        let tx = self.conn().unchecked_transaction()?;
+        tx.execute("UPDATE document SET encounter_id = NULL", [])?;
+        tx.execute("DELETE FROM encounter", [])?;
+        // load docs sorted by doc_date (NULLs last)
+        // (id, doc_type, doc_date, doc_date_end, title)
+        type DocRow = (i64, String, Option<String>, Option<String>, Option<String>);
+        let docs: Vec<DocRow> = {
+            let mut stmt = tx.prepare(
+                "SELECT id, doc_type, doc_date, doc_date_end, title FROM document
+                 ORDER BY doc_date IS NULL, doc_date ASC, id ASC",
+            )?;
+            let rows = stmt.query_map([], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+            })?;
+            let mut v = Vec::new();
+            for x in rows {
+                v.push(x?);
+            }
+            v
+        };
+        let now = Self::now_rfc3339();
+        let mut assigned: HashSet<i64> = HashSet::new();
+
+        // helper: parse rfc3339 -> DateTime
+        let parse = |s: &Option<String>| {
+            s.as_ref()
+                .and_then(|x| chrono::DateTime::parse_from_rfc3339(x).ok())
+                .map(|d| d.with_timezone(&chrono::Utc))
+        };
+
+        // 1) 住院:每个 discharge_summary 带区间 → inpatient 窗;区间内文档归入
+        for (id, dtype, dd, dde, _t) in &docs {
+            if dtype != "discharge_summary" {
+                continue;
+            }
+            let (Some(start), Some(end)) = (parse(dd), parse(dde)) else {
+                continue;
+            };
+            let title = format!("住院 · {} → {}", start.format("%Y-%m-%d"), end.format("%Y-%m-%d"));
+            tx.execute(
+                "INSERT INTO encounter (kind, provider, start_date, end_date, title, created_at) VALUES ('inpatient', NULL, ?1, ?2, ?3, ?4)",
+                rusqlite::params![start.to_rfc3339(), end.to_rfc3339(), title, now],
+            )?;
+            let enc_id = tx.last_insert_rowid();
+            let _ = id;
+            for (id2, _dt2, dd2, _dde2, _t2) in &docs {
+                if assigned.contains(id2) {
+                    continue;
+                }
+                if let Some(date2) = parse(dd2) {
+                    if date2 >= start && date2 <= end {
+                        tx.execute(
+                            "UPDATE document SET encounter_id = ?1 WHERE id = ?2",
+                            rusqlite::params![enc_id, id2],
+                        )?;
+                        assigned.insert(*id2);
+                    }
+                }
+            }
+        }
+
+        // 2) 同日聚合:剩余有日期文档按天分组
+        use std::collections::BTreeMap;
+        let mut byday: BTreeMap<String, Vec<(i64, bool)>> = BTreeMap::new(); // day -> (doc_id, is_emergency_by_title)
+        for (id, _dt, dd, _dde, title) in &docs {
+            if assigned.contains(id) {
+                continue;
+            }
+            let Some(date) = parse(dd) else {
+                continue;
+            };
+            let day = date.format("%Y-%m-%d").to_string();
+            let emerg = title.as_deref().map(|t| t.contains("急诊")).unwrap_or(false);
+            byday.entry(day).or_default().push((*id, emerg));
+        }
+        for (day, group) in byday {
+            let emergency = group.iter().any(|(_, e)| *e);
+            let kind = if emergency { "emergency" } else { "outpatient" };
+            let label = if emergency { "急诊" } else { "门诊" };
+            let start = format!("{day}T00:00:00+00:00");
+            let title = format!("{label} · {day}");
+            tx.execute(
+                "INSERT INTO encounter (kind, provider, start_date, end_date, title, created_at) VALUES (?1, NULL, ?2, NULL, ?3, ?4)",
+                rusqlite::params![kind, start, title, now],
+            )?;
+            let enc_id = tx.last_insert_rowid();
+            for (id, _) in group {
+                tx.execute(
+                    "UPDATE document SET encounter_id = ?1 WHERE id = ?2",
+                    rusqlite::params![enc_id, id],
+                )?;
+            }
+        }
+        // 3) 无日期文档保持 encounter_id NULL
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn encounters_with_docs(&self) -> Result<Vec<(Encounter, Vec<Document>)>, MedmeError> {
+        let mut stmt = self.conn().prepare(
+            "SELECT id, kind, provider, start_date, end_date, title, created_at FROM encounter
+             ORDER BY start_date IS NULL, start_date DESC, id DESC",
+        )?;
+        let encs: Vec<Encounter> = stmt
+            .query_map([], |r| {
+                Ok(Encounter {
+                    id: r.get(0)?,
+                    kind: EncounterKind::from_str(&r.get::<_, String>(1)?),
+                    provider: r.get(2)?,
+                    start_date: r.get::<_, Option<String>>(3)?.map(parse_dt),
+                    end_date: r.get::<_, Option<String>>(4)?.map(parse_dt),
+                    title: r.get(5)?,
+                    created_at: parse_dt(r.get::<_, String>(6)?),
+                })
+            })?
+            .collect::<Result<_, _>>()?;
+        let mut out = Vec::new();
+        for e in encs {
+            let docs = self.documents_where("encounter_id = ?1", &[&e.id])?;
+            out.push((e, docs));
+        }
+        Ok(out)
+    }
+
+    pub fn standalone_documents(&self) -> Result<Vec<Document>, MedmeError> {
+        self.documents_where("encounter_id IS NULL", &[])
     }
 
     pub fn source_file_by_id(&self, id: i64) -> Result<Option<SourceFile>, MedmeError> {
@@ -159,7 +313,7 @@ impl Vault {
 mod tests {
     use crate::types::{NewDocument, NewOcr};
     use crate::Vault;
-    use crate::{DocType, OcrBackendKind};
+    use crate::{DocType, EncounterKind, OcrBackendKind};
 
     fn seed(v: &Vault, title: &str, text: &str, date: Option<&str>) {
         let imp = v.import(title, "text/plain", text.as_bytes()).unwrap();
@@ -289,5 +443,75 @@ mod tests {
         })
         .unwrap();
         assert!(v.has_document(imp.source_file.id).unwrap());
+    }
+
+    #[test]
+    fn rebuild_groups_by_time() {
+        let dir = tempfile::tempdir().unwrap();
+        let v = Vault::open(dir.path()).unwrap();
+        // 住院:入院-出院区间 + 区间内一份化验
+        let d = |s: &str| {
+            chrono::DateTime::parse_from_rfc3339(s)
+                .unwrap()
+                .with_timezone(&chrono::Utc)
+        };
+        let mk = |v: &Vault, dt: DocType, start: &str, end: Option<&str>, title: &str| {
+            let imp = v.import(title, "text/plain", title.as_bytes()).unwrap();
+            v.add_document(crate::types::NewDocument {
+                source_file_id: imp.source_file.id,
+                doc_type: dt,
+                doc_date: Some(d(start)),
+                doc_date_end: end.map(d),
+                title: Some(title.into()),
+                language: None,
+                page_count: 1,
+            })
+            .unwrap()
+            .id
+        };
+        mk(
+            &v,
+            DocType::DischargeSummary,
+            "2023-04-24T00:00:00Z",
+            Some("2023-05-01T00:00:00Z"),
+            "出院记录",
+        );
+        mk(&v, DocType::LabReport, "2023-04-26T00:00:00Z", None, "住院期间化验");
+        mk(&v, DocType::LabReport, "2024-01-15T00:00:00Z", None, "门诊化验a");
+        mk(&v, DocType::ImagingReport, "2024-01-15T00:00:00Z", None, "门诊影像b");
+        v.rebuild_encounters().unwrap();
+
+        let groups = v.encounters_with_docs().unwrap();
+        // 住院组含 2 份(出院记录 + 区间内化验),门诊组含同日 2 份
+        let inpatient = groups.iter().find(|(e, _)| e.kind == EncounterKind::Inpatient).unwrap();
+        assert_eq!(inpatient.1.len(), 2);
+        let outpatient = groups.iter().find(|(e, _)| e.kind == EncounterKind::Outpatient).unwrap();
+        assert_eq!(outpatient.1.len(), 2);
+        assert!(v.standalone_documents().unwrap().is_empty());
+    }
+
+    #[test]
+    fn rebuild_is_idempotent() {
+        let dir = tempfile::tempdir().unwrap();
+        let v = Vault::open(dir.path()).unwrap();
+        let imp = v.import("门诊化验", "text/plain", b"x").unwrap();
+        v.add_document(crate::types::NewDocument {
+            source_file_id: imp.source_file.id,
+            doc_type: DocType::LabReport,
+            doc_date: Some(
+                chrono::DateTime::parse_from_rfc3339("2024-01-15T00:00:00Z")
+                    .unwrap()
+                    .with_timezone(&chrono::Utc),
+            ),
+            doc_date_end: None,
+            title: Some("门诊化验".into()),
+            language: None,
+            page_count: 1,
+        })
+        .unwrap();
+        v.rebuild_encounters().unwrap();
+        v.rebuild_encounters().unwrap(); // 再来一次不应重复
+        let n: i64 = v.debug_count("encounter");
+        assert_eq!(n, 1);
     }
 }

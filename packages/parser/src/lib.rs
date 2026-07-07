@@ -135,6 +135,8 @@ pub fn classify(text: &str) -> DocType {
         DocType::DischargeSummary
     } else if has("处方") || has("prescription") {
         DocType::Prescription
+    } else if has("手术记录") || has("手术经过") || has("术中") || has("surgical") || has("operative") {
+        DocType::Surgery
     } else if has("检验") || has("化验") || has("laborator") || word("lab") {
         DocType::LabReport
     } else if has("影像") || has("超声") || has("ultrasound") || has("imaging")
@@ -208,6 +210,11 @@ mod tests {
         assert_eq!(classify("chest CT scan report\nnodule"), DocType::ImagingReport);
         // 整词边界:不因 "doctor"(含 ct)/"available"(含 lab) 误判为影像/化验
         assert_eq!(classify("The doctor saw the patient; results available."), DocType::Unknown);
+    }
+
+    #[test]
+    fn classify_surgery() {
+        assert_eq!(classify("手术记录\n手术经过:行腹腔镜胆囊切除术"), DocType::Surgery);
     }
 
     #[test]
