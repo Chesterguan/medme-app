@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
+import ErrorBoundary from "./components/ErrorBoundary";
 import Sidebar from "./components/Sidebar";
 import PatientBanner from "./components/PatientBanner";
 import Timeline from "./components/Timeline";
@@ -73,24 +74,26 @@ export default function App() {
         )}
         {/* 底层视图常驻(不卸载),详情以覆盖层显示 → 返回时保留展开态/搜索词/滚动位置 */}
         <div className="flex-1 relative overflow-hidden flex flex-col">
-          {tab === "import" ? (
-            <ImportView onImported={afterImport} />
-          ) : tab === "search" ? (
-            <SearchView onSelect={openDoc} />
-          ) : tab === "about" ? (
-            <AboutView onNav={nav} />
-          ) : tab === "settings" ? (
-            <SettingsView onNav={nav} />
-          ) : tab === "audit" ? (
-            <AuditView onNav={nav} />
-          ) : (
-            <Timeline groups={groups} onSelect={openDoc} />
-          )}
-          {detail && (
-            <div className="absolute inset-0 z-10 bg-slate-50 flex flex-col">
-              <DocumentView detail={detail} onBack={() => setDetail(null)} />
-            </div>
-          )}
+          <ErrorBoundary>
+            {tab === "import" ? (
+              <ImportView onImported={afterImport} />
+            ) : tab === "search" ? (
+              <SearchView onSelect={openDoc} />
+            ) : tab === "about" ? (
+              <AboutView onNav={nav} />
+            ) : tab === "settings" ? (
+              <SettingsView onNav={nav} />
+            ) : tab === "audit" ? (
+              <AuditView onNav={nav} />
+            ) : (
+              <Timeline groups={groups} onSelect={openDoc} />
+            )}
+            {detail && (
+              <div className="absolute inset-0 z-10 bg-slate-50 flex flex-col">
+                <DocumentView detail={detail} onBack={() => setDetail(null)} />
+              </div>
+            )}
+          </ErrorBoundary>
         </div>
       </div>
     </div>

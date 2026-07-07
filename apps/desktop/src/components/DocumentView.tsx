@@ -55,19 +55,24 @@ export default function DocumentView({
   const isLowConfidence = isOcrDocument && ocr_confidence != null && ocr_confidence < LOW_CONFIDENCE_THRESHOLD;
 
   // 缩略图:DICOM 用后端渲染的静态 PNG(快),其他原样读取。
+  // cancelled 标记:返回/切换文档导致组件先于 promise resolve 卸载时,既不 setState
+  // 也不遗留未 revoke 的 blob URL(镜像下面 DICOM 原始字节 effect 的写法)。
   useEffect(() => {
     if (!hasOriginal) return;
+    let cancelled = false;
     let url: string | null = null;
     const bytesP = isDicom ? api.renderDicom(doc.id) : api.readSourceBytes(doc.id);
     const blobType = isDicom ? "image/png" : sf.mime_type;
     bytesP
       .then((bytes) => {
-        const blob = new Blob([new Uint8Array(bytes)], { type: blobType });
+        if (cancelled) return;
+        const blob = new Blob([bytes], { type: blobType });
         url = URL.createObjectURL(blob);
         setOrigUrl(url);
       })
       .catch(() => {});
     return () => {
+      cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
   }, [doc.id, hasOriginal, isDicom, sf.mime_type]);

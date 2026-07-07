@@ -98,45 +98,68 @@ pub fn import_paths(
     let v = lock(&state)?;
     let mut out = Vec::new();
     for p in paths {
-        let o = pipeline::ingest(&v, std::path::Path::new(&p)).map_err(|e| e.to_string())?;
-        let status = match o.status {
-            pipeline::IngestStatus::New => "new",
-            pipeline::IngestStatus::Backfilled => "backfilled",
-            pipeline::IngestStatus::Deduped => "deduped",
-            pipeline::IngestStatus::StoredNoText => "stored_no_text",
+        let path = std::path::Path::new(&p);
+        // 单个文件失败不该拖垮整批 —— 记一条失败结果继续处理剩下的文件(与
+        // inbox.rs::scan_inbox 的容错方式一致),而不是 `?` 提前返回丢弃已成功的导入。
+        match pipeline::ingest(&v, path) {
+            Ok(o) => {
+                let status = match o.status {
+                    pipeline::IngestStatus::New => "new",
+                    pipeline::IngestStatus::Backfilled => "backfilled",
+                    pipeline::IngestStatus::Deduped => "deduped",
+                    pipeline::IngestStatus::StoredNoText => "stored_no_text",
+                }
+                .to_string();
+                out.push(ImportOutcome {
+                    name: o.name,
+                    source_file_id: o.source_file_id,
+                    status,
+                    doc_type: o.doc_type.map(|d| d.as_str().to_string()),
+                });
+            }
+            Err(e) => {
+                let name = path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_else(|| p.clone());
+                eprintln!("[import] ingest failed for {}: {e}", path.display());
+                out.push(ImportOutcome {
+                    name,
+                    source_file_id: 0,
+                    status: "failed".to_string(),
+                    doc_type: None,
+                });
+            }
         }
-        .to_string();
-        out.push(ImportOutcome {
-            name: o.name,
-            source_file_id: o.source_file_id,
-            status,
-            doc_type: o.doc_type.map(|d| d.as_str().to_string()),
-        });
     }
     v.rebuild_encounters().map_err(|e| e.to_string())?;
     Ok(out)
 }
 
+// 大文件(照片/DICOM)走 tauri::ipc::Response 返回原始字节,而非 Vec<u8>(会被序列化成
+// JSON number[] —— 10MB 照片膨胀成 ~30MB 文本,每次打开文档都要构建+解析,卡顿甚至 OOM)。
 #[tauri::command]
-pub fn read_source_bytes(state: State<AppState>, id: i64) -> Result<Vec<u8>, String> {
+pub fn read_source_bytes(state: State<AppState>, id: i64) -> Result<tauri::ipc::Response, String> {
     let v = lock(&state)?;
     let sf = v
         .source_file_by_id(id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("source_file {id} not found"))?;
     let path = v.root_join(&sf.storage_path); // 见 core-model cas.rs 的 root_join
-    std::fs::read(&path).map_err(|e| e.to_string())
+    let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+    Ok(tauri::ipc::Response::new(bytes))
 }
 
 #[tauri::command]
-pub fn render_dicom(state: State<AppState>, id: i64) -> Result<Vec<u8>, String> {
+pub fn render_dicom(state: State<AppState>, id: i64) -> Result<tauri::ipc::Response, String> {
     let v = lock(&state)?;
     let sf = v
         .source_file_by_id(id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("source_file {id} not found"))?;
     let bytes = std::fs::read(v.root_join(&sf.storage_path)).map_err(|e| e.to_string())?;
-    dicom::render_png(&bytes).map_err(|e| e.to_string())
+    let png = dicom::render_png(&bytes).map_err(|e| e.to_string())?;
+    Ok(tauri::ipc::Response::new(png))
 }
 
 #[tauri::command]

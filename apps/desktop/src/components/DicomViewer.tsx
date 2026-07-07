@@ -29,20 +29,13 @@ export default function DicomViewer({
   const [error, setError] = useState<string | null>(null);
 
   // 初始化/加载:bytes 或 fileName 变化时重建(理论上每次挂载只发生一次)。
+  // dwv 的 init/loadImageObject 对畸形 DICOM 可能同步抛错 —— 用 try/catch 转成内联
+  // 错误提示,而不是让异常冒泡到 React 渲染阶段把整个应用白屏。
   useEffect(() => {
     const app = new App();
     appRef.current = app;
     setReady(false);
     setError(null);
-
-    const viewConfig0 = new ViewConfig(containerId);
-    const options = new AppOptions({ "*": [viewConfig0] });
-    options.tools = {
-      WindowLevel: new ToolConfig(),
-      ZoomAndPan: new ToolConfig(),
-      Scroll: new ToolConfig(),
-    };
-    app.init(options);
 
     const handleLoad = () => {
       setReady(true);
@@ -54,22 +47,40 @@ export default function DicomViewer({
     };
     const handleResize = () => app.onResize();
 
-    app.addEventListener("load", handleLoad);
-    app.addEventListener("error", handleError);
-    window.addEventListener("resize", handleResize);
+    try {
+      const viewConfig0 = new ViewConfig(containerId);
+      const options = new AppOptions({ "*": [viewConfig0] });
+      options.tools = {
+        WindowLevel: new ToolConfig(),
+        ZoomAndPan: new ToolConfig(),
+        Scroll: new ToolConfig(),
+      };
+      app.init(options);
 
-    // dwv 的内存加载接口需要独立的 ArrayBuffer。
-    const buffer = bytes.buffer.slice(
-      bytes.byteOffset,
-      bytes.byteOffset + bytes.byteLength
-    ) as ArrayBuffer;
-    app.loadImageObject([{ name: fileName, filename: fileName, data: buffer }]);
+      app.addEventListener("load", handleLoad);
+      app.addEventListener("error", handleError);
+      window.addEventListener("resize", handleResize);
+
+      // dwv 的内存加载接口需要独立的 ArrayBuffer。
+      const buffer = bytes.buffer.slice(
+        bytes.byteOffset,
+        bytes.byteOffset + bytes.byteLength
+      ) as ArrayBuffer;
+      app.loadImageObject([{ name: fileName, filename: fileName, data: buffer }]);
+    } catch (e) {
+      console.error("DICOM 加载失败", e);
+      setError("DICOM 加载失败");
+    }
 
     return () => {
       window.removeEventListener("resize", handleResize);
       app.removeEventListener("load", handleLoad);
       app.removeEventListener("error", handleError);
-      app.reset();
+      try {
+        app.reset();
+      } catch {
+        /* 已处于错误状态时 reset 可能抛错,忽略 */
+      }
       appRef.current = null;
     };
   }, [bytes, fileName, containerId]);

@@ -16,8 +16,10 @@ export const api = {  listTimelineGrouped: () => invoke<TimelineGroup[]>("list_t
   getDocument: (id: number) => invoke<DocumentDetail>("get_document", { id }),
   importPaths: (paths: string[]) =>
     invoke<ImportOutcome[]>("import_paths", { paths }),
-  readSourceBytes: (id: number) => invoke<number[]>("read_source_bytes", { id }),
-  renderDicom: (id: number) => invoke<number[]>("render_dicom", { id }),
+  // 后端用 tauri::ipc::Response 返回原始字节(而非 Vec<u8> 序列化成 JSON number[]),
+  // invoke() 对应解析为 ArrayBuffer,避免大文件在 IPC 上被膨胀成文本。
+  readSourceBytes: (id: number) => invoke<ArrayBuffer>("read_source_bytes", { id }),
+  renderDicom: (id: number) => invoke<ArrayBuffer>("render_dicom", { id }),
   exportVault: (destPath: string) =>
     invoke<ExportSummary>("export_vault", { destPath }),
   exportTimelineHtml: (destPath: string) =>
