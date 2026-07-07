@@ -60,9 +60,28 @@ const EN: Section[] = [
   },
 ];
 
-export default function AboutView() {
+// 隐藏的「审计/管理员」入口:短时间内连点版本号 5 次即可进入(仿 Android
+// 开发者模式的「点击 7 次」套路)。不出现在正式导航里,普通用户不会误触。
+const HIDDEN_TAP_COUNT = 5;
+const HIDDEN_TAP_WINDOW_MS = 3000;
+
+export default function AboutView({ onNav }: { onNav: (id: string) => void }) {
   const [lang, setLang] = useState<"zh" | "en">("zh");
   const sections = lang === "zh" ? ZH : EN;
+  const [tapCount, setTapCount] = useState(0);
+  const [lastTap, setLastTap] = useState(0);
+
+  const onVersionClick = () => {
+    const now = Date.now();
+    const withinWindow = now - lastTap < HIDDEN_TAP_WINDOW_MS;
+    const next = withinWindow ? tapCount + 1 : 1;
+    setLastTap(now);
+    setTapCount(next);
+    if (next >= HIDDEN_TAP_COUNT) {
+      setTapCount(0);
+      onNav("audit");
+    }
+  };
 
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50 p-6 md:p-10">
@@ -117,7 +136,16 @@ export default function AboutView() {
           ))}
         </div>
 
-        <div className="text-xs font-mono text-slate-400 text-center">© MedMe Team 2026 · v0.1</div>
+        <div className="text-xs font-mono text-slate-400 text-center">
+          © MedMe Team 2026 ·{" "}
+          <span
+            onClick={onVersionClick}
+            className="cursor-default select-none"
+            title=""
+          >
+            v0.1
+          </span>
+        </div>
       </div>
     </div>
   );

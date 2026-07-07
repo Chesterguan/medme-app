@@ -60,3 +60,13 @@ export interface EncounterSummary {
 export type TimelineGroup =
   | { group_type: "encounter"; encounter: EncounterSummary; docs: DocumentSummary[] }
   | { group_type: "document"; doc: DocumentSummary };
+
+// 审计追踪条目(隐藏的「审计/管理员」视图):见 core-model::audit。
+export interface AuditEntry {
+  seq: number;
+  timestamp: string; // RFC3339
+  device_id: string;
+  action: string; // 导入 | 导出 | 分享
+  detail: string;
+  sha256: string | null;
+}

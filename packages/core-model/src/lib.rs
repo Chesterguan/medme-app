@@ -1,3 +1,4 @@
+pub mod audit;
 pub mod cas;
 pub mod error;
 pub mod event;
@@ -8,6 +9,7 @@ pub mod schema;
 pub mod tokenize;
 pub mod types;
 
+pub use audit::AuditEntry;
 pub use error::MedmeError;
 pub use event::{DocRef, Event};
 pub use query::{extract_provider, SearchHit, TimelineEntry};

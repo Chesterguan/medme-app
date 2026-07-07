@@ -7,6 +7,7 @@ import type {
   ShareResult,
   PatientProfile,
   TimelineGroup,
+  AuditEntry,
 } from "./types";
 
 export const api = {  listTimelineGrouped: () => invoke<TimelineGroup[]>("list_timeline_grouped"),
@@ -28,4 +29,8 @@ export const api = {  listTimelineGrouped: () => invoke<TimelineGroup[]>("list_t
   setInboxPath: (path: string) => invoke<void>("set_inbox_path", { path }),
   openInbox: () => invoke<void>("open_inbox"),
   openPath: (path: string) => invoke<void>("open_path", { path }),
+  getVaultPath: () => invoke<string>("get_vault_path"),
+  getAuditLog: () => invoke<AuditEntry[]>("get_audit_log"),
+  writeTextFile: (path: string, contents: string) =>
+    invoke<void>("write_text_file", { path, contents }),
 };

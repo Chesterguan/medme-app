@@ -159,7 +159,11 @@ pub fn export_timeline_html(
     let v = lock(&state)?;
     let (html, record_count) = crate::export::build_timeline_html(&v)?;
     let byte_size = html.len() as i64;
+    let sha256 = core_model::cas::sha256_hex(html.as_bytes());
     std::fs::write(&dest_path, html).map_err(|e| e.to_string())?;
+    // 审计追踪:导出落盘成功后记入不可变事件日志(见 core-model::audit)。
+    v.record_export("timeline_html", &sha256, record_count)
+        .map_err(|e| e.to_string())?;
     Ok(ExportSummary {
         file_count: record_count,
         byte_size,
@@ -179,7 +183,12 @@ pub fn create_share(
     let days = expires_days.unwrap_or(5);
     let (html, passphrase, record_count) = crate::share::build_encrypted_share(&v, days)?;
     let byte_size = html.len() as i64;
+    let sha256 = core_model::cas::sha256_hex(html.as_bytes());
     std::fs::write(&dest_path, html).map_err(|e| e.to_string())?;
+    let expires = (chrono::Utc::now() + chrono::Duration::days(days as i64)).to_rfc3339();
+    // 审计追踪:分享文件落盘成功后记入不可变事件日志(见 core-model::audit)。
+    v.record_share(&sha256, record_count, &expires)
+        .map_err(|e| e.to_string())?;
     Ok(ShareResult {
         passphrase,
         record_count,
@@ -228,4 +237,27 @@ pub fn open_inbox(app: tauri::AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn open_path(app: tauri::AppHandle, path: String) -> Result<(), String> {
     app.opener().open_path(path, None::<String>).map_err(|e| e.to_string())
+}
+
+/// 数据保险箱(vault)根目录路径 —— 设置页展示,供用户把它放进 iCloud/坚果云
+/// 等云同步目录,实现无需服务器的多设备同步。只读展示,运行时不支持迁移。
+#[tauri::command]
+pub fn get_vault_path(state: State<AppState>) -> Result<String, String> {
+    let v = lock(&state)?;
+    Ok(v.root().to_string_lossy().to_string())
+}
+
+/// 隐藏的「审计/管理员」视图数据源:所有导入/导出/分享事件,最新在前,含
+/// 内容 sha256(见 core-model::audit —— 不可变事件日志,可核验、防篡改)。
+#[tauri::command]
+pub fn get_audit_log(state: State<AppState>) -> Result<Vec<AuditEntryDto>, String> {
+    let v = lock(&state)?;
+    let entries = v.audit_log().map_err(|e| e.to_string())?;
+    Ok(entries.iter().map(AuditEntryDto::from).collect())
+}
+
+/// 把文本写到用户选择的路径 —— 目前仅用于审计视图「导出审计清单」(CSV)。
+#[tauri::command]
+pub fn write_text_file(path: String, contents: String) -> Result<(), String> {
+    std::fs::write(&path, contents).map_err(|e| e.to_string())
 }

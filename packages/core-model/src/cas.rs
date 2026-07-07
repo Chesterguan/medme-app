@@ -45,7 +45,9 @@ impl Vault {
         Ok((hash, rel, true))
     }
 
-    pub(crate) fn root(&self) -> &Path {
+    /// vault 根目录的绝对路径 —— 用于展示给用户(如设置页“数据保险箱位置”)、
+    /// 或引导其把该目录放进 iCloud/坚果云等云同步目录以实现多设备同步。
+    pub fn root(&self) -> &Path {
         &self.root
     }
 

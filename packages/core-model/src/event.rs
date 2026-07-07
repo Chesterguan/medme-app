@@ -47,6 +47,21 @@ pub enum Event {
         confidence: Option<f32>,
         created_at: String,
     },
+    /// 审计事件:一次导出(如时间线 HTML)。对 DB 投影是纯粹的 no-op —— 只留痕
+    /// 供 `Vault::audit_log()` 展示,`apply_event`/`rebuild_from_log` 必须忽略它。
+    ExportPerformed {
+        at: String,
+        kind: String,
+        record_count: i64,
+        sha256: String,
+    },
+    /// 审计事件:一次加密分享。同上,对 DB 投影是 no-op。
+    ShareCreated {
+        at: String,
+        record_count: i64,
+        sha256: String,
+        expires: String,
+    },
 }
 
 /// One line in the append-only log: an `Event` plus the envelope needed for

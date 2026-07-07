@@ -7,6 +7,8 @@ import DocumentView from "./components/DocumentView";
 import ImportView from "./components/ImportView";
 import SearchView from "./components/SearchView";
 import AboutView from "./components/AboutView";
+import SettingsView from "./components/SettingsView";
+import AuditView from "./components/AuditView";
 import { api } from "./api";
 import type { TimelineGroup, DocumentDetail } from "./types";
 import "./App.css";
@@ -76,7 +78,11 @@ export default function App() {
           ) : tab === "search" ? (
             <SearchView onSelect={openDoc} />
           ) : tab === "about" ? (
-            <AboutView />
+            <AboutView onNav={nav} />
+          ) : tab === "settings" ? (
+            <SettingsView onNav={nav} />
+          ) : tab === "audit" ? (
+            <AuditView onNav={nav} />
           ) : (
             <Timeline groups={groups} onSelect={openDoc} />
           )}

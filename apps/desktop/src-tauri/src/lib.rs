@@ -52,6 +52,9 @@ pub fn run() {
             commands::set_inbox_path,
             commands::open_inbox,
             commands::open_path,
+            commands::get_vault_path,
+            commands::get_audit_log,
+            commands::write_text_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

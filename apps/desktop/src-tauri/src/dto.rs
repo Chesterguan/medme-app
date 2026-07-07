@@ -1,4 +1,4 @@
-use core_model::{Document, Encounter, SourceFile};
+use core_model::{AuditEntry, Document, Encounter, SourceFile};
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -125,4 +125,27 @@ pub struct PatientProfile {
     pub birth_date: Option<String>,
     pub age: Option<String>,
     pub record_count: i64,
+}
+
+/// 审计追踪条目(隐藏的「审计/管理员」视图):时间 · 动作 · 详情 · 哈希 · 设备。
+#[derive(Serialize)]
+pub struct AuditEntryDto {
+    pub seq: i64,
+    pub timestamp: String,
+    pub device_id: String,
+    pub action: String,
+    pub detail: String,
+    pub sha256: Option<String>,
+}
+impl From<&AuditEntry> for AuditEntryDto {
+    fn from(e: &AuditEntry) -> Self {
+        AuditEntryDto {
+            seq: e.seq,
+            timestamp: e.timestamp.clone(),
+            device_id: e.device_id.clone(),
+            action: e.action.clone(),
+            detail: e.detail.clone(),
+            sha256: e.sha256.clone(),
+        }
+    }
 }

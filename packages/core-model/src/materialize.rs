@@ -319,6 +319,9 @@ fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<(), Med
                 rusqlite::params![document_id, title_tok, body],
             )?;
         }
+        // 审计事件:纯粹的日志留痕(见 crate::audit),对 DB 投影是 no-op —— 不
+        // 建任何表行,`rebuild_from_log` 重放时必须能安全跳过而不报错。
+        Event::ExportPerformed { .. } | Event::ShareCreated { .. } => {}
     }
     Ok(())
 }
