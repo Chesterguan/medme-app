@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import dicomParser from "dicom-parser";
-import { SlidersHorizontal, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
+import { Stethoscope, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 
 // 轻量交互式 DICOM 查看器(纯 canvas + dicom-parser,无 Cornerstone / 无 web worker /
 // 无 WASM)—— 之前的 Cornerstone3D 在 Tauri+Vite 下把整个应用白屏(JPEG codec 是
@@ -566,8 +566,13 @@ export default function DicomViewer({
 
         <span className="w-px h-4 bg-white/20 mx-1" />
 
-        {/* 窗位预设 */}
-        <SlidersHorizontal className="w-3.5 h-3.5 text-white/50" />
+        {/* 专业阅片工具:窗宽窗位预设(给医生看片调明暗;普通用户滚轮看图即可,可无视这组)*/}
+        <span
+          className="flex items-center gap-1 text-[11px] font-medium text-amber-300"
+          title="窗宽窗位是给医生调节明暗看不同组织的专业工具"
+        >
+          <Stethoscope className="w-3.5 h-3.5" /> 医生 · 窗位
+        </span>
         {PRESETS.map((p) => (
           <button
             key={p.label}
