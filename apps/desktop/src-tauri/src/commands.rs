@@ -279,7 +279,7 @@ pub fn export_vault(_state: State<AppState>, _dest_path: String) -> Result<Expor
 }
 
 /// 导出 v1:把整条时间线渲染成自包含 HTML 写到 `dest_path`(见
-/// `crate::export::build_timeline_html`)。可在任意浏览器打开、原生渲染中文,
+/// `medme_share::export::build_timeline_html`)。可在任意浏览器打开、原生渲染中文,
 /// 并通过浏览器「打印 / 另存为 PDF」交给医生。
 #[tauri::command]
 pub fn export_timeline_html(
@@ -287,7 +287,7 @@ pub fn export_timeline_html(
     dest_path: String,
 ) -> Result<ExportSummary, String> {
     let v = lock(&state)?;
-    let (html, record_count) = crate::export::build_timeline_html(&v)?;
+    let (html, record_count) = medme_share::export::build_timeline_html(&v)?;
     let byte_size = html.len() as i64;
     let sha256 = core_model::cas::sha256_hex(html.as_bytes());
     std::fs::write(&dest_path, html).map_err(|e| e.to_string())?;
@@ -301,7 +301,7 @@ pub fn export_timeline_html(
 }
 
 /// 端到端加密分享:把全部病历打包成一份自包含加密 HTML 写到 `dest_path`
-/// (见 `crate::share::build_encrypted_share`),返回口令(需另行单独告知医生)、
+/// (见 `medme_share::share::build_encrypted_share`),返回口令(需另行单独告知医生)、
 /// 记录数与文件字节数。默认有效期 5 天。
 #[tauri::command]
 pub fn create_share(
@@ -311,7 +311,7 @@ pub fn create_share(
 ) -> Result<ShareResult, String> {
     let v = lock(&state)?;
     let days = expires_days.unwrap_or(5);
-    let (html, passphrase, record_count) = crate::share::build_encrypted_share(&v, days)?;
+    let (html, passphrase, record_count) = medme_share::share::build_encrypted_share(&v, days)?;
     let byte_size = html.len() as i64;
     let sha256 = core_model::cas::sha256_hex(html.as_bytes());
     std::fs::write(&dest_path, html).map_err(|e| e.to_string())?;

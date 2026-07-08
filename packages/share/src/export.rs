@@ -294,7 +294,7 @@ mod tests {
         let vault = Vault::open(dir.path()).unwrap();
         let dcm = std::fs::read(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../../examples/demo-dataset/dicom/CT_small.dcm"
+            "/../../examples/demo-dataset/dicom/CT_small.dcm"
         ))
         .unwrap();
         let imp = vault.import("CT_small.dcm", "application/dicom", &dcm).unwrap();

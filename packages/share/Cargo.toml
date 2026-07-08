@@ -1,0 +1,21 @@
+[package]
+name = "medme-share"
+version = "0.1.0"
+edition = "2021"
+description = "平台无关的分享与导出:把 Vault 病历打包成自包含 HTML(明文时间线导出)或端到端加密分享。桌面与未来移动端共用。"
+
+[lib]
+name = "medme_share"
+
+[dependencies]
+core-model = { path = "../core-model" }
+pipeline = { path = "../pipeline" }
+dicom = { path = "../dicom" }
+serde_json = { workspace = true }
+chrono.workspace = true
+base64 = "0.22"
+aes-gcm = "0.10"
+rand = "0.8"
+
+[dev-dependencies]
+tempfile = { workspace = true }

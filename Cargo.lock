@@ -3567,20 +3567,33 @@ dependencies = [
 name = "medme-desktop"
 version = "0.1.0"
 dependencies = [
- "aes-gcm",
- "base64 0.22.1",
  "chrono",
  "core-model",
  "dicom",
+ "medme-share",
  "notify",
  "pipeline",
- "rand 0.8.6",
  "serde",
  "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
+ "tempfile",
+]
+
+[[package]]
+name = "medme-share"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "base64 0.22.1",
+ "chrono",
+ "core-model",
+ "dicom",
+ "pipeline",
+ "rand 0.8.6",
+ "serde_json",
  "tempfile",
 ]
 
