@@ -6,6 +6,7 @@
 <meta name="color-scheme" content="light only" />
 <title>MedMe 医我 · 你自己的看病记录保险箱</title>
 <meta name="description" content="把你所有的看病记录——化验单、CT 片子、出院小结、疫苗本——收进一个只属于你的保险箱。自动认字、按时间理清,需要时一键给医生看。本地优先 · 原件永存 · 端到端加密分享 · 零服务器。" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%231789c1'/%3E%3Ctext x='50' y='58' font-size='62' font-weight='900' text-anchor='middle' dominant-baseline='central' fill='white' font-family='PingFang SC'%3E医%3C/text%3E%3C/svg%3E">
 <style>
   :root{
     color-scheme:light;
@@ -34,8 +35,12 @@
     align-items:center;justify-content:space-between;gap:16px}
   nav.top .brand{display:inline-flex;align-items:center;gap:9px;font-weight:800;
     font-size:16px;color:var(--ink)}
-  nav.top .brand svg{width:22px;height:22px;color:var(--blue)}
   nav.top .brand .cn{color:var(--muted);font-weight:600;font-size:14px}
+  .brandmark{display:inline-flex;align-items:center;justify-content:center;
+    background:linear-gradient(148deg,#2bc0d2 0%,#1789c1 52%,#1560a8 100%);color:#fff;
+    font-weight:900;font-family:"PingFang SC","Hiragino Sans GB",sans-serif;border-radius:26%;
+    line-height:1;flex-shrink:0;transform:translateY(-3%)}
+  .brandmark::selection{background:transparent}
   nav.top .links{display:flex;align-items:center;gap:24px}
   nav.top .links a{color:var(--muted);font-size:14px;font-weight:500}
   nav.top .links a:hover{color:var(--blue)}
@@ -49,11 +54,9 @@
     border-bottom:1px solid var(--line);padding:80px 0 70px;text-align:center;
   }
   .badge-logo{
-    width:64px;height:64px;border-radius:18px;background:#fff;border:1px solid #dbeafe;
-    display:inline-flex;align-items:center;justify-content:center;margin-bottom:22px;
-    box-shadow:0 6px 20px rgba(37,99,235,.12);
+    width:64px;height:64px;border-radius:18px;margin-bottom:22px;
+    box-shadow:0 6px 20px rgba(23,137,193,.28);font-size:38px;
   }
-  .badge-logo svg{width:34px;height:34px;color:var(--blue)}
   .hero h1{font-size:44px;letter-spacing:-.5px;margin-bottom:6px}
   .hero h1 .cn{color:var(--ink)} .hero h1 .en{color:var(--blue)}
   .hero .sub{font-size:20px;color:var(--ink);font-weight:600;margin-bottom:16px}
@@ -221,7 +224,7 @@
 <nav class="top">
   <div class="inner">
     <a class="brand" href="index.html">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+      <span class="brandmark" style="width:22px;height:22px;font-size:13px">医</span>
       MedMe <span class="cn">医我</span>
     </a>
     <div class="links">
@@ -235,9 +238,7 @@
 
 <header class="hero">
   <div class="wrap">
-    <div class="badge-logo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
-    </div>
+    <div class="badge-logo brandmark">医</div>
     <h1><span class="en">MedMe</span> · <span class="cn">医我</span></h1>
     <div class="sub">个人医疗数据保险箱</div>
     <p class="lead">把你所有的看病记录,<b>收进一个只属于你的保险箱</b>。</p>
