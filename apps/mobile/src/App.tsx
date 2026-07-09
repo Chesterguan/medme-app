@@ -6,7 +6,21 @@ import type {
   ImportOutcome,
   ShareResult,
   PatientProfile,
+  DocumentDetail,
 } from "./types";
+import {
+  DocTypeIcon,
+  EncounterIcon,
+  FileTextIcon,
+  FolderIcon,
+  DownloadIcon,
+  TrashIcon,
+  AlertTriangleIcon,
+  CheckCircleIcon,
+  ImageIcon,
+  ArrowLeftIcon,
+  LinkIcon,
+} from "./icons";
 
 // doc_type / encounter kind → 中文标签(见 core-model types.rs)
 const DOC_LABEL: Record<string, string> = {
@@ -70,6 +84,10 @@ export default function App() {
   const [share, setShare] = useState<ShareResult | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [version, setVersion] = useState("");
+  // 点开的文档 id —— 非空时全屏展示文档详情(见 DetailScreen)。
+  const [detailId, setDetailId] = useState<number | null>(null);
+  // 就诊组在档案里点开时展开其子文档(每份可再点开详情)。
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
   const refresh = useCallback(async () => {
     try {
@@ -93,23 +111,28 @@ export default function App() {
       .catch(() => {});
   }, []);
 
-  // 采集:通过系统文件/相册选择器拿到沙盒路径,交给 pipeline ingest。
-  // 说明:iOS 上用 tauri-plugin-dialog 的 open() 打开原生选择器,返回沙盒内可读路径。
-  // 真正的「相机内拍摄」需相机插件,列为 M2。
+  // 采集:通过系统相册/文件选择器拿到沙盒可读路径,交给 pipeline ingest。
+  // 说明:iOS 上用 tauri-plugin-dialog 的 open() 打开原生选择器;插件会把选中的
+  // 文件拷进 App 缓存目录并返回沙盒内可读路径,ingest 直接读取。
+  // filters 只保留有稳定 UTType 映射的图片/PDF —— 之前带 "dcm" 会让 iOS 的
+  // UIDocumentPicker 因无法解析 UTType 而整体失败(采集点了没反应的根因);
+  // DICOM 阅片本就交给桌面/在线查看器,手机端不需要。
+  // 真正的「相机内实时拍摄」需相机插件(原生),列为后续跟进。
   const capture = useCallback(async () => {
     setShare(null);
     try {
-      // 延迟加载 dialog 插件:仅在用户点击采集时才引入,避免顶层导入
-      // 在插件未就绪时拖垮首屏渲染。
       const { open } = await import("@tauri-apps/plugin-dialog");
       const picked = await open({
         multiple: false,
-        title: "选择病历 / 化验单 / 报告",
-        filters: [{ name: "病历文件", extensions: ["jpg", "jpeg", "png", "heic", "pdf", "dcm"] }],
+        title: "拍照 / 从相册或文件选择",
+        filters: [
+          { name: "照片 / 报告", extensions: ["jpg", "jpeg", "png", "heic", "heif", "pdf"] },
+        ],
       });
       if (!picked || Array.isArray(picked)) return;
+      const path = typeof picked === "string" ? picked : (picked as { path: string }).path;
       setBusy("正在识别并入库…");
-      const outcome = await api.ingestFile(picked as string);
+      const outcome = await api.ingestFile(path);
       setLastImport(outcome);
       await refresh();
     } catch (e) {
@@ -164,8 +187,38 @@ export default function App() {
     }
   }, []);
 
+  // 项目主页:iOS WKWebView 里 <a target> 不会拉起系统浏览器,必须走
+  // tauri-plugin-opener 的 openUrl()(会用系统默认浏览器 Safari 打开)。
+  const openHomepage = useCallback(async () => {
+    try {
+      const { openUrl } = await import("@tauri-apps/plugin-opener");
+      await openUrl("https://chesterguan.github.io/medme/");
+    } catch (e) {
+      alert(`打开链接失败:${e}`);
+    }
+  }, []);
+
+  // 点开一组:文档组 → 直接看详情;就诊组 → 展开/收起其子文档。
+  const openGroup = useCallback((g: TimelineGroup, idx: number) => {
+    if (g.group_type === "document") {
+      setDetailId(g.doc.id);
+    } else {
+      setExpanded((prev) => {
+        const next = new Set(prev);
+        if (next.has(idx)) next.delete(idx);
+        else next.add(idx);
+        return next;
+      });
+    }
+  }, []);
+
   const initial = profile?.name?.[0] ?? "我";
   const recent = groups.slice(0, 4);
+
+  // 文档详情覆盖全屏(带返回)——优先于 tab 内容渲染。
+  if (detailId != null) {
+    return <DetailScreen id={detailId} onBack={() => setDetailId(null)} />;
+  }
 
   return (
     <div className="app">
@@ -198,7 +251,7 @@ export default function App() {
           <div className="sect">最近导入</div>
           {recent.length === 0 ? (
             <div className="card">
-              <div className="ic">📄</div>
+              <div className="ic"><FileTextIcon /></div>
               <div className="tx">
                 <b>还没有记录</b>
                 <span>点上方拍照,或载入示例数据试试</span>
@@ -206,14 +259,26 @@ export default function App() {
             </div>
           ) : (
             recent.map((g, i) => (
-              <div className="card" key={i}>
-                <div className="ic">{g.group_type === "encounter" ? "🏥" : "📄"}</div>
+              <button
+                className="card tap"
+                key={i}
+                onClick={() =>
+                  g.group_type === "document" ? setDetailId(g.doc.id) : setTab("archive")
+                }
+              >
+                <div className={`ic t-${g.group_type === "document" ? g.doc.doc_type : "enc"}`}>
+                  {g.group_type === "encounter" ? (
+                    <EncounterIcon kind={g.encounter.kind} />
+                  ) : (
+                    <DocTypeIcon type={g.doc.doc_type} />
+                  )}
+                </div>
                 <div className="tx">
                   <b>{groupTitle(g)}</b>
                   <span>{groupDesc(g)}</span>
                 </div>
                 <span className="meta">{groupDate(g)}</span>
-              </div>
+              </button>
             ))
           )}
 
@@ -246,7 +311,7 @@ export default function App() {
 
           {groups.length === 0 ? (
             <div className="empty">
-              <div className="big">🗂️</div>
+              <div className="big"><FolderIcon /></div>
               健康档案还是空的
               <br />
               去「拍照」页采集或载入示例数据
@@ -255,21 +320,42 @@ export default function App() {
             <div className="tl">
               {groups.map((g, i) => (
                 <div className="item" key={i}>
-                  <span className="dot" />
+                  <span className={`node t-${g.group_type === "document" ? g.doc.doc_type : "enc"}`}>
+                    {g.group_type === "encounter" ? (
+                      <EncounterIcon kind={g.encounter.kind} />
+                    ) : (
+                      <DocTypeIcon type={g.doc.doc_type} />
+                    )}
+                  </span>
                   <div className="c">
-                    <div className="top">
-                      <b>{groupTitle(g)}</b>
-                      <span className="d">{groupDate(g)}</span>
-                    </div>
-                    <div className="desc">
-                      {groupDesc(g)}
-                      {g.group_type === "document" && g.doc.slice_count ? (
-                        <>
-                          {" · "}
-                          <span className="kind">影像 {g.doc.slice_count} 张</span>
-                        </>
-                      ) : null}
-                    </div>
+                    <button className="crow" onClick={() => openGroup(g, i)}>
+                      <div className="top">
+                        <b>{groupTitle(g)}</b>
+                        <span className="d">{groupDate(g)}</span>
+                      </div>
+                      <div className="desc">
+                        {groupDesc(g)}
+                        {g.group_type === "document" && g.doc.slice_count ? (
+                          <>
+                            {" · "}
+                            <span className="kind">影像 {g.doc.slice_count} 张</span>
+                          </>
+                        ) : null}
+                      </div>
+                    </button>
+                    {g.group_type === "encounter" && expanded.has(i) && (
+                      <div className="subdocs">
+                        {g.docs.map((d) => (
+                          <button className="subdoc" key={d.id} onClick={() => setDetailId(d.id)}>
+                            <span className={`sic t-${d.doc_type}`}>
+                              <DocTypeIcon type={d.doc_type} />
+                            </span>
+                            <span className="sl">{d.title ?? DOC_LABEL[d.doc_type] ?? "记录"}</span>
+                            <span className="sd">{fmtDate(d.doc_date)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -282,7 +368,7 @@ export default function App() {
           <div className="sect">数据</div>
           <div className="group">
             <button className="row" onClick={loadDemo} disabled={!!busy}>
-              <span className="ri">📥</span>
+              <span className="ri"><DownloadIcon /></span>
               <span className="rt">
                 <b>载入示例数据(张建国)</b>
                 <span>导入一份完整的示例病历,先试试看</span>
@@ -290,7 +376,7 @@ export default function App() {
               <span className="chev">›</span>
             </button>
             <button className="row danger" onClick={() => setConfirmReset(true)} disabled={!!busy}>
-              <span className="ri">🗑️</span>
+              <span className="ri"><TrashIcon /></span>
               <span className="rt">
                 <b>清空保险箱 · 重置</b>
                 <span>删除全部记录,回到初始空状态</span>
@@ -316,11 +402,14 @@ export default function App() {
                 版本号 <span>{version ? `v${version}` : "—"}</span>
               </div>
             </div>
-            <div className="info">
-              <a href="https://chesterguan.github.io/medme/" target="_blank" rel="noreferrer">
-                项目主页 ›
-              </a>
-            </div>
+            <button className="row" onClick={openHomepage}>
+              <span className="ri"><LinkIcon /></span>
+              <span className="rt">
+                <b>项目主页</b>
+                <span>chesterguan.github.io/medme</span>
+              </span>
+              <span className="chev">›</span>
+            </button>
             <div className="info disc">
               医疗免责声明:MedMe 是个人医疗数据整理工具,非医疗器械,不提供任何诊断或医疗建议;一切以原始医疗文件为准,请咨询执业医师。
             </div>
@@ -350,7 +439,8 @@ export default function App() {
       {lastImport && (
         <div className="toast" onClick={() => setLastImport(null)}>
           <div className={`h ${lastImport.status === "failed" ? "warn" : "ok"}`}>
-            {lastImport.status === "failed" ? "⚠️ 未能识别" : "✅ 已识别入库"}
+            {lastImport.status === "failed" ? <AlertTriangleIcon /> : <CheckCircleIcon />}
+            {lastImport.status === "failed" ? "未能识别" : "已识别入库"}
           </div>
           <div>
             <b>{lastImport.name}</b>
@@ -417,6 +507,107 @@ export default function App() {
           </svg>
           设置
         </button>
+      </div>
+    </div>
+  );
+}
+
+// 文档详情:类型/日期/来源 + 识别文本;图片文档额外渲染缩略图。
+// 无 DICOM 阅片(交给桌面/在线查看器),影像文档只展示文本与元信息。
+function DetailScreen({ id, onBack }: { id: number; onBack: () => void }) {
+  const [detail, setDetail] = useState<DocumentDetail | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [imgUrl, setImgUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getDocument(id)
+      .then((d) => {
+        if (!cancelled) setDetail(d);
+      })
+      .catch((e) => {
+        if (!cancelled) setErr(String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  // 图片文档:读取原始字节渲染缩略图。PDF/DICOM 不在手机端内联渲染。
+  useEffect(() => {
+    if (!detail) return;
+    if (!detail.source_file.mime_type.startsWith("image/")) return;
+    let cancelled = false;
+    let url: string | null = null;
+    api
+      .readSourceBytes(detail.source_file.id)
+      .then((bytes) => {
+        if (cancelled) return;
+        const blob = new Blob([bytes], { type: detail.source_file.mime_type });
+        url = URL.createObjectURL(blob);
+        setImgUrl(url);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [detail]);
+
+  const doc = detail?.document;
+  const sf = detail?.source_file;
+  const isImage = sf?.mime_type.startsWith("image/") ?? false;
+  const typeLabel = doc ? DOC_LABEL[doc.doc_type] ?? doc.doc_type : "";
+
+  return (
+    <div className="app">
+      <div className="appbar">
+        <button className="backbtn" onClick={onBack}>
+          <ArrowLeftIcon />
+          返回
+        </button>
+      </div>
+      <div className="body">
+        {err ? (
+          <div className="empty">打开失败:{err}</div>
+        ) : !detail ? (
+          <div className="empty">加载中…</div>
+        ) : (
+          <>
+            <div className="dhead">
+              <span className={`dic t-${doc!.doc_type}`}>
+                <DocTypeIcon type={doc!.doc_type} />
+              </span>
+              <div className="dmeta">
+                <b>{doc!.title ?? typeLabel}</b>
+                <span>
+                  {typeLabel}
+                  {doc!.doc_date ? ` · ${fmtDate(doc!.doc_date)}` : ""}
+                </span>
+                <span className="src">来源:{sf!.original_name}</span>
+              </div>
+            </div>
+
+            {isImage && (
+              <div className="dimg">
+                {imgUrl ? <img src={imgUrl} alt={sf!.original_name} /> : <div className="empty">加载原图…</div>}
+              </div>
+            )}
+
+            <div className="sect">
+              <ImageIcon />
+              <span style={{ marginLeft: 6 }}>{isImage ? "识别文本" : "文档内容"}</span>
+            </div>
+            <div className="dtext">
+              {detail.ocr_text.trim() ? (
+                detail.ocr_text
+              ) : (
+                <span className="muted">此文件尚未识别出文字。原始文件已完整保存,可直接出示给医生。</span>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

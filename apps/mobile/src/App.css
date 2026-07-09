@@ -78,8 +78,13 @@
 .card .ic {
   width: 38px; height: 38px; border-radius: 11px; flex: 0 0 auto;
   display: flex; align-items: center; justify-content: center;
-  background: var(--blue-soft); color: var(--blue); font-size: 18px;
+  background: var(--blue-soft); color: var(--blue); font-size: 20px;
 }
+/* card 现在是可点击按钮:重置按钮外观,保持与原 div 一致 */
+.card.tap {
+  font: inherit; color: inherit; text-align: left; width: 100%; cursor: pointer;
+}
+.card.tap:active { background: var(--screen); }
 .card .tx { flex: 1 1 auto; min-width: 0; }
 .card .tx b { font-size: 14.5px; font-weight: 600; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card .tx span { font-size: 12.5px; color: var(--muted); display: block; }
@@ -118,18 +123,54 @@
 
 /* Timeline */
 .tl { position: relative; padding-left: 8px; }
-.tl::before { content: ""; position: absolute; left: 13px; top: 16px; bottom: 16px; width: 2px; background: var(--line); }
+.tl::before { content: ""; position: absolute; left: 24px; top: 20px; bottom: 20px; width: 2px; background: var(--line); }
 .tl .item { display: flex; gap: 12px; padding: 8px 0; position: relative; }
-.tl .dot {
-  width: 12px; height: 12px; border-radius: 50%; background: var(--blue);
-  border: 2.5px solid var(--screen); margin-top: 6px; flex: 0 0 auto; z-index: 2;
+/* 时间线节点 = 文档/就诊类型的 SVG 图标徽标(替代原纯色圆点) */
+.tl .node {
+  width: 34px; height: 34px; border-radius: 11px; flex: 0 0 auto; z-index: 2;
+  display: flex; align-items: center; justify-content: center; font-size: 19px;
+  background: var(--blue-soft); color: var(--blue); border: 2px solid var(--screen);
+  margin-top: 2px;
 }
-.tl .c { flex: 1; background: var(--panel); border: 1px solid var(--line); border-radius: 13px; padding: 11px 13px; }
+.tl .c { flex: 1; min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 13px; overflow: hidden; }
+.tl .crow {
+  width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+  font: inherit; color: inherit; padding: 11px 13px; display: block;
+}
+.tl .crow:active { background: var(--screen); }
 .tl .c .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .tl .c b { font-size: 14px; }
 .tl .c .d { font-size: 12px; color: var(--faint); flex: 0 0 auto; }
 .tl .c .desc { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
 .kind { font-size: 11px; font-weight: 700; color: var(--blue-ink); background: var(--blue-soft); border-radius: 6px; padding: 1px 7px; }
+/* 就诊组展开后的子文档列表 */
+.subdocs { border-top: 1px solid var(--line); }
+.subdoc {
+  width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+  font: inherit; color: inherit; padding: 10px 13px; display: flex; align-items: center; gap: 10px;
+  border-top: 1px solid var(--line);
+}
+.subdoc:first-child { border-top: none; }
+.subdoc:active { background: var(--screen); }
+.subdoc .sic {
+  width: 26px; height: 26px; border-radius: 8px; flex: 0 0 auto; font-size: 15px;
+  display: flex; align-items: center; justify-content: center; background: var(--blue-soft); color: var(--blue);
+}
+.subdoc .sl { flex: 1 1 auto; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.subdoc .sd { font-size: 11.5px; color: var(--faint); flex: 0 0 auto; }
+
+/* 文档类型配色(与桌面 docmeta.ts TYPE_BADGE 一致)。
+   用复合选择器(.ic.t-x 等)提升特异性,压过 `.card .ic` / `.tl .node` 的默认蓝底。 */
+.ic.t-lab_report, .node.t-lab_report, .dic.t-lab_report, .sic.t-lab_report { background: #eff6ff; color: #1d4ed8; }
+.ic.t-imaging_report, .node.t-imaging_report, .dic.t-imaging_report, .sic.t-imaging_report { background: #fffbeb; color: #b45309; }
+.ic.t-prescription, .node.t-prescription, .dic.t-prescription, .sic.t-prescription { background: #ecfdf5; color: #047857; }
+.ic.t-discharge_summary, .node.t-discharge_summary, .dic.t-discharge_summary, .sic.t-discharge_summary { background: #eef2ff; color: #4338ca; }
+.ic.t-clinical_note, .node.t-clinical_note, .dic.t-clinical_note, .sic.t-clinical_note { background: #f0f9ff; color: #0369a1; }
+.ic.t-pathology, .node.t-pathology, .dic.t-pathology, .sic.t-pathology { background: #fff1f2; color: #be123c; }
+.ic.t-surgery, .node.t-surgery, .dic.t-surgery, .sic.t-surgery { background: #faf5ff; color: #7e22ce; }
+.ic.t-other, .node.t-other, .dic.t-other, .sic.t-other { background: #f1f5f9; color: #475569; }
+.ic.t-unknown, .node.t-unknown, .dic.t-unknown, .sic.t-unknown { background: #f1f5f9; color: #475569; }
+.ic.t-enc, .node.t-enc, .dic.t-enc, .sic.t-enc { background: #eff6ff; color: #1d4ed8; }
 
 /* Tab bar */
 .tabbar {
@@ -162,7 +203,37 @@
 .toast small { color: var(--faint); }
 
 .empty { text-align: center; color: var(--muted); font-size: 14px; padding: 40px 20px; }
-.empty .big { font-size: 40px; margin-bottom: 10px; }
+.empty .big { font-size: 44px; margin-bottom: 10px; color: var(--faint); display: flex; justify-content: center; }
+
+/* 文档详情页 */
+.backbtn {
+  display: flex; align-items: center; gap: 5px; font-size: 15px; font-weight: 600;
+  color: var(--blue); background: none; border: none; cursor: pointer; padding: 4px 0; font-size: 15px;
+}
+.backbtn svg { width: 18px; height: 18px; }
+.dhead {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px;
+  display: flex; align-items: center; gap: 13px;
+}
+.dhead .dic {
+  width: 46px; height: 46px; border-radius: 13px; flex: 0 0 auto; font-size: 24px;
+  display: flex; align-items: center; justify-content: center; background: var(--blue-soft); color: var(--blue);
+}
+.dhead .dmeta { min-width: 0; }
+.dhead .dmeta b { font-size: 16px; font-weight: 700; display: block; }
+.dhead .dmeta span { font-size: 12.5px; color: var(--muted); display: block; margin-top: 2px; }
+.dhead .dmeta .src { color: var(--faint); font-size: 12px; }
+.dimg {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px;
+  display: flex; justify-content: center;
+}
+.dimg img { max-width: 100%; max-height: 320px; border-radius: 8px; }
+.dtext {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 15px;
+  font-size: 14px; line-height: 1.7; color: var(--ink); white-space: pre-wrap; word-break: break-word;
+}
+.dtext .muted { color: var(--faint); }
+.sect svg { width: 14px; height: 14px; vertical-align: -2px; }
 
 /* Settings (设置) */
 .group {
@@ -179,7 +250,7 @@
 .group .row .ri {
   width: 34px; height: 34px; border-radius: 10px; flex: 0 0 auto;
   display: flex; align-items: center; justify-content: center;
-  background: var(--blue-soft); color: var(--blue); font-size: 17px;
+  background: var(--blue-soft); color: var(--blue); font-size: 18px;
 }
 .group .row .rt { flex: 1 1 auto; min-width: 0; }
 .group .row .rt b { font-weight: 600; display: block; }

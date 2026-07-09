@@ -1,7 +1,7 @@
 //! Serde DTOs sent to the React layer. A trimmed subset of the desktop app's
 //! `dto.rs` — mobile milestone 1 only needs the 健康档案 timeline, ingest
 //! outcomes, the patient header and share results.
-use core_model::{Document, Encounter};
+use core_model::{Document, Encounter, SourceFile};
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -66,6 +66,38 @@ pub enum TimelineGroup {
     },
     #[serde(rename = "document")]
     Document { doc: DocumentSummary },
+}
+
+/// 原始文件元信息(文档详情页展示来源 + 前端据此判断是否为图片以渲染缩略)。
+#[derive(Serialize)]
+pub struct SourceFileMeta {
+    pub id: i64,
+    pub original_name: String,
+    pub mime_type: String,
+    pub byte_size: i64,
+    pub imported_at: String,
+}
+impl From<&SourceFile> for SourceFileMeta {
+    fn from(s: &SourceFile) -> Self {
+        SourceFileMeta {
+            id: s.id,
+            original_name: s.original_name.clone(),
+            mime_type: s.mime_type.clone(),
+            byte_size: s.byte_size,
+            imported_at: s.imported_at.to_rfc3339(),
+        }
+    }
+}
+
+/// 文档详情:类型/日期(在 document 里)+ 来源文件 + 识别文本(与桌面同构,
+/// 但移动端不含 DICOM 阅片,影像只显示元信息/缩略)。
+#[derive(Serialize)]
+pub struct DocumentDetail {
+    pub document: DocumentSummary,
+    pub source_file: SourceFileMeta,
+    pub ocr_text: String,
+    pub ocr_confidence: Option<f32>,
+    pub ocr_backend: Option<String>,
 }
 
 #[derive(Serialize)]

@@ -102,6 +102,45 @@ pub fn ingest_file(state: State<AppState>, path: String) -> Result<ImportOutcome
     Ok(outcome)
 }
 
+/// 文档详情(mobile P2):点开一份记录时拉取类型/日期/来源 + 识别文本。
+/// 复用 core-model 查询,与桌面 `get_document` 同构;移动端不含 DICOM 阅片,
+/// 影像文档只给元信息与文本,原图/缩略由前端按需 `read_source_bytes`。
+#[tauri::command]
+pub fn get_document(state: State<AppState>, id: i64) -> Result<DocumentDetail, String> {
+    let v = lock(&state)?;
+    let doc = v
+        .document_by_id(id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("找不到文档 {id}"))?;
+    let sf = v
+        .source_file_by_id(doc.source_file_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "来源文件缺失".to_string())?;
+    let ocr_text = v.ocr_text(id).map_err(|e| e.to_string())?;
+    let ocr_confidence = v.ocr_confidence(id).map_err(|e| e.to_string())?;
+    let ocr_backend = v.ocr_backend(id).map_err(|e| e.to_string())?;
+    Ok(DocumentDetail {
+        document: doc_summary(&v, &doc),
+        source_file: SourceFileMeta::from(&sf),
+        ocr_text,
+        ocr_confidence,
+        ocr_backend,
+    })
+}
+
+/// 一份来源文件的原始字节(图片文档在详情页据此渲染缩略图)。与桌面同构。
+#[tauri::command]
+pub fn read_source_bytes(state: State<AppState>, id: i64) -> Result<tauri::ipc::Response, String> {
+    let v = lock(&state)?;
+    let sf = v
+        .source_file_by_id(id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("找不到来源文件 {id}"))?;
+    let path = v.root_join(&sf.storage_path);
+    let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
 /// 患者档案头(姓名/性别/年龄/记录数)—— 健康档案页顶部展示。
 #[tauri::command]
 pub fn get_patient_profile(state: State<AppState>) -> Result<PatientProfile, String> {

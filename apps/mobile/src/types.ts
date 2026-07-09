@@ -40,3 +40,18 @@ export interface PatientProfile {
   age: string | null;
   record_count: number;
 }
+
+export interface SourceFileMeta {
+  id: number;
+  original_name: string;
+  mime_type: string;
+  byte_size: number;
+  imported_at: string;
+}
+export interface DocumentDetail {
+  document: DocumentSummary;
+  source_file: SourceFileMeta;
+  ocr_text: string;
+  ocr_confidence: number | null;
+  ocr_backend: string | null;
+}

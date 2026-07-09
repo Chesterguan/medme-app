@@ -10,6 +10,7 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             // 保险箱放在 iOS 沙盒的 Documents 目录。
             // TODO iCloud container:v1.1 迁移到 iCloud container，实现与桌面经
@@ -31,6 +32,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::load_archive,
             commands::ingest_file,
+            commands::get_document,
+            commands::read_source_bytes,
             commands::get_patient_profile,
             commands::create_share,
             commands::load_demo_data,
