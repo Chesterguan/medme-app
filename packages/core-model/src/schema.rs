@@ -53,6 +53,21 @@ pub fn ensure_meta_table(conn: &Connection) -> Result<(), MedmeError> {
     Ok(())
 }
 
+/// Natural-key uniqueness for `imaging_instance`. The v5 table has no UNIQUE
+/// constraint, but a DICOM slice is one source_file attached once to one study
+/// document, so `(document_id, source_file_id)` is its natural key. Idempotent
+/// projection needs a real UNIQUE index for `ON CONFLICT` to target when the
+/// same slice arrives from two synced devices. Created outside the
+/// `user_version` migration ladder (like `ensure_meta_table`) so it doesn't
+/// perturb the existing `user_version` assertions.
+pub fn ensure_imaging_instance_unique_index(conn: &Connection) -> Result<(), MedmeError> {
+    conn.execute_batch(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_imaging_instance_natural_key \
+         ON imaging_instance(document_id, source_file_id);",
+    )?;
+    Ok(())
+}
+
 pub fn migrate(conn: &Connection) -> Result<(), MedmeError> {
     let v: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     if v < 1 {

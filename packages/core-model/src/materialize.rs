@@ -7,6 +7,17 @@
 use crate::event::{DocRef, Event, LogEntry};
 use crate::{cas, MedmeError, Vault};
 use rusqlite::{OptionalExtension, Transaction};
+use std::collections::{HashMap, HashSet};
+
+/// Outcome of applying a single event to the derived DB.
+enum ApplyOutcome {
+    /// Event was reflected in the DB (or was already present — idempotent).
+    Applied,
+    /// Could not be applied *yet* because a CAS object it needs hasn't synced
+    /// in. Left unapplied so a later `materialize` retries it once the blob
+    /// arrives — never propagated as an error (must not block `Vault::open`).
+    Deferred,
+}
 
 impl Vault {
     pub(crate) fn get_meta(&self, key: &str) -> Result<Option<String>, MedmeError> {
@@ -25,11 +36,27 @@ impl Vault {
         Ok(())
     }
 
-    fn set_applied_seq_tx(tx: &Transaction, seq: i64) -> Result<(), MedmeError> {
+    /// Per-device high-water map `{device_id: max_applied_seq}`, stored as JSON
+    /// under the `applied_seq_map` meta key. Absent → empty map (first run after
+    /// this change re-applies everything, harmless because projection is
+    /// idempotent). Replaces the old global scalar `applied_seq`, which dropped
+    /// a synced peer's events whose per-device seq was ≤ the local scalar.
+    pub(crate) fn applied_seq_map(&self) -> Result<HashMap<String, i64>, MedmeError> {
+        match self.get_meta("applied_seq_map")? {
+            Some(json) => Ok(serde_json::from_str(&json)?),
+            None => Ok(HashMap::new()),
+        }
+    }
+
+    fn set_applied_seq_map_tx(
+        tx: &Transaction,
+        map: &HashMap<String, i64>,
+    ) -> Result<(), MedmeError> {
+        let json = serde_json::to_string(map)?;
         tx.execute(
-            "INSERT INTO meta(key, value) VALUES ('applied_seq', ?1)
+            "INSERT INTO meta(key, value) VALUES ('applied_seq_map', ?1)
              ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            [seq.to_string()],
+            [json],
         )?;
         Ok(())
     }
@@ -43,31 +70,49 @@ impl Vault {
         Ok(id)
     }
 
+    /// Backwards-compatible scalar accessor: the max watermark across all
+    /// devices. (The real gate is now the per-device `applied_seq_map`.)
+    #[cfg(test)]
     pub(crate) fn applied_seq(&self) -> Result<i64, MedmeError> {
-        Ok(self
-            .get_meta("applied_seq")?
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(0))
+        Ok(self.applied_seq_map()?.values().copied().max().unwrap_or(0))
     }
 
-    /// Apply any log events past the watermark to the DB, then advance the
-    /// watermark. Idempotent: a no-op if nothing is pending.
+    /// Apply any log events past each device's watermark to the DB, then
+    /// advance that device's watermark. Idempotent: a no-op if nothing is
+    /// pending. Because `seq` is per-device (two devices can reuse the same
+    /// value), the gate is a per-device high-water map, not a global scalar.
     pub fn materialize(&self) -> Result<(), MedmeError> {
-        let applied = self.applied_seq()?;
+        let map = self.applied_seq_map()?;
         let entries = self.log.read_all()?;
-        let pending: Vec<&LogEntry> = entries.iter().filter(|e| e.seq > applied).collect();
+        let pending: Vec<&LogEntry> = entries
+            .iter()
+            .filter(|e| e.seq > map.get(&e.device_id).copied().unwrap_or(0))
+            .collect();
         if pending.is_empty() {
             return Ok(());
         }
         let tx = self.conn().unchecked_transaction()?;
-        let mut max_seq = applied;
+        let mut new_map = map;
+        // Devices with a deferred (not-yet-syncable) event: stop advancing their
+        // watermark and skip their remaining events so we never jump the gap.
+        let mut stopped: HashSet<String> = HashSet::new();
         for entry in &pending {
-            apply_event(&tx, self, &entry.event)?;
-            if entry.seq > max_seq {
-                max_seq = entry.seq;
+            if stopped.contains(&entry.device_id) {
+                continue;
+            }
+            match apply_event(&tx, self, &entry.event)? {
+                ApplyOutcome::Applied => {
+                    let cur = new_map.entry(entry.device_id.clone()).or_insert(0);
+                    if entry.seq > *cur {
+                        *cur = entry.seq;
+                    }
+                }
+                ApplyOutcome::Deferred => {
+                    stopped.insert(entry.device_id.clone());
+                }
             }
         }
-        Self::set_applied_seq_tx(&tx, max_seq)?;
+        Self::set_applied_seq_map_tx(&tx, &new_map)?;
         tx.commit()?;
         Ok(())
     }
@@ -85,7 +130,7 @@ impl Vault {
             tx.execute("DELETE FROM document", [])?;
             tx.execute("DELETE FROM encounter", [])?;
             tx.execute("DELETE FROM source_file", [])?;
-            Self::set_applied_seq_tx(&tx, 0)?;
+            Self::set_applied_seq_map_tx(&tx, &HashMap::new())?;
             tx.commit()?;
         }
         self.materialize()?;
@@ -222,10 +267,18 @@ impl Vault {
             })?;
         }
 
-        let max_seq = self.log.max_seq()?;
-        if max_seq > 0 {
+        // Mark the DB as fully applied by seeding each device's watermark with
+        // its own max seq from the log (the DB already reflects these rows).
+        let mut map: HashMap<String, i64> = HashMap::new();
+        for e in self.log.read_all()? {
+            let cur = map.entry(e.device_id.clone()).or_insert(0);
+            if e.seq > *cur {
+                *cur = e.seq;
+            }
+        }
+        if !map.is_empty() {
             let tx = self.conn().unchecked_transaction()?;
-            Self::set_applied_seq_tx(&tx, max_seq)?;
+            Self::set_applied_seq_map_tx(&tx, &map)?;
             tx.commit()?;
         }
         Ok(())
@@ -244,7 +297,11 @@ fn generate_device_id() -> String {
     format!("{:x}", h.finalize())
 }
 
-fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<(), MedmeError> {
+fn apply_event(
+    tx: &Transaction,
+    vault: &Vault,
+    event: &Event,
+) -> Result<ApplyOutcome, MedmeError> {
     match event {
         Event::FileImported {
             content_hash,
@@ -254,10 +311,13 @@ fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<(), Med
             imported_at,
         } => {
             let relpath = cas::object_relpath(content_hash);
+            // Idempotent on the natural key UNIQUE(content_hash): the same file
+            // imported on two devices collapses to one row instead of aborting.
             tx.execute(
                 "INSERT INTO source_file
                  (content_hash, original_name, mime_type, byte_size, storage_path, imported_at)
-                 VALUES (?1,?2,?3,?4,?5,?6)",
+                 VALUES (?1,?2,?3,?4,?5,?6)
+                 ON CONFLICT(content_hash) DO NOTHING",
                 rusqlite::params![
                     content_hash,
                     original_name,
@@ -283,10 +343,12 @@ fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<(), Med
                 [source_file_hash],
                 |r| r.get(0),
             )?;
+            // Idempotent on the natural key UNIQUE(source_file_id).
             tx.execute(
                 "INSERT INTO document
                  (source_file_id, doc_type, doc_date, doc_date_end, title, language, page_count, created_at)
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8)
+                 ON CONFLICT(source_file_id) DO NOTHING",
                 rusqlite::params![
                     source_file_id, doc_type, doc_date, doc_date_end, title, language, page_count, created_at
                 ],
@@ -307,8 +369,31 @@ fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<(), Med
                 [&document_ref.source_file_hash],
                 |r| r.get(0),
             )?;
+            // Idempotency guard on UNIQUE(document_id, page_no): if the OCR row
+            // already exists (re-applied event / same page from two devices),
+            // skip the CAS read AND the FTS insert entirely — cheap re-apply,
+            // no duplicate FTS row.
+            let already: Option<i64> = tx
+                .query_row(
+                    "SELECT id FROM ocr_result WHERE document_id = ?1 AND page_no = ?2",
+                    rusqlite::params![document_id, page_no],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            if already.is_some() {
+                return Ok(ApplyOutcome::Applied);
+            }
             let relpath = cas::object_relpath(text_hash);
-            let text = std::fs::read_to_string(vault.root_join(&relpath))?;
+            // The CAS object may not have synced in yet (log arrives before the
+            // blob). Treat a missing object as Deferred — retried once it lands
+            // — rather than aborting the whole materialize / `Vault::open`.
+            let text = match std::fs::read_to_string(vault.root_join(&relpath)) {
+                Ok(t) => t,
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                    return Ok(ApplyOutcome::Deferred);
+                }
+                Err(e) => return Err(e.into()),
+            };
             tx.execute(
                 "INSERT INTO ocr_result
                  (document_id, page_no, backend, model_version, text, confidence, created_at)
@@ -358,10 +443,13 @@ fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<(), Med
                 [source_file_hash],
                 |r| r.get(0),
             )?;
+            // Idempotent on the natural key (document_id, source_file_id): one
+            // slice attached once per study, even if it arrives from two devices.
             tx.execute(
                 "INSERT INTO imaging_instance
                  (document_id, source_file_id, series_uid, series_number, instance_number)
-                 VALUES (?1,?2,?3,?4,?5)",
+                 VALUES (?1,?2,?3,?4,?5)
+                 ON CONFLICT(document_id, source_file_id) DO NOTHING",
                 rusqlite::params![
                     document_id,
                     source_file_id,
@@ -380,7 +468,7 @@ fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<(), Med
         // 建任何表行,`rebuild_from_log` 重放时必须能安全跳过而不报错。
         Event::ExportPerformed { .. } | Event::ShareCreated { .. } => {}
     }
-    Ok(())
+    Ok(ApplyOutcome::Applied)
 }
 
 #[cfg(test)]
@@ -648,6 +736,107 @@ mod tests {
         // Rebuilding again must land on byte-identical derived state.
         v.rebuild_from_log().unwrap();
         assert_eq!(first, snap(&v), "rebuild must be deterministic");
+    }
+
+    // ---- multi-device data-integrity fixes (A/B/C) --------------------------
+
+    /// Fix A: two devices import the SAME bytes (→ identical content_hash) with
+    /// different device_id/ts. Splicing both segments + the shared CAS and
+    /// `rebuild_from_log` must SUCCEED and collapse to exactly one source_file
+    /// (idempotent projection), not abort on the UNIQUE(content_hash) collision.
+    #[test]
+    fn duplicate_content_across_devices_rebuilds() {
+        let a = tempfile::tempdir().unwrap();
+        seed_doc(a.path(), "dup.txt", "SharedDupNeedle");
+        let a_seg = only_segment(&a.path().join("log"));
+        std::fs::rename(&a_seg, a.path().join("log/000001.jsonl")).unwrap();
+
+        // A *different* device imports the identical bytes → same content_hash,
+        // same text_hash, but its own device_id inside the envelope.
+        let b = tempfile::tempdir().unwrap();
+        seed_doc(b.path(), "dup.txt", "SharedDupNeedle");
+        let b_seg = only_segment(&b.path().join("log"));
+        std::fs::copy(&b_seg, a.path().join("log/peerdevice-000001.jsonl")).unwrap();
+        copy_dir_into(&b.path().join("objects"), &a.path().join("objects"));
+
+        std::fs::remove_file(a.path().join("medme.db")).unwrap();
+
+        let v = Vault::open(a.path()).unwrap();
+        // Must not error on the duplicate-content collision.
+        v.rebuild_from_log().unwrap();
+
+        assert_eq!(
+            v.debug_count("source_file"),
+            1,
+            "identical content from two devices dedups to one source_file"
+        );
+        assert_eq!(v.debug_count("document"), 1, "one document");
+        assert_eq!(v.debug_count("ocr_result"), 1, "one OCR row");
+        assert_eq!(v.search("SharedDupNeedle", 10).unwrap().len(), 1);
+    }
+
+    /// Fix B: device A materializes its own events (advancing A's watermark),
+    /// then a synced peer's segment is spliced in whose event seqs are ≤ A's
+    /// watermark. A plain `materialize()` (NOT a rebuild) must still apply the
+    /// peer's events — a single global scalar watermark silently drops them.
+    #[test]
+    fn synced_peer_event_with_colliding_seq_is_applied() {
+        let a = tempfile::tempdir().unwrap();
+        seed_doc(a.path(), "alpha.txt", "AlphaWatermarkNeedle");
+        // A's per-device watermark is now at its max seq (e.g. 3).
+
+        // Peer B seeds its own doc; its event seqs (1..=3) collide with A's.
+        let b = tempfile::tempdir().unwrap();
+        seed_doc(b.path(), "beta.txt", "BetaWatermarkNeedle");
+        let b_seg = only_segment(&b.path().join("log"));
+        std::fs::copy(&b_seg, a.path().join("log/peerdevice-000001.jsonl")).unwrap();
+        copy_dir_into(&b.path().join("objects"), &a.path().join("objects"));
+
+        // Reopen (keeping the derived DB, so this is the incremental
+        // materialize path, not a rebuild) and materialize.
+        let v = Vault::open(a.path()).unwrap();
+        v.materialize().unwrap();
+
+        assert_eq!(
+            v.search("BetaWatermarkNeedle", 10).unwrap().len(),
+            1,
+            "peer's low-seq event must be applied despite colliding with A's watermark"
+        );
+        assert_eq!(v.debug_count("document"), 2, "both devices' docs present");
+    }
+
+    /// Fix C: a log references an OcrAdded whose CAS text object hasn't synced
+    /// yet. `Vault::open`/`materialize` must NOT error (the missing object is
+    /// deferred, other events still apply); once the object arrives, a later
+    /// `materialize()` applies the deferred OCR.
+    #[test]
+    fn missing_cas_object_does_not_block_open_and_applies_later() {
+        let dir = tempfile::tempdir().unwrap();
+        seed_doc(dir.path(), "miss.txt", "MissingObjNeedle");
+
+        // Remove the OCR text object from CAS (simulating a not-yet-synced blob)
+        // and wipe the derived cache so open must re-materialize from log + CAS.
+        let text_hash = cas::sha256_hex("MissingObjNeedle".as_bytes());
+        let obj = dir.path().join(cas::object_relpath(&text_hash));
+        let saved = std::fs::read(&obj).unwrap();
+        std::fs::remove_file(&obj).unwrap();
+        std::fs::remove_file(dir.path().join("medme.db")).unwrap();
+
+        // Must not error even though the OCR object is absent.
+        let v = Vault::open(dir.path()).unwrap();
+        assert_eq!(v.debug_count("source_file"), 1, "FileImported still applied");
+        assert_eq!(v.debug_count("document"), 1, "DocumentAdded still applied");
+        assert_eq!(
+            v.debug_count("ocr_result"),
+            0,
+            "OCR deferred while its object is missing"
+        );
+
+        // The blob arrives; re-materialize → the deferred OCR now applies.
+        std::fs::write(&obj, &saved).unwrap();
+        v.materialize().unwrap();
+        assert_eq!(v.debug_count("ocr_result"), 1, "deferred OCR applied once blob present");
+        assert_eq!(v.search("MissingObjNeedle", 10).unwrap().len(), 1);
     }
 
     #[test]

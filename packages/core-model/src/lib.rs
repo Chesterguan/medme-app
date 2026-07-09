@@ -42,6 +42,7 @@ impl Vault {
         conn.execute_batch("PRAGMA foreign_keys = ON;")?;
         schema::migrate(&conn)?;
         schema::ensure_meta_table(&conn)?;
+        schema::ensure_imaging_instance_unique_index(&conn)?;
         let log = log::EventLog::open(root)?;
 
         let mut vault = Vault {

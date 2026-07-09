@@ -41,7 +41,14 @@ impl Vault {
         // 唯一临时文件（同目录）+ 原子 persist,避免并发写入共享同一临时文件名
         let mut tmp = NamedTempFile::new_in(parent)?;
         tmp.write_all(bytes)?;
+        // Durability: fsync the object's bytes to disk BEFORE the atomic rename,
+        // so a crash can never leave a persisted-but-empty/partial CAS object
+        // that a later read would trust as valid content.
+        tmp.as_file().sync_all()?;
         tmp.persist(&abs).map_err(|e| MedmeError::Io(e.error))?;
+        // Durability: fsync the parent directory so the rename itself survives
+        // power loss (the entry must be durable, not just the file's bytes).
+        std::fs::File::open(parent)?.sync_all()?;
         Ok((hash, rel, true))
     }
 

@@ -57,6 +57,9 @@ impl EventLog {
         let line = serde_json::to_string(entry)?;
         writeln!(f, "{line}")?;
         f.flush()?;
+        // Durability: fsync the appended line so a "saved" event survives power
+        // loss before we return success (medical data — silent loss is fatal).
+        f.sync_all()?;
         Ok(())
     }
 
