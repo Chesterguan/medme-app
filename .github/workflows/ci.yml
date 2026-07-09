@@ -23,7 +23,7 @@ jobs:
     name: Rust (core crates + CLI)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # CMake + a C/C++ toolchain are required to build the vendored
       # JPEG2000 (OpenJPEG) / JPEG-LS (CharLS) codecs used by the dicom crate.
@@ -66,7 +66,7 @@ jobs:
     name: Desktop frontend (typecheck + build)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
