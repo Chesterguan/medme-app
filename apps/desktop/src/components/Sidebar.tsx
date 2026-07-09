@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   Activity,
-  ShieldCheck,
   UploadCloud,
   Search,
   PanelLeftClose,
@@ -36,8 +35,16 @@ export default function Sidebar({
       {/* Brand */}
       <div className={`${collapsed ? "px-2 py-4" : "p-5"} border-b border-slate-200`}>
         <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
-          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100 shrink-0">
-            <ShieldCheck className="w-6 h-6" />
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black shrink-0"
+            style={{
+              background: "linear-gradient(148deg,#2bc0d2 0%,#1789c1 52%,#1560a8 100%)",
+              fontFamily: '"PingFang SC","Hiragino Sans GB",sans-serif',
+              fontSize: "22px",
+              lineHeight: 1,
+            }}
+          >
+            <span style={{ transform: "translateY(-3%)" }}>医</span>
           </div>
           {!collapsed && (
             <div className="min-w-0">
