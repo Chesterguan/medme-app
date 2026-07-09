@@ -282,7 +282,10 @@ mod tests {
         let bytes = sample("CT_small.dcm");
         let meta = parse_meta(&bytes).unwrap();
         assert_eq!(meta.modality.as_deref(), Some("CT"));
-        assert_eq!(meta.study_date.as_deref(), Some("2004-01-19T00:00:00+00:00"));
+        assert_eq!(
+            meta.study_date.as_deref(),
+            Some("2004-01-19T00:00:00+00:00")
+        );
         assert_eq!(meta.institution.as_deref(), Some("JFK IMAGING CENTER"));
         assert_eq!(meta.patient_name.as_deref(), Some("CompressedSamples^CT1"));
         assert_eq!(meta.patient_sex.as_deref(), Some("O"));
@@ -296,7 +299,10 @@ mod tests {
         // Series/Instance grouping fields (imaging overhaul P1): these drive
         // Study→Series→Instance grouping + slice-stack ordering.
         assert!(meta.series_uid.is_some(), "SeriesInstanceUID should parse");
-        assert_ne!(meta.series_uid, meta.study_uid, "series UID differs from study UID");
+        assert_ne!(
+            meta.series_uid, meta.study_uid,
+            "series UID differs from study UID"
+        );
         assert_eq!(meta.series_number, Some(1));
         assert_eq!(meta.instance_number, Some(1));
     }
@@ -306,7 +312,10 @@ mod tests {
         let bytes = sample("MR_small.dcm");
         let meta = parse_meta(&bytes).unwrap();
         assert_eq!(meta.modality.as_deref(), Some("MR"));
-        assert_eq!(meta.study_date.as_deref(), Some("2004-08-26T00:00:00+00:00"));
+        assert_eq!(
+            meta.study_date.as_deref(),
+            Some("2004-08-26T00:00:00+00:00")
+        );
         assert_eq!(meta.institution.as_deref(), Some("TOSHIBA"));
         assert_eq!(meta.patient_sex.as_deref(), Some("F"));
     }
@@ -333,7 +342,10 @@ mod tests {
 
     #[test]
     fn parse_study_date_rejects_malformed_input() {
-        assert_eq!(parse_study_date("20040119"), Some("2004-01-19T00:00:00+00:00".to_string()));
+        assert_eq!(
+            parse_study_date("20040119"),
+            Some("2004-01-19T00:00:00+00:00".to_string())
+        );
         assert_eq!(parse_study_date(""), None);
         assert_eq!(parse_study_date("2004-01-19"), None);
         assert_eq!(parse_study_date("99999999"), None);
@@ -352,7 +364,7 @@ mod tests {
         assert_eq!(frame.header.samples_per_pixel, 1);
         assert_eq!(frame.header.bits_allocated, 16);
         assert_eq!(frame.header.pixel_representation, 1); // CT_small is signed
-        // 16-bit grayscale → 2 bytes/sample.
+                                                          // 16-bit grayscale → 2 bytes/sample.
         assert_eq!(frame.pixels.len(), 128 * 128 * 2);
     }
 

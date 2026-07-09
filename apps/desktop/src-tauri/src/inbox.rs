@@ -163,7 +163,10 @@ pub fn scan_inbox(app: &AppHandle, state: &AppState) {
                 match move_to_imported(&path, &dest_dir) {
                     Ok(()) => imported += 1,
                     Err(e) => {
-                        eprintln!("[inbox] imported but failed to move {}: {e}", path.display());
+                        eprintln!(
+                            "[inbox] imported but failed to move {}: {e}",
+                            path.display()
+                        );
                     }
                 }
             }

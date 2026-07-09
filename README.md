@@ -4,84 +4,147 @@
 
 **个人医疗数据保险箱**
 
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![CI](https://github.com/Chesterguan/medme-app/actions/workflows/ci.yml/badge.svg)](https://github.com/Chesterguan/medme-app/actions/workflows/ci.yml)
+[![Platform](https://img.shields.io/badge/desktop-macOS-lightgrey.svg)](https://chesterguan.github.io/medme/)
+[![Made with Tauri + Rust](https://img.shields.io/badge/built_with-Tauri_v2_%C2%B7_Rust_%C2%B7_React-orange.svg)](#技术架构--architecture)
+
 把你散落在各家医院的病历、化验、影像,聚合成一个
 **本地优先、随身携带、完全由你掌控**的电子健康档案。
 
 `本地优先` · `原件永存` · `端到端加密分享` · `零服务器` · `中文优先`
 
+[官网 / Landing](https://chesterguan.github.io/medme/) ·
+[加密分享在线预览 / Share viewer](https://chesterguan.github.io/medme-viewer/) ·
+[下载 / Releases](https://github.com/Chesterguan/medme-app/releases)
+
 </div>
 
 ---
+
+> **About (English).** MedMe (医我) is a **local-first, zero-server personal
+> medical-data vault**. It collects the medical records scattered across
+> hospitals, phone photos, and apps — lab reports, discharge summaries, CT/MRI
+> images, DICOM — OCRs and classifies them, and aggregates everything into one
+> time-ordered **health archive**. It renders each record professionally (lab
+> tables, an interactive DICOM viewer) and lets you share an
+> **end-to-end-encrypted, self-contained web page** with a doctor — decryptable
+> in any browser with a password, no server involved. Desktop is **Tauri v2
+> (Rust + React)**; an iOS capture app is in progress. Chinese-first product;
+> privacy and trust are the whole point. **Not a medical device — no diagnosis
+> or advice; the original documents are always authoritative.**
 
 ## 这是什么
 
 看病多年,你的数据散落各处:一叠叠化验单、出院小结、CT 片子、手机里的报告照片、各医院 App 里互不相通的记录。换家医院、异地就医、报销、二次问诊时,你很难把它们**完整、有条理**地拿出来。
 
-**MedMe(医我)** 是一个桌面应用,帮你把这些散落的医疗数据**收集、识别、归类、聚合**成一条清晰的「生命时间线」——按就诊/住院/转院/手术自动组织,随时可查、可搜、可导出、可安全分享给医生。
+**MedMe(医我)** 是一个桌面应用,帮你把这些散落的医疗数据**收集、识别、归类、聚合**成一条清晰的「生命时间线」——按就诊/住院/转院/手术自动组织,随时可查、可搜、可导出、可安全分享给医生。就像一个只属于你的**医疗数据保险箱**:东西都在里面、只有你有钥匙、原件永远不丢。
 
 > ⚠️ MedMe 是**数据整理工具**,不提供任何医疗建议。一切以原始医疗文件为准,并请咨询执业医师。
 
-## 为什么要做
+## 截图 / 演示 · Screenshots & demo
 
-- **数据是你的**:医疗数据属于患者本人,却常被锁在各家机构的系统里。
-- **原件最重要**:救命的东西不能含糊——原始报告永久保存、不可篡改,AI 识别只是辅助、永远可溯源回原件。
-- **随身、离线、私密**:不依赖账号和服务器,默认全部存在你自己的设备;要同步就放进你自己的云盘。
+先到 [官网](https://chesterguan.github.io/medme/) 看产品截图与介绍;
+想不安装就体验,可打开 [加密分享在线预览](https://chesterguan.github.io/medme-viewer/)。
 
-## 核心原则
+> 📸 _演示 GIF / 视频待补充(placeholder — a demo GIF/video will go here)._
 
-| 原则 | 含义 |
-|---|---|
-| **患者优先** | 面向普通人(含老年人),简单直白,概念翻译成"门诊/住院/手术"这类看得懂的词 |
-| **本地优先** | 默认无账号、无服务器,数据在本机;云同步用你自己的云盘 |
-| **原件不灭** | 原始文件内容寻址存储(CAS)、永不修改;事件日志追加式记录,可完整重建 |
-| **AI 辅助** | OCR / 自动归类是辅助,标注识别置信度,低置信主动提示,始终可看原件 |
-| **开放标准** | FHIR / OMOP 作为导出目标而非内部枷锁 |
+## 功能 · Features(v1.0)
 
-## 功能(v1.0)
+- **采集 · OCR**:拖拽导入 PDF / 图片 / 文本,自动去重、原件永久保存;**自动收件箱**(手机拍照云同步到指定文件夹即自动入库);**OCR**(PP-OCRv5,含去阴影 / 纠偏预处理)识别中文报告照片与扫描件,显示识别置信度、低置信主动警告。
+- **健康档案时间线**:按就诊 / 住院 / 转院 / 手术自动聚合(时间为主键);智能日期提取、病人信息栏、中文全文搜索。
+- **专业渲染 + DICOM 阅片**:按类型富渲染(化验→表格并 ↑↓ 着色、处方→用药清单、病理 / 影像 / 出院→分节);原件查看器(图片灯箱 · PDF 内嵌 · **交互式 DICOM 阅片**:窗宽窗位 / 缩放 / 多帧,支持 JPEG2000 / JPEG-LS 压缩格式)。
+- **端到端加密分享**:AES-256-GCM 加密成一个自包含网页,凭口令在**任意浏览器本地解密**查看,**零服务器**,默认 5 天有效期;也可一键导出自包含 HTML 交给医生打印。
+- **可核验审计**:不可篡改的审计追踪(导入 / 导出 / 分享均记内容哈希 sha256);**数据安全引导**(FileVault + iCloud 高级数据保护)。
 
-**采集 · 导入**
-- 拖拽导入 PDF / 图片 / 文本,自动去重、原件永久保存
-- **自动收件箱**:手机拍照云同步到指定文件夹即自动入库
-- **OCR**(PP-OCRv5,含去阴影/纠偏预处理)识别中文报告照片与扫描件,显示识别置信度、低置信主动警告
+## 安装 · Install
 
-**理解 · 组织**
-- **生命时间线**:按就诊 / 住院 / 转院 / 手术自动聚合(时间为主键)
-- 智能日期提取、病人信息栏、中文全文搜索
+- **推荐(无需开发环境)**:到 [Releases](https://github.com/Chesterguan/medme-app/releases)
+  或 [官网](https://chesterguan.github.io/medme/) 下载 `.dmg`(Apple Silicon /
+  Intel),拖进「应用程序」即可。
+- **测试版未签名**:首次打开会被 macOS 拦住(正常)。在访达里**右键 MedMe → 打开**,
+  或终端执行 `xattr -cr /Applications/MedMe.app` 后再打开。正式版将签名 + 公证。
+- 详细的安装与试用步骤(含「一键加载示例数据」)见 [TESTING.md](TESTING.md)。
 
-**查看**
-- 按类型富渲染:化验→表格(↑↓着色)、处方→用药清单、病理/影像/出院→分节
-- 原件查看器:图片灯箱 · PDF 内嵌 · **DICOM 交互式阅片**(窗宽窗位/缩放/多帧)
+## 从源码构建 · Build from source
 
-**导出 · 分享**
-- 一键导出自包含 HTML,浏览器打印/另存为 PDF 交给医生
-- **端到端加密分享**:AES-256-GCM 加密成一个自包含网页,凭口令在**任意浏览器本地解密**查看,**零服务器**,默认 5 天有效期
+**前置依赖 / Prerequisites**
 
-**安全 · 合规**
-- 不可篡改**审计追踪**(导入/导出/分享均记内容哈希 sha256)
-- **数据安全引导**(FileVault + iCloud 高级数据保护 = 端到端加密,零口令)
-- 中英文软件声明
+- **Rust**([rustup](https://rustup.rs);仓库固定 stable,见 `rust-toolchain.toml`)
+- **Node 18+**(前端用 Vite 7,建议 **Node 20+**)、**pnpm**
+- **CMake + C/C++ 工具链**——编译内置的 JPEG2000(OpenJPEG)/ JPEG-LS(CharLS)
+  影像编解码。macOS:`brew install cmake`;Ubuntu:`sudo apt-get install cmake build-essential`。
 
-## 隐私与安全
+```bash
+git clone https://github.com/Chesterguan/medme-app.git
+cd medme-app
+
+# 桌面应用(Tauri v2 + React)
+pnpm -C apps/desktop install
+pnpm -C apps/desktop tauri dev      # 开发运行,热重载
+pnpm -C apps/desktop tauri build    # 打包 → apps/desktop/src-tauri/target/release/bundle/
+
+# 命令行工具(导入 / 检索,便于调试内核)
+cargo run -p medme-cli -- --help
+```
+
+> 首次编译较久(Rust 全量构建 + 编译 OpenJPEG/CharLS);首次运行 OCR 会自动下载
+> ~21MB 模型到 `~/.oar`。装好的 .dmg 无需 CMake(编解码已静态打包)。
+
+## 技术架构 · Architecture
+
+- **桌面**:Tauri v2(Rust 后端 + React / TypeScript 前端,Tailwind v4)。
+- **存储(唯一真相)**:事件溯源——追加式事件日志(`log/*.jsonl`)+ 内容寻址存储
+  (CAS,sha256)。SQLite(FTS5 中文分词)是**可随时重建的派生缓存**:删库可从日志
+  零损失重建。日志按设备分段,天然免冲突。
+- **Rust 工作区(crate)**:
+
+  | crate | 职责 |
+  |---|---|
+  | `core-model` | 事件日志、CAS、物化、审计、查询 |
+  | `parser` | 文档分类、日期提取、结构化 |
+  | `pipeline` | 导入编排(去重、OCR 调度、入库) |
+  | `ocr` | PP-OCRv5 封装(去阴影 / 纠偏预处理) |
+  | `dicom` | DICOM 解析与渲染(JPEG2000 / JPEG-LS 解码) |
+  | `medme-share` | 端到端加密分享导出 |
+
+- **应用**:`medme-cli`(命令行)· `medme-desktop`(Tauri 桌面)·
+  `medme-mobile`(iOS,开发中)。
+- **多端同步**:把数据保险箱放进你自己的云同步文件夹;追加式日志天然免冲突,多设备
+  各自重建即可,无需服务器。
+
+## 路线图 · Roadmap
+
+- ✅ **v1.0(已完成)**:影像 / DICOM 管线与阅片、端到端加密分享 + 在线预览器、
+  事件溯源存储、示例数据。
+- 🚧 **手机端(进行中)**:iOS 采集应用,与桌面共享 Rust 内核与存储
+  (见 [`docs/013_Mobile_App.md`](docs/013_Mobile_App.md))。
+- 🔭 **计划中**:AI 健康洞察(在本地、可溯源回原件的前提下辅助理解)· 导出按时间范围
+  选择 · 可选口令加密(适配 iCloud 之外的第三方云)· FHIR / OMOP 导出。
+
+## 隐私与安全 · Privacy & security
 
 - **零服务器**:没有后端,我们看不到、也不持有你的任何数据。
-- **端到端分享**:分享文件在你和医生的设备本地加解密,云盘/传输途中都是密文。
-- **可核验**:所有导入/导出/分享由追加式事件日志 + 内容哈希记录,防篡改、可审计。
+- **端到端分享**:分享文件在你和医生的设备本地加解密,云盘 / 传输途中都是密文。
+- **可核验**:所有导入 / 导出 / 分享由追加式事件日志 + 内容哈希记录,防篡改、可审计。
+- 发现安全漏洞?请**私下**上报,见 [SECURITY.md](SECURITY.md)——不要开公开 issue。
 
-## 技术架构
+## 参与贡献 · Contributing
 
-- **桌面**:Tauri v2(Rust + React / TypeScript)
-- **存储**:事件溯源——追加式事件日志(`log/*.jsonl`)+ 内容寻址存储(CAS,sha256)为**唯一真相**,SQLite(FTS5 中文分词)为可随时重建的派生缓存。删库可从日志零损失重建。
-- **Rust 工作区**:`core-model`(存储/检索)· `parser`(分类/日期/结构)· `pipeline`(导入编排)· `ocr`(PP-OCRv5)· `dicom`(解析/渲染)
-- **多端同步**:把数据保险箱放进云同步文件夹;追加式日志天然免冲突,多设备各自重建即可,无需服务器。
+欢迎 issue 与 PR!请先读 [贡献指南 CONTRIBUTING.md](CONTRIBUTING.md) 与
+[行为准则 CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)。人工验收要点见
+[TESTING.md](TESTING.md)。
 
-## 路线图
+## 声明 · Disclaimer
 
-- **v1.1**:手机 App(采集为主,与桌面共享 Rust 内核与存储,详见 [`docs/013_Mobile_App.md`](docs/013_Mobile_App.md)) · 导出按时间范围选择
-- **后续**:可选口令加密(适配 iCloud 之外的第三方云)· 分享短信验证 / 可撤销 · FHIR/OMOP 导出 · 群体数据贡献(自愿、匿名)
+MedMe 为个人医疗数据整理与保存工具,**非医疗器械,不提供任何医疗诊断或建议**,一切
+以原始医疗文件为准并请咨询执业医师。数据的调取须经本人或其法定责任人同意。软件按
+「现状」提供;因采用去中心化存储,若数据遗失我们不一定能协助找回。完整声明见应用内
+「关于 · 声明」。
 
-## 声明
+## 许可证 · License
 
-MedMe 为个人医疗数据整理与保存工具,非医疗器械,不提供任何医疗诊断或建议。数据的调取须经本人或其法定责任人同意。软件按"现状"提供;因采用去中心化存储,若数据遗失我们不一定能协助找回。完整声明见应用内「关于 · 声明」。
+[Apache-2.0](LICENSE) © 2026 MedMe Team.
 
 ---
 

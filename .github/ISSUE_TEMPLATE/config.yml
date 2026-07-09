@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 官网 / 介绍页 (Landing page)
+    url: https://chesterguan.github.io/medme/
+    about: 了解 MedMe 是什么、下载与截图 / What MedMe is, downloads, screenshots
+  - name: 加密分享在线预览 (Hosted share viewer)
+    url: https://chesterguan.github.io/medme-viewer/
+    about: 无需安装,在浏览器里体验加密分享 / Try the E2E share viewer in a browser
+  - name: 安全漏洞私下上报 (Report a security issue privately)
+    url: mailto:chesterfield199512@gmail.com
+    about: 涉及数据/加密的安全问题请勿公开,改为邮件(见 SECURITY.md)/ Do NOT open a public issue for vulnerabilities

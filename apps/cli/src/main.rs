@@ -26,18 +26,30 @@ fn main() -> anyhow::Result<()> {
             for f in files {
                 let o = pipeline::ingest(&vault, &f)?;
                 let line = match o.status {
-                    pipeline::IngestStatus::New =>
-                        format!("import {} (id={}, type={})", o.name, o.source_file_id,
-                                o.doc_type.as_ref().map(|d| d.as_str()).unwrap_or("unknown")),
-                    pipeline::IngestStatus::Backfilled =>
-                        format!("index  {} (backfilled, id={}, type={})", o.name, o.source_file_id,
-                                o.doc_type.as_ref().map(|d| d.as_str()).unwrap_or("unknown")),
-                    pipeline::IngestStatus::Deduped =>
-                        format!("dedup  {} (already stored & indexed, id={})", o.name, o.source_file_id),
-                    pipeline::IngestStatus::StoredNoText =>
-                        format!("import {} (stored, no text layer, id={})", o.name, o.source_file_id),
-                    pipeline::IngestStatus::InstanceAttached =>
-                        format!("attach {} (DICOM slice merged into study, id={})", o.name, o.source_file_id),
+                    pipeline::IngestStatus::New => format!(
+                        "import {} (id={}, type={})",
+                        o.name,
+                        o.source_file_id,
+                        o.doc_type.as_ref().map(|d| d.as_str()).unwrap_or("unknown")
+                    ),
+                    pipeline::IngestStatus::Backfilled => format!(
+                        "index  {} (backfilled, id={}, type={})",
+                        o.name,
+                        o.source_file_id,
+                        o.doc_type.as_ref().map(|d| d.as_str()).unwrap_or("unknown")
+                    ),
+                    pipeline::IngestStatus::Deduped => format!(
+                        "dedup  {} (already stored & indexed, id={})",
+                        o.name, o.source_file_id
+                    ),
+                    pipeline::IngestStatus::StoredNoText => format!(
+                        "import {} (stored, no text layer, id={})",
+                        o.name, o.source_file_id
+                    ),
+                    pipeline::IngestStatus::InstanceAttached => format!(
+                        "attach {} (DICOM slice merged into study, id={})",
+                        o.name, o.source_file_id
+                    ),
                 };
                 println!("{line}");
             }

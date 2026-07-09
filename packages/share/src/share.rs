@@ -65,7 +65,10 @@ fn decide_imaging_tier(study_bytes: usize, already_embedded: usize) -> ImagingTi
 }
 
 /// 构建加密分享 HTML。返回 `(html, 分组后的口令, 记录数)`。
-pub fn build_encrypted_share(v: &Vault, expires_days: u32) -> Result<(String, String, i64), String> {
+pub fn build_encrypted_share(
+    v: &Vault,
+    expires_days: u32,
+) -> Result<(String, String, i64), String> {
     let records = crate::export::gather_records(v)?;
     let profile = pipeline::patient_profile(v).map_err(|e| e.to_string())?;
 
@@ -82,13 +85,15 @@ pub fn build_encrypted_share(v: &Vault, expires_days: u32) -> Result<(String, St
     for rec in &records {
         let doc = &rec.doc;
         let sf = &rec.source_file;
-        let title = doc.title.clone().unwrap_or_else(|| sf.original_name.clone());
+        let title = doc
+            .title
+            .clone()
+            .unwrap_or_else(|| sf.original_name.clone());
 
         // 仅内嵌 image/* 原件为 data-URI;PDF 不内嵌(仅文字)。
         let mut images: Vec<String> = Vec::new();
         if sf.mime_type.starts_with("image/") {
-            let bytes =
-                std::fs::read(v.root_join(&sf.storage_path)).map_err(|e| e.to_string())?;
+            let bytes = std::fs::read(v.root_join(&sf.storage_path)).map_err(|e| e.to_string())?;
             embedded_bytes += bytes.len();
             let b64 = B64.encode(&bytes);
             images.push(format!("data:{};base64,{}", sf.mime_type, b64));
@@ -108,7 +113,8 @@ pub fn build_encrypted_share(v: &Vault, expires_days: u32) -> Result<(String, St
             let mut slices: Vec<Vec<u8>> = Vec::with_capacity(ids.len());
             for id in &ids {
                 if let Some(s) = v.source_file_by_id(*id).map_err(|e| e.to_string())? {
-                    let b = std::fs::read(v.root_join(&s.storage_path)).map_err(|e| e.to_string())?;
+                    let b =
+                        std::fs::read(v.root_join(&s.storage_path)).map_err(|e| e.to_string())?;
                     slices.push(b);
                 }
             }
@@ -181,8 +187,7 @@ pub fn build_encrypted_share(v: &Vault, expires_days: u32) -> Result<(String, St
         "records": records_json,
         "degraded": degraded,
     });
-    let plaintext =
-        serde_json::to_vec(&payload).map_err(|e| format!("serialize payload: {e}"))?;
+    let plaintext = serde_json::to_vec(&payload).map_err(|e| format!("serialize payload: {e}"))?;
 
     // ── AES-256-GCM 加密 ──
     let mut key_bytes = [0u8; 32];
@@ -190,8 +195,7 @@ pub fn build_encrypted_share(v: &Vault, expires_days: u32) -> Result<(String, St
     let mut nonce_bytes = [0u8; 12];
     rand::rngs::OsRng.fill_bytes(&mut nonce_bytes);
 
-    let cipher =
-        Aes256Gcm::new_from_slice(&key_bytes).map_err(|e| format!("init cipher: {e}"))?;
+    let cipher = Aes256Gcm::new_from_slice(&key_bytes).map_err(|e| format!("init cipher: {e}"))?;
     let nonce = Nonce::from_slice(&nonce_bytes);
     let ciphertext = cipher
         .encrypt(nonce, plaintext.as_ref())
@@ -974,7 +978,10 @@ mod tests {
     #[test]
     fn imaging_tier_thresholds() {
         // 小检查 → 内嵌全字节(交互)。
-        assert_eq!(decide_imaging_tier(10 * 1024 * 1024, 0), ImagingTier::Interactive);
+        assert_eq!(
+            decide_imaging_tier(10 * 1024 * 1024, 0),
+            ImagingTier::Interactive
+        );
         // 单检查超上限 → PNG(by_total=false)。
         assert_eq!(
             decide_imaging_tier(SHARE_IMAGING_CAP + 1, 0),
@@ -999,7 +1006,9 @@ mod tests {
             "/../../examples/demo-dataset/dicom/CT_small.dcm"
         ))
         .unwrap();
-        let imp = vault.import("CT_small.dcm", "application/dicom", &dcm).unwrap();
+        let imp = vault
+            .import("CT_small.dcm", "application/dicom", &dcm)
+            .unwrap();
         vault
             .add_document(NewDocument {
                 source_file_id: imp.source_file.id,

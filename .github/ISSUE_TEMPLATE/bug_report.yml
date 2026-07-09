@@ -1,0 +1,77 @@
+name: Bug 报告 / Bug report
+description: 报告一个问题(崩溃、导入失败、渲染错误等) / Report a problem
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈!请**不要在这里粘贴真实的敏感病历**。请用示例数据(张建国)或脱敏文件复现。
+        安全漏洞请勿公开提交,改为私下邮件 chesterfield199512@gmail.com(见 SECURITY.md)。
+
+        Thanks for the report. Please do **not** paste real sensitive medical
+        records here — reproduce with the built-in demo data or redacted files.
+        Security vulnerabilities: email chesterfield199512@gmail.com privately (see SECURITY.md).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 发生了什么 / What happened
+      description: 做了什么操作 → 期望 → 实际(Steps → expected → actual)
+      placeholder: |
+        1. 打开「导入 · 导出」...
+        2. 拖入 xxx.pdf ...
+        期望:...
+        实际:...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: 相关模块 / Area
+      options:
+        - 导入 / OCR (import / OCR)
+        - 生命时间线 / 归类 (timeline / grouping)
+        - 文档渲染 (document rendering)
+        - DICOM 阅片 (DICOM viewer)
+        - 导出 / 加密分享 (export / E2E share)
+        - 收件箱 / 同步 (inbox / sync)
+        - 其他 (other)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本 / Version
+      description: 「关于」页显示的版本,或源码 commit
+      placeholder: "v1.0 / commit abc123"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: 安装方式 / Install
+      options:
+        - .dmg 安装包 (installed .dmg)
+        - 从源码运行 (built from source)
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: 系统 / OS
+      placeholder: "macOS 15 (Apple Silicon) / Windows 11 / ..."
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 截图 / 日志 (可选) / Screenshots or logs (optional)
+      description: 能截图最好。请先移除任何个人信息。
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 确认 / Confirmation
+      options:
+        - label: 我没有在此贴出真实敏感病历 / I did not include real sensitive medical records
+          required: true
+        - label: 我已搜索过没有重复的 issue / I searched for existing issues
+          required: true

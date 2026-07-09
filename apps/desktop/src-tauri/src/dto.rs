@@ -5,7 +5,7 @@ use serde::Serialize;
 pub struct DocumentSummary {
     pub id: i64,
     pub doc_type: String,
-    pub doc_date: Option<String>, // RFC3339
+    pub doc_date: Option<String>,     // RFC3339
     pub doc_date_end: Option<String>, // RFC3339
     pub title: Option<String>,
     pub page_count: i32,

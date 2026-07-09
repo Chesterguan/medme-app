@@ -36,7 +36,9 @@ pub fn extract_provider(text: &str) -> Option<String> {
     let re = RE.get_or_init(|| {
         regex::Regex::new(r"([\x{4e00}-\x{9fa5}]{2,18}?(?:医院|医学中心))").expect("provider regex")
     });
-    re.captures(text).and_then(|c| c.get(1)).map(|m| m.as_str().to_string())
+    re.captures(text)
+        .and_then(|c| c.get(1))
+        .map(|m| m.as_str().to_string())
 }
 
 /// 给定一组文档 id,返回各文档 OCR 文本命中的 provider 名(未去重,用于统计众数)。
@@ -47,7 +49,9 @@ fn providers_for_doc_ids(
     if ids.is_empty() {
         return Ok(Vec::new());
     }
-    let placeholders = std::iter::repeat_n("?", ids.len()).collect::<Vec<_>>().join(",");
+    let placeholders = std::iter::repeat_n("?", ids.len())
+        .collect::<Vec<_>>()
+        .join(",");
     let sql = format!("SELECT text FROM ocr_result WHERE document_id IN ({placeholders})");
     let mut stmt = conn.prepare(&sql)?;
     let params: Vec<&dyn rusqlite::ToSql> = ids.iter().map(|i| i as &dyn rusqlite::ToSql).collect();
@@ -257,7 +261,11 @@ impl Vault {
             }
             let providers = providers_for_doc_ids(&tx, &member_ids)?;
             let (provider, transferred) = provider_summary(&providers);
-            let mut title = format!("住院 · {} → {}", start.format("%Y-%m-%d"), end.format("%Y-%m-%d"));
+            let mut title = format!(
+                "住院 · {} → {}",
+                start.format("%Y-%m-%d"),
+                end.format("%Y-%m-%d")
+            );
             if transferred {
                 title.push_str(" · 转院");
             }
@@ -285,7 +293,10 @@ impl Vault {
                 continue;
             };
             let day = date.format("%Y-%m-%d").to_string();
-            let emerg = title.as_deref().map(|t| t.contains("急诊")).unwrap_or(false);
+            let emerg = title
+                .as_deref()
+                .map(|t| t.contains("急诊"))
+                .unwrap_or(false);
             byday.entry(day).or_default().push((*id, emerg));
         }
         for (day, group) in byday {
@@ -372,9 +383,9 @@ impl Vault {
     }
 
     pub fn ocr_text(&self, document_id: i64) -> Result<String, MedmeError> {
-        let mut stmt = self.conn().prepare(
-            "SELECT text FROM ocr_result WHERE document_id = ?1 ORDER BY page_no ASC",
-        )?;
+        let mut stmt = self
+            .conn()
+            .prepare("SELECT text FROM ocr_result WHERE document_id = ?1 ORDER BY page_no ASC")?;
         let rows = stmt.query_map([document_id], |r| r.get::<_, String>(0))?;
         let mut parts = Vec::new();
         for r in rows {
@@ -519,7 +530,12 @@ mod tests {
     fn reads_document_source_and_ocr_text() {
         let dir = tempfile::tempdir().unwrap();
         let v = Vault::open(dir.path()).unwrap();
-        seed(&v, "血常规", "肌酐 Creatinine 120", Some("2023-05-01T00:00:00Z"));
+        seed(
+            &v,
+            "血常规",
+            "肌酐 Creatinine 120",
+            Some("2023-05-01T00:00:00Z"),
+        );
 
         let doc = v.timeline().unwrap()[0].clone();
         let full = v.document_by_id(doc.document_id).unwrap().unwrap();
@@ -656,16 +672,40 @@ mod tests {
             Some("2023-05-01T00:00:00Z"),
             "出院记录",
         );
-        mk(&v, DocType::LabReport, "2023-04-26T00:00:00Z", None, "住院期间化验");
-        mk(&v, DocType::LabReport, "2024-01-15T00:00:00Z", None, "门诊化验a");
-        mk(&v, DocType::ImagingReport, "2024-01-15T00:00:00Z", None, "门诊影像b");
+        mk(
+            &v,
+            DocType::LabReport,
+            "2023-04-26T00:00:00Z",
+            None,
+            "住院期间化验",
+        );
+        mk(
+            &v,
+            DocType::LabReport,
+            "2024-01-15T00:00:00Z",
+            None,
+            "门诊化验a",
+        );
+        mk(
+            &v,
+            DocType::ImagingReport,
+            "2024-01-15T00:00:00Z",
+            None,
+            "门诊影像b",
+        );
         v.rebuild_encounters().unwrap();
 
         let groups = v.encounters_with_docs().unwrap();
         // 住院组含 2 份(出院记录 + 区间内化验),门诊组含同日 2 份
-        let inpatient = groups.iter().find(|(e, _)| e.kind == EncounterKind::Inpatient).unwrap();
+        let inpatient = groups
+            .iter()
+            .find(|(e, _)| e.kind == EncounterKind::Inpatient)
+            .unwrap();
         assert_eq!(inpatient.1.len(), 2);
-        let outpatient = groups.iter().find(|(e, _)| e.kind == EncounterKind::Outpatient).unwrap();
+        let outpatient = groups
+            .iter()
+            .find(|(e, _)| e.kind == EncounterKind::Outpatient)
+            .unwrap();
         assert_eq!(outpatient.1.len(), 2);
         assert!(v.standalone_documents().unwrap().is_empty());
     }
@@ -679,30 +719,31 @@ mod tests {
                 .unwrap()
                 .with_timezone(&chrono::Utc)
         };
-        let mk = |v: &Vault, dt: DocType, start: &str, end: Option<&str>, title: &str, text: &str| {
-            let imp = v.import(title, "text/plain", title.as_bytes()).unwrap();
-            let doc = v
-                .add_document(crate::types::NewDocument {
-                    source_file_id: imp.source_file.id,
-                    doc_type: dt,
-                    doc_date: Some(d(start)),
-                    doc_date_end: end.map(d),
-                    title: Some(title.into()),
-                    language: None,
-                    page_count: 1,
+        let mk =
+            |v: &Vault, dt: DocType, start: &str, end: Option<&str>, title: &str, text: &str| {
+                let imp = v.import(title, "text/plain", title.as_bytes()).unwrap();
+                let doc = v
+                    .add_document(crate::types::NewDocument {
+                        source_file_id: imp.source_file.id,
+                        doc_type: dt,
+                        doc_date: Some(d(start)),
+                        doc_date_end: end.map(d),
+                        title: Some(title.into()),
+                        language: None,
+                        page_count: 1,
+                    })
+                    .unwrap();
+                v.add_ocr(crate::types::NewOcr {
+                    document_id: doc.id,
+                    page_no: 1,
+                    backend: crate::OcrBackendKind::Native,
+                    model_version: "text-layer".into(),
+                    text: text.into(),
+                    confidence: None,
                 })
                 .unwrap();
-            v.add_ocr(crate::types::NewOcr {
-                document_id: doc.id,
-                page_no: 1,
-                backend: crate::OcrBackendKind::Native,
-                model_version: "text-layer".into(),
-                text: text.into(),
-                confidence: None,
-            })
-            .unwrap();
-            doc.id
-        };
+                doc.id
+            };
         // 住院窗:两份文档来自不同医院 → 转院
         mk(
             &v,

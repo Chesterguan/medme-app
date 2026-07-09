@@ -59,7 +59,9 @@ fn dicom_summary(meta: &dicom::DicomMeta) -> String {
     if let Some(p) = &meta.patient_name {
         lines.push(format!("患者:{p}"));
     }
-    lines.push("(DICOM 影像文件,点击上方原件可进行窗宽窗位 / 缩放 / 序列滚动交互阅片。)".to_string());
+    lines.push(
+        "(DICOM 影像文件,点击上方原件可进行窗宽窗位 / 缩放 / 序列滚动交互阅片。)".to_string(),
+    );
     lines.join("\n")
 }
 
@@ -153,7 +155,11 @@ fn add_dicom_document(
             instance_number: meta.instance_number,
         })?;
     }
-    let status = if deduped { IngestStatus::Backfilled } else { IngestStatus::New };
+    let status = if deduped {
+        IngestStatus::Backfilled
+    } else {
+        IngestStatus::New
+    };
     Ok(IngestOutcome {
         source_file_id: sid,
         name: name.to_string(),
@@ -187,7 +193,11 @@ fn add_text_layer_document(
         text: e.text,
         confidence: None,
     })?;
-    let status = if deduped { IngestStatus::Backfilled } else { IngestStatus::New };
+    let status = if deduped {
+        IngestStatus::Backfilled
+    } else {
+        IngestStatus::New
+    };
     Ok(IngestOutcome {
         source_file_id: sid,
         name: name.to_string(),
@@ -293,7 +303,12 @@ pub fn ingest(vault: &Vault, path: &Path) -> anyhow::Result<IngestOutcome> {
                     } else {
                         IngestStatus::New
                     };
-                    Ok(IngestOutcome { source_file_id: sid, name, status, doc_type: Some(doc_type) })
+                    Ok(IngestOutcome {
+                        source_file_id: sid,
+                        name,
+                        status,
+                        doc_type: Some(doc_type),
+                    })
                 }
                 // OCR 失败/空:退回原有行为 —— 按抽取到的(近空)文本层建 document。
                 _ => add_text_layer_document(vault, sid, &name, e, imp.deduped),
@@ -330,7 +345,12 @@ pub fn ingest(vault: &Vault, path: &Path) -> anyhow::Result<IngestOutcome> {
                     } else {
                         IngestStatus::New
                     };
-                    Ok(IngestOutcome { source_file_id: sid, name, status, doc_type: Some(doc_type) })
+                    Ok(IngestOutcome {
+                        source_file_id: sid,
+                        name,
+                        status,
+                        doc_type: Some(doc_type),
+                    })
                 }
                 _ => {
                     // OCR 失败/空:退回文件名元数据(保持现状),原文件已永存,
@@ -347,7 +367,12 @@ pub fn ingest(vault: &Vault, path: &Path) -> anyhow::Result<IngestOutcome> {
                         page_count: 1,
                     })?;
                     // 不建 ocr_result(暂无文本)
-                    Ok(IngestOutcome { source_file_id: sid, name, status: IngestStatus::StoredNoText, doc_type: Some(doc_type) })
+                    Ok(IngestOutcome {
+                        source_file_id: sid,
+                        name,
+                        status: IngestStatus::StoredNoText,
+                        doc_type: Some(doc_type),
+                    })
                 }
             }
         }
@@ -373,10 +398,18 @@ pub fn patient_profile(vault: &Vault) -> anyhow::Result<PatientProfile> {
     let mut ages: HashMap<String, i32> = HashMap::new();
     for t in &texts {
         let d = parser::extract_demographics(t);
-        if let Some(n) = d.name { *names.entry(n).or_insert(0) += 1; }
-        if let Some(g) = d.gender { *genders.entry(g).or_insert(0) += 1; }
-        if let Some(b) = d.birth_date { *births.entry(b).or_insert(0) += 1; }
-        if let Some(a) = d.age { *ages.entry(a).or_insert(0) += 1; }
+        if let Some(n) = d.name {
+            *names.entry(n).or_insert(0) += 1;
+        }
+        if let Some(g) = d.gender {
+            *genders.entry(g).or_insert(0) += 1;
+        }
+        if let Some(b) = d.birth_date {
+            *births.entry(b).or_insert(0) += 1;
+        }
+        if let Some(a) = d.age {
+            *ages.entry(a).or_insert(0) += 1;
+        }
     }
     let mode = |m: HashMap<String, i32>| m.into_iter().max_by_key(|(_, c)| *c).map(|(k, _)| k);
     Ok(PatientProfile {
@@ -406,7 +439,11 @@ mod tests {
         let vdir = tempfile::tempdir().unwrap();
         let fdir = tempfile::tempdir().unwrap();
         let v = Vault::open(vdir.path()).unwrap();
-        let f = tmp_txt(fdir.path(), "report.txt", "出院记录 2023-05-01 肌酐 Creatinine 120");
+        let f = tmp_txt(
+            fdir.path(),
+            "report.txt",
+            "出院记录 2023-05-01 肌酐 Creatinine 120",
+        );
 
         let o1 = ingest(&v, &f).unwrap();
         assert_eq!(o1.status, IngestStatus::New);
@@ -436,7 +473,10 @@ mod tests {
         let tl = v.timeline().unwrap();
         assert_eq!(tl.len(), 1);
         assert_eq!(tl[0].doc_type, core_model::DocType::ImagingReport);
-        assert_eq!(tl[0].doc_date.unwrap().format("%Y-%m-%d").to_string(), "2025-09-01");
+        assert_eq!(
+            tl[0].doc_date.unwrap().format("%Y-%m-%d").to_string(),
+            "2025-09-01"
+        );
         // 无 OCR 文本
         assert_eq!(v.ocr_text(tl[0].document_id).unwrap(), "");
     }
@@ -458,11 +498,17 @@ mod tests {
         let tl = v.timeline().unwrap();
         assert_eq!(tl.len(), 1);
         assert_eq!(tl[0].doc_type, core_model::DocType::ImagingReport);
-        assert_eq!(tl[0].doc_date.unwrap().format("%Y-%m-%d").to_string(), "2004-01-19");
+        assert_eq!(
+            tl[0].doc_date.unwrap().format("%Y-%m-%d").to_string(),
+            "2004-01-19"
+        );
 
         let text = v.ocr_text(tl[0].document_id).unwrap();
         assert!(text.contains("CT"), "unexpected summary text: {text}");
-        assert!(text.contains("JFK IMAGING CENTER"), "unexpected summary text: {text}");
+        assert!(
+            text.contains("JFK IMAGING CENTER"),
+            "unexpected summary text: {text}"
+        );
 
         // 去重再导入:不重复建 document,时间线仍只有一条
         let o2 = ingest(&v, p).unwrap();
@@ -519,7 +565,12 @@ mod tests {
         // 再次导入整个文件夹 → 全部去重,不新增文档/切片。
         for f in &files {
             let o = ingest(&v, f).unwrap();
-            assert_eq!(o.status, IngestStatus::Deduped, "re-import should dedup {}", f.display());
+            assert_eq!(
+                o.status,
+                IngestStatus::Deduped,
+                "re-import should dedup {}",
+                f.display()
+            );
         }
         assert_eq!(v.timeline().unwrap().len(), 1);
         assert_eq!(v.imaging_instances(doc_id).unwrap().len(), 12);
@@ -565,9 +616,15 @@ mod tests {
         assert_eq!(o.doc_type, Some(core_model::DocType::LabReport));
         let tl = v.timeline().unwrap();
         assert_eq!(tl.len(), 1);
-        assert_eq!(tl[0].doc_date.unwrap().format("%Y-%m-%d").to_string(), "2026-03-15");
+        assert_eq!(
+            tl[0].doc_date.unwrap().format("%Y-%m-%d").to_string(),
+            "2026-03-15"
+        );
         let text = v.ocr_text(tl[0].document_id).unwrap();
-        assert!(text.contains("肌酐") || text.contains("Creatinine"), "unexpected OCR text: {text}");
+        assert!(
+            text.contains("肌酐") || text.contains("Creatinine"),
+            "unexpected OCR text: {text}"
+        );
     }
 
     #[test]
@@ -576,11 +633,21 @@ mod tests {
         let fdir = tempfile::tempdir().unwrap();
         let v = Vault::open(vdir.path()).unwrap();
         let p = fdir.path().join("discharge.txt");
-        std::fs::write(&p, "出院记录\n入院日期:2023-01-01 出院日期:2023-01-20\n脑梗死").unwrap();
+        std::fs::write(
+            &p,
+            "出院记录\n入院日期:2023-01-01 出院日期:2023-01-20\n脑梗死",
+        )
+        .unwrap();
         ingest(&v, &p).unwrap();
         let tl = v.timeline().unwrap();
-        assert_eq!(tl[0].doc_date.unwrap().format("%Y-%m-%d").to_string(), "2023-01-01");
-        assert_eq!(tl[0].doc_date_end.unwrap().format("%Y-%m-%d").to_string(), "2023-01-20");
+        assert_eq!(
+            tl[0].doc_date.unwrap().format("%Y-%m-%d").to_string(),
+            "2023-01-01"
+        );
+        assert_eq!(
+            tl[0].doc_date_end.unwrap().format("%Y-%m-%d").to_string(),
+            "2023-01-20"
+        );
     }
 
     #[test]
@@ -591,7 +658,10 @@ mod tests {
         for (i, body) in [
             "检验报告\n姓名:张建国 性别:男 年龄:59岁\n日期 2024-01-01 肌酐 90",
             "出院记录\n姓名:张建国 性别:男 年龄:60岁\n日期 2025-02-02 脑梗死",
-        ].iter().enumerate() {
+        ]
+        .iter()
+        .enumerate()
+        {
             let p = fdir.path().join(format!("r{i}.txt"));
             std::fs::write(&p, body).unwrap();
             ingest(&v, &p).unwrap();

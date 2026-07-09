@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Rust workspace: format, lint, and test the library crates + the CLI.
+  # NOTE: the Tauri desktop (medme-desktop) and iOS (medme-mobile) apps are
+  # intentionally NOT built here — they need webkit2gtk / Xcode and are built
+  # locally (`pnpm -C apps/desktop tauri build`). CI covers the portable core.
+  rust:
+    name: Rust (core crates + CLI)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # CMake + a C/C++ toolchain are required to build the vendored
+      # JPEG2000 (OpenJPEG) / JPEG-LS (CharLS) codecs used by the dicom crate.
+      - name: Install system build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      # apps/mobile (medme-mobile) is owned/formatted by the mobile track and
+      # excluded here so this check never depends on that crate's state.
+      - name: rustfmt
+        run: >
+          cargo fmt --check
+          -p core-model -p parser -p pipeline -p ocr -p dicom
+          -p medme-share -p medme-cli -p medme-desktop
+
+      - name: clippy
+        run: >
+          cargo clippy
+          -p core-model -p parser -p pipeline -p ocr -p dicom -p medme-share
+          --all-targets -- -D warnings
+
+      - name: test
+        run: >
+          cargo test
+          -p core-model -p parser -p pipeline -p ocr -p dicom
+          -p medme-share -p medme-cli
+
+  # Desktop frontend: type-check and production build (Vite).
+  # Vite 7 requires Node ^20.19 || >=22.12, so we pin Node 20 (not 18).
+  frontend:
+    name: Desktop frontend (typecheck + build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: apps/desktop/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm -C apps/desktop install --frozen-lockfile
+
+      - name: Type-check
+        run: pnpm -C apps/desktop exec tsc --noEmit
+
+      - name: Build
+        run: pnpm -C apps/desktop build

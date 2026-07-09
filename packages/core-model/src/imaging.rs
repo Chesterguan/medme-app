@@ -130,7 +130,9 @@ mod tests {
         let v = Vault::open(dir.path()).unwrap();
 
         // First slice's source_file anchors the study document.
-        let imp0 = v.import("slice_02.dcm", "application/dicom", b"dcm-anchor").unwrap();
+        let imp0 = v
+            .import("slice_02.dcm", "application/dicom", b"dcm-anchor")
+            .unwrap();
         let doc = v
             .add_document(NewDocument {
                 source_file_id: imp0.source_file.id,
@@ -197,8 +199,13 @@ mod tests {
             })
             .unwrap();
         let study = "1.2.3.STUDY";
-        for (i, body) in [b"a".as_slice(), b"b".as_slice(), b"c".as_slice()].iter().enumerate() {
-            let imp = v.import(&format!("s{i}.dcm"), "application/dicom", body).unwrap();
+        for (i, body) in [b"a".as_slice(), b"b".as_slice(), b"c".as_slice()]
+            .iter()
+            .enumerate()
+        {
+            let imp = v
+                .import(&format!("s{i}.dcm"), "application/dicom", body)
+                .unwrap();
             v.add_imaging_instance(NewImagingInstance {
                 document_id: doc.id,
                 source_file_id: imp.source_file.id,

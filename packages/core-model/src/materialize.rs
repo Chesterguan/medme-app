@@ -258,7 +258,14 @@ fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<(), Med
                 "INSERT INTO source_file
                  (content_hash, original_name, mime_type, byte_size, storage_path, imported_at)
                  VALUES (?1,?2,?3,?4,?5,?6)",
-                rusqlite::params![content_hash, original_name, mime_type, byte_size, relpath, imported_at],
+                rusqlite::params![
+                    content_hash,
+                    original_name,
+                    mime_type,
+                    byte_size,
+                    relpath,
+                    imported_at
+                ],
             )?;
         }
         Event::DocumentAdded {
@@ -306,7 +313,15 @@ fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<(), Med
                 "INSERT INTO ocr_result
                  (document_id, page_no, backend, model_version, text, confidence, created_at)
                  VALUES (?1,?2,?3,?4,?5,?6,?7)",
-                rusqlite::params![document_id, page_no, backend, model_version, text, confidence, created_at],
+                rusqlite::params![
+                    document_id,
+                    page_no,
+                    backend,
+                    model_version,
+                    text,
+                    confidence,
+                    created_at
+                ],
             )?;
             let title: Option<String> = tx.query_row(
                 "SELECT title FROM document WHERE id = ?1",
@@ -347,7 +362,13 @@ fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<(), Med
                 "INSERT INTO imaging_instance
                  (document_id, source_file_id, series_uid, series_number, instance_number)
                  VALUES (?1,?2,?3,?4,?5)",
-                rusqlite::params![document_id, source_file_id, series_uid, series_number, instance_number],
+                rusqlite::params![
+                    document_id,
+                    source_file_id,
+                    series_uid,
+                    series_number,
+                    instance_number
+                ],
             )?;
             // Stamp study_uid on the document (first instance wins; idempotent).
             tx.execute(
@@ -585,7 +606,11 @@ mod tests {
         let v = Vault::open(a.path()).unwrap();
         v.rebuild_from_log().unwrap();
 
-        assert_eq!(v.debug_count("source_file"), 2, "both devices' files present");
+        assert_eq!(
+            v.debug_count("source_file"),
+            2,
+            "both devices' files present"
+        );
         assert_eq!(v.debug_count("document"), 2, "both devices' docs present");
         assert_eq!(v.search("AlphaUniqueNeedle", 10).unwrap().len(), 1);
         assert_eq!(v.search("BetaUniqueNeedle", 10).unwrap().len(), 1);
@@ -631,7 +656,11 @@ mod tests {
         let v = Vault::open(dir.path()).unwrap();
         for i in 0..5 {
             let imp = v
-                .import(&format!("doc{i}.txt"), "text/plain", format!("body {i}").as_bytes())
+                .import(
+                    &format!("doc{i}.txt"),
+                    "text/plain",
+                    format!("body {i}").as_bytes(),
+                )
                 .unwrap();
             let doc = v
                 .add_document(NewDocument {

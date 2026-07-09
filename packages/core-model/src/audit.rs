@@ -132,7 +132,8 @@ mod tests {
         .unwrap();
 
         v.record_export("timeline_html", "deadbeef", 3).unwrap();
-        v.record_share("cafef00d", 3, "2099-01-01T00:00:00Z").unwrap();
+        v.record_share("cafef00d", 3, "2099-01-01T00:00:00Z")
+            .unwrap();
 
         let log = v.audit_log().unwrap();
         // 只应看到 导入/导出/分享 三条,DocumentAdded 被跳过

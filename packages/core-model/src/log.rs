@@ -151,8 +151,10 @@ mod tests {
     fn append_writes_to_per_device_segment() {
         let dir = tempfile::tempdir().unwrap();
         let log = EventLog::open(dir.path()).unwrap();
-        log.append(&mk_on("devA", 1, "2024-01-01T00:00:00Z")).unwrap();
-        log.append(&mk_on("devB", 1, "2024-01-01T00:00:01Z")).unwrap();
+        log.append(&mk_on("devA", 1, "2024-01-01T00:00:00Z"))
+            .unwrap();
+        log.append(&mk_on("devB", 1, "2024-01-01T00:00:01Z"))
+            .unwrap();
 
         assert!(dir.path().join("log/devA-000001.jsonl").is_file());
         assert!(dir.path().join("log/devB-000001.jsonl").is_file());
@@ -186,7 +188,10 @@ mod tests {
         let log = EventLog::open(dir.path()).unwrap();
         let events = log.read_all().unwrap();
         assert_eq!(events.len(), 2);
-        assert_eq!(events[0].ts, "2024-01-01T00:00:00Z", "earlier ts sorts first");
+        assert_eq!(
+            events[0].ts, "2024-01-01T00:00:00Z",
+            "earlier ts sorts first"
+        );
         assert_eq!(events[1].ts, "2024-06-01T00:00:00Z");
     }
 

@@ -58,15 +58,23 @@ fn iso_re() -> &'static Regex {
 }
 fn cn_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
-    R.get_or_init(|| Regex::new(r"(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日").expect("cn date re"))
+    R.get_or_init(|| {
+        Regex::new(r"(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日").expect("cn date re")
+    })
 }
 
 /// 某字符串里第一个合法日期(ISO 优先,再中文);拒绝嵌在更长数字串里的"日期"(如住院号里的)。
 fn first_date_in(s: &str) -> Option<DateTime<Utc>> {
     for caps in iso_re().captures_iter(s) {
         let m = caps.get(0).expect("group 0");
-        let before = s[..m.start()].chars().next_back().is_some_and(|c| c.is_ascii_digit());
-        let after = s[m.end()..].chars().next().is_some_and(|c| c.is_ascii_digit());
+        let before = s[..m.start()]
+            .chars()
+            .next_back()
+            .is_some_and(|c| c.is_ascii_digit());
+        let after = s[m.end()..]
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_digit());
         if before || after {
             continue;
         }
@@ -82,8 +90,14 @@ fn all_dates_in(text: &str) -> Vec<DateTime<Utc>> {
     let mut v: Vec<DateTime<Utc>> = Vec::new();
     for caps in iso_re().captures_iter(text) {
         let m = caps.get(0).expect("group 0");
-        let before = text[..m.start()].chars().next_back().is_some_and(|c| c.is_ascii_digit());
-        let after = text[m.end()..].chars().next().is_some_and(|c| c.is_ascii_digit());
+        let before = text[..m.start()]
+            .chars()
+            .next_back()
+            .is_some_and(|c| c.is_ascii_digit());
+        let after = text[m.end()..]
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_digit());
         if before || after {
             continue;
         }
@@ -127,8 +141,20 @@ pub fn guess_date_range(text: &str) -> (Option<DateTime<Utc>>, Option<DateTime<U
     let report = labeled_date(
         text,
         &[
-            "检查日期", "检测日期", "检验日期", "报告日期", "报告时间", "就诊日期", "就诊时间",
-            "收到日期", "采集时间", "采集日期", "签发日期", "手术日期", "检查时间", "诊断日期",
+            "检查日期",
+            "检测日期",
+            "检验日期",
+            "报告日期",
+            "报告时间",
+            "就诊日期",
+            "就诊时间",
+            "收到日期",
+            "采集时间",
+            "采集日期",
+            "签发日期",
+            "手术日期",
+            "检查时间",
+            "诊断日期",
         ],
     );
     if let Some(d) = report {
@@ -167,9 +193,9 @@ fn build_date(caps: &regex::Captures) -> Option<DateTime<Utc>> {
 
 pub struct Demographics {
     pub name: Option<String>,
-    pub gender: Option<String>,      // "男" / "女"
-    pub birth_date: Option<String>,  // RFC3339 date if 出生日期/生日 present
-    pub age: Option<String>,         // 年龄数字(字符串)
+    pub gender: Option<String>,     // "男" / "女"
+    pub birth_date: Option<String>, // RFC3339 date if 出生日期/生日 present
+    pub age: Option<String>,        // 年龄数字(字符串)
 }
 
 pub fn extract_demographics(text: &str) -> Demographics {
@@ -177,12 +203,23 @@ pub fn extract_demographics(text: &str) -> Demographics {
     static GENDER: OnceLock<Regex> = OnceLock::new();
     static AGE: OnceLock<Regex> = OnceLock::new();
     static BIRTH: OnceLock<Regex> = OnceLock::new();
-    let name = NAME.get_or_init(|| Regex::new(r"(?:姓名|名字)[:：]\s*([^\s，,;；、\d]{1,10})").expect("name regex"));
+    let name = NAME.get_or_init(|| {
+        Regex::new(r"(?:姓名|名字)[:：]\s*([^\s，,;；、\d]{1,10})").expect("name regex")
+    });
     let gender = GENDER.get_or_init(|| Regex::new(r"性别[:：]\s*([男女])").expect("gender regex"));
     let age = AGE.get_or_init(|| Regex::new(r"年龄[:：]\s*(\d{1,3})").expect("age regex"));
-    let birth = BIRTH.get_or_init(|| Regex::new(r"(?:出生日期|出生|生日)[:：]\s*(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})").expect("birth regex"));
-    let cap1 = |re: &Regex| re.captures(text).and_then(|c| c.get(1)).map(|m| m.as_str().to_string());
-    let birth_date = birth.captures(text).map(|c| format!("{}-{:0>2}-{:0>2}", &c[1], &c[2], &c[3]));
+    let birth = BIRTH.get_or_init(|| {
+        Regex::new(r"(?:出生日期|出生|生日)[:：]\s*(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})")
+            .expect("birth regex")
+    });
+    let cap1 = |re: &Regex| {
+        re.captures(text)
+            .and_then(|c| c.get(1))
+            .map(|m| m.as_str().to_string())
+    };
+    let birth_date = birth
+        .captures(text)
+        .map(|c| format!("{}-{:0>2}-{:0>2}", &c[1], &c[2], &c[3]));
     Demographics {
         name: cap1(name),
         gender: cap1(gender),
@@ -195,32 +232,61 @@ pub fn classify(text: &str) -> DocType {
     let lower = text.to_lowercase(); // 拉丁字母小写化;中文不变,仍能匹配
     let has = |kw: &str| lower.contains(kw);
     // 短英文缩写用整词匹配,避免 "doctor"(含 ct)/"available"(含 lab)误命中
-    let words: std::collections::HashSet<&str> =
-        lower.split(|c: char| !c.is_alphanumeric()).filter(|s| !s.is_empty()).collect();
+    let words: std::collections::HashSet<&str> = lower
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|s| !s.is_empty())
+        .collect();
     let word = |w: &str| words.contains(w);
 
     if has("出院记录") || has("discharge") {
         DocType::DischargeSummary
     } else if has("处方") || has("prescription") {
         DocType::Prescription
-    } else if has("手术记录") || has("手术经过") || has("术中") || has("surgical") || has("operative") {
+    } else if has("手术记录")
+        || has("手术经过")
+        || has("术中")
+        || has("surgical")
+        || has("operative")
+    {
         DocType::Surgery
     } else if has("检验") || has("化验") || has("laborator") || word("lab") {
         DocType::LabReport
-    } else if has("门诊病历") || has("门诊记录") || has("急诊病历") || has("急诊记录")
-        || has("入院记录") || has("病程记录") || has("门诊电子病历")
+    } else if has("门诊病历")
+        || has("门诊记录")
+        || has("急诊病历")
+        || has("急诊记录")
+        || has("入院记录")
+        || has("病程记录")
+        || has("门诊电子病历")
     {
         // 病历/门急诊记录:文档自己声明的类型优先于正文里顺带提到的 CT/MRI
         DocType::ClinicalNote
-    } else if has("影像") || has("超声") || has("ultrasound") || has("imaging")
-        || has("radiolog") || has("computed tomograph") || has("magnetic resonance")
-        || word("ct") || word("mri") || word("xray") || has("x-ray")
-        || has("x线") || has("心电") || has("dr ") || has("拍片") {
+    } else if has("影像")
+        || has("超声")
+        || has("ultrasound")
+        || has("imaging")
+        || has("radiolog")
+        || has("computed tomograph")
+        || has("magnetic resonance")
+        || word("ct")
+        || word("mri")
+        || word("xray")
+        || has("x-ray")
+        || has("x线")
+        || has("心电")
+        || has("dr ")
+        || has("拍片")
+    {
         DocType::ImagingReport
     } else if has("病理") || has("pathology") {
         DocType::Pathology
-    } else if has("血压记录") || has("血糖记录") || has("体温记录") || has("家庭监测")
-        || has("血压监测") || has("血糖监测") || has("自测")
+    } else if has("血压记录")
+        || has("血糖记录")
+        || has("体温记录")
+        || has("家庭监测")
+        || has("血压监测")
+        || has("血糖监测")
+        || has("自测")
     {
         DocType::Other
     } else {
@@ -267,31 +333,62 @@ mod tests {
     #[test]
     fn guess_date_handles_labeled_and_age_confusion() {
         // 日期粘在标签后(冒号无空格)
-        assert_eq!(guess_date("出院日期:2023-05-01    科室:神经内科")
-            .unwrap().format("%Y-%m-%d").to_string(), "2023-05-01");
+        assert_eq!(
+            guess_date("出院日期:2023-05-01    科室:神经内科")
+                .unwrap()
+                .format("%Y-%m-%d")
+                .to_string(),
+            "2023-05-01"
+        );
         // 文本含"年龄"(含"年")时,中文日期仍需正确解析
         let t = "姓名:张三 年龄:60岁 检查日期:2025年02月18日 影像所见";
-        assert_eq!(guess_date(t).unwrap().format("%Y-%m-%d").to_string(), "2025-02-18");
+        assert_eq!(
+            guess_date(t).unwrap().format("%Y-%m-%d").to_string(),
+            "2025-02-18"
+        );
         // 斜杠格式,带时间后缀
-        assert_eq!(guess_date("采集 2024/01/15 07:52")
-            .unwrap().format("%Y-%m-%d").to_string(), "2024-01-15");
+        assert_eq!(
+            guess_date("采集 2024/01/15 07:52")
+                .unwrap()
+                .format("%Y-%m-%d")
+                .to_string(),
+            "2024-01-15"
+        );
         // 空占位符 → 无有效日期
         assert!(guess_date("检测日期:____年__月__日").is_none());
     }
 
     #[test]
     fn classify_case_insensitive_and_english() {
-        assert_eq!(classify("Discharge Summary\nDiagnosis: pneumonia"), DocType::DischargeSummary);
-        assert_eq!(classify("Laboratory Report\nHemoglobin 140"), DocType::LabReport);
-        assert_eq!(classify("Ultrasound Report\nfatty liver"), DocType::ImagingReport);
-        assert_eq!(classify("chest CT scan report\nnodule"), DocType::ImagingReport);
+        assert_eq!(
+            classify("Discharge Summary\nDiagnosis: pneumonia"),
+            DocType::DischargeSummary
+        );
+        assert_eq!(
+            classify("Laboratory Report\nHemoglobin 140"),
+            DocType::LabReport
+        );
+        assert_eq!(
+            classify("Ultrasound Report\nfatty liver"),
+            DocType::ImagingReport
+        );
+        assert_eq!(
+            classify("chest CT scan report\nnodule"),
+            DocType::ImagingReport
+        );
         // 整词边界:不因 "doctor"(含 ct)/"available"(含 lab) 误判为影像/化验
-        assert_eq!(classify("The doctor saw the patient; results available."), DocType::Unknown);
+        assert_eq!(
+            classify("The doctor saw the patient; results available."),
+            DocType::Unknown
+        );
     }
 
     #[test]
     fn classify_surgery() {
-        assert_eq!(classify("手术记录\n手术经过:行腹腔镜胆囊切除术"), DocType::Surgery);
+        assert_eq!(
+            classify("手术记录\n手术经过:行腹腔镜胆囊切除术"),
+            DocType::Surgery
+        );
     }
 
     #[test]
@@ -317,7 +414,8 @@ mod tests {
 
     #[test]
     fn extract_demographics_basic() {
-        let d = extract_demographics("北京协和医院\n姓名:张建国  性别:男  年龄:60岁 病案号:62198842");
+        let d =
+            extract_demographics("北京协和医院\n姓名:张建国  性别:男  年龄:60岁 病案号:62198842");
         assert_eq!(d.name.as_deref(), Some("张建国"));
         assert_eq!(d.gender.as_deref(), Some("男"));
         assert_eq!(d.age.as_deref(), Some("60"));
@@ -328,7 +426,13 @@ mod tests {
 
     #[test]
     fn guess_date_supports_dots() {
-        assert_eq!(guess_date("报告日期 2023.05.01 完成").unwrap().format("%Y-%m-%d").to_string(), "2023-05-01");
+        assert_eq!(
+            guess_date("报告日期 2023.05.01 完成")
+                .unwrap()
+                .format("%Y-%m-%d")
+                .to_string(),
+            "2023-05-01"
+        );
     }
 
     #[test]
@@ -350,13 +454,21 @@ mod tests {
         // 复查报告:正文引用既往卒中日期 2023-04-24,但文档日期应取"检查日期"
         let t = "头颅MRI复查\n患者于 2023-04-24 因急性脑梗死入院治疗。\n检查日期:2023-11-02\n所见:软化灶形成。";
         assert_eq!(
-            guess_date_range(t).0.unwrap().format("%Y-%m-%d").to_string(),
+            guess_date_range(t)
+                .0
+                .unwrap()
+                .format("%Y-%m-%d")
+                .to_string(),
             "2023-11-02"
         );
         // 检测日期优先
         let t2 = "既往 2020-01-01 患糖尿病。\n检测日期:2024-05-18\n肌酐 108";
         assert_eq!(
-            guess_date_range(t2).0.unwrap().format("%Y-%m-%d").to_string(),
+            guess_date_range(t2)
+                .0
+                .unwrap()
+                .format("%Y-%m-%d")
+                .to_string(),
             "2024-05-18"
         );
     }

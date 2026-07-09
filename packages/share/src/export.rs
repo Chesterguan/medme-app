@@ -151,7 +151,10 @@ pub fn build_timeline_html(vault: &Vault) -> Result<(String, i64), String> {
         let sf = &rec.source_file;
         let text = &rec.text;
 
-        let title = doc.title.clone().unwrap_or_else(|| sf.original_name.clone());
+        let title = doc
+            .title
+            .clone()
+            .unwrap_or_else(|| sf.original_name.clone());
         let date_str = match (fmt_date(doc.doc_date), fmt_date(doc.doc_date_end)) {
             (Some(a), Some(b)) if a != b => format!("{a} → {b}"),
             (Some(a), _) => a,
@@ -297,7 +300,9 @@ mod tests {
             "/../../examples/demo-dataset/dicom/CT_small.dcm"
         ))
         .unwrap();
-        let imp = vault.import("CT_small.dcm", "application/dicom", &dcm).unwrap();
+        let imp = vault
+            .import("CT_small.dcm", "application/dicom", &dcm)
+            .unwrap();
         vault
             .add_document(NewDocument {
                 source_file_id: imp.source_file.id,

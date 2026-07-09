@@ -134,13 +134,20 @@ mod tests {
 
     #[test]
     fn event_id_is_deterministic_and_content_addressed() {
-        assert_eq!(event_id(&imported(3)).unwrap(), event_id(&imported(3)).unwrap());
-        assert_ne!(event_id(&imported(3)).unwrap(), event_id(&imported(4)).unwrap());
+        assert_eq!(
+            event_id(&imported(3)).unwrap(),
+            event_id(&imported(3)).unwrap()
+        );
+        assert_ne!(
+            event_id(&imported(3)).unwrap(),
+            event_id(&imported(4)).unwrap()
+        );
     }
 
     #[test]
     fn log_entry_round_trips_through_json() {
-        let entry = LogEntry::new(1, "2024-01-01T00:00:00Z".into(), "dev1".into(), imported(3)).unwrap();
+        let entry =
+            LogEntry::new(1, "2024-01-01T00:00:00Z".into(), "dev1".into(), imported(3)).unwrap();
         let line = serde_json::to_string(&entry).unwrap();
         let back: LogEntry = serde_json::from_str(&line).unwrap();
         assert_eq!(back.event_id, entry.event_id);

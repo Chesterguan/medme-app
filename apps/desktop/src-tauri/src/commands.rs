@@ -26,7 +26,9 @@ pub struct AppState {
 }
 
 fn lock<'a>(s: &'a State<'a, AppState>) -> Result<std::sync::MutexGuard<'a, Vault>, String> {
-    s.vault.lock().map_err(|_| "vault lock poisoned".to_string())
+    s.vault
+        .lock()
+        .map_err(|_| "vault lock poisoned".to_string())
 }
 
 #[tauri::command]
@@ -48,7 +50,12 @@ pub fn list_timeline_grouped(state: State<AppState>) -> Result<Vec<TimelineGroup
     }
     for d in v.standalone_documents().map_err(|e| e.to_string())? {
         let sort = d.doc_date.map(|x| x.to_rfc3339());
-        groups.push((sort, TimelineGroup::Document { doc: doc_summary(&v, &d) }));
+        groups.push((
+            sort,
+            TimelineGroup::Document {
+                doc: doc_summary(&v, &d),
+            },
+        ));
     }
     // 按日期倒序,无日期最后
     groups.sort_by(|a, b| match (&a.0, &b.0) {
@@ -191,8 +198,7 @@ fn collect_files_recursive(dir: &std::path::Path, out: &mut Vec<std::path::PathB
 /// 去重,重复点击是安全的。返回成功导入的文件数。
 #[tauri::command]
 pub fn load_demo_data(app: tauri::AppHandle, state: State<AppState>) -> Result<usize, String> {
-    let dir = demo_data_dir(&app)
-        .ok_or_else(|| "示例数据未随应用打包,无法加载".to_string())?;
+    let dir = demo_data_dir(&app).ok_or_else(|| "示例数据未随应用打包,无法加载".to_string())?;
     let mut files = Vec::new();
     collect_files_recursive(&dir, &mut files);
     files.sort();
@@ -231,7 +237,9 @@ pub fn get_imaging_instances(
     document_id: i64,
 ) -> Result<Vec<ImagingInstanceDto>, String> {
     let v = lock(&state)?;
-    let insts = v.imaging_instances(document_id).map_err(|e| e.to_string())?;
+    let insts = v
+        .imaging_instances(document_id)
+        .map_err(|e| e.to_string())?;
     Ok(insts.iter().map(ImagingInstanceDto::from).collect())
 }
 
@@ -331,21 +339,31 @@ pub fn get_patient_profile(state: State<AppState>) -> Result<PatientProfile, Str
     let v = lock(&state)?;
     let p = pipeline::patient_profile(&v).map_err(|e| e.to_string())?;
     Ok(PatientProfile {
-        name: p.name, gender: p.gender, birth_date: p.birth_date, age: p.age, record_count: p.record_count,
+        name: p.name,
+        gender: p.gender,
+        birth_date: p.birth_date,
+        age: p.age,
+        record_count: p.record_count,
     })
 }
 
 /// 收件箱(Watch Folder)当前路径。
 #[tauri::command]
 pub fn get_inbox_path(app: tauri::AppHandle) -> String {
-    crate::inbox::read_inbox_path(&app).to_string_lossy().to_string()
+    crate::inbox::read_inbox_path(&app)
+        .to_string_lossy()
+        .to_string()
 }
 
 /// 修改收件箱路径:持久化到 config.json、创建目录、立即重扫一次。
 /// 注意:不会重新定位正在运行的 notify watcher(仍监听旧目录),需重启应用才会
 /// 切到新目录监听;新路径下一次启动扫描/手动导入始终立即生效。
 #[tauri::command]
-pub fn set_inbox_path(app: tauri::AppHandle, state: State<AppState>, path: String) -> Result<(), String> {
+pub fn set_inbox_path(
+    app: tauri::AppHandle,
+    state: State<AppState>,
+    path: String,
+) -> Result<(), String> {
     let new_path = std::path::PathBuf::from(&path);
     std::fs::create_dir_all(&new_path).map_err(|e| e.to_string())?;
     crate::inbox::write_inbox_path(&app, &new_path).map_err(|e| e.to_string())?;
@@ -366,13 +384,17 @@ pub fn open_inbox(app: tauri::AppHandle) -> Result<(), String> {
 /// 用系统默认程序打开任意文件/目录 —— 用于导出完成后一键在浏览器打开导出的 HTML。
 #[tauri::command]
 pub fn open_path(app: tauri::AppHandle, path: String) -> Result<(), String> {
-    app.opener().open_path(path, None::<String>).map_err(|e| e.to_string())
+    app.opener()
+        .open_path(path, None::<String>)
+        .map_err(|e| e.to_string())
 }
 
 /// 在系统默认浏览器打开一个外部 URL(用于「关于」页的项目主页/源码链接)。
 #[tauri::command]
 pub fn open_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
-    app.opener().open_url(url, None::<String>).map_err(|e| e.to_string())
+    app.opener()
+        .open_url(url, None::<String>)
+        .map_err(|e| e.to_string())
 }
 
 /// 数据保险箱(vault)根目录路径 —— 设置页展示,供用户把它放进 iCloud/坚果云
@@ -420,7 +442,11 @@ mod demo_data_tests {
 
         let mut files = Vec::new();
         collect_files_recursive(&dev_dir, &mut files);
-        assert_eq!(files.len(), 25, "unexpected demo-data file count: {files:?}");
+        assert_eq!(
+            files.len(),
+            25,
+            "unexpected demo-data file count: {files:?}"
+        );
 
         // 3 张真实 DICOM(头颅MRI/胸部X线/腹部超声)一定都在
         for name in [
@@ -429,7 +455,9 @@ mod demo_data_tests {
             "2024-03-22_腹部超声动态_华山.dcm",
         ] {
             assert!(
-                files.iter().any(|p| p.file_name().and_then(|n| n.to_str()) == Some(name)),
+                files
+                    .iter()
+                    .any(|p| p.file_name().and_then(|n| n.to_str()) == Some(name)),
                 "missing imaging file: {name}"
             );
         }

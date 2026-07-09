@@ -9,9 +9,9 @@
 use anyhow::{Context, Result};
 use image::{DynamicImage, GenericImageView, GrayImage, Luma};
 use imageproc::filter::gaussian_blur_f32;
-use imageproc::geometric_transformations::{Border, Interpolation, rotate_about_center};
+use imageproc::geometric_transformations::{rotate_about_center, Border, Interpolation};
 use lopdf::{Document, Object};
-use oar_ocr::oarocr::{OAROCR, OAROCRBuilder};
+use oar_ocr::oarocr::{OAROCRBuilder, OAROCR};
 use oar_ocr::utils::dynamic_to_rgb;
 use std::sync::OnceLock;
 
@@ -89,16 +89,12 @@ fn flatten_illumination(gray: &GrayImage) -> GrayImage {
     let background = gaussian_blur_f32(gray, sigma);
 
     let mut out = GrayImage::new(w, h);
-    for ((src, bg), dst) in gray
-        .pixels()
-        .zip(background.pixels())
-        .zip(out.pixels_mut())
-    {
+    for ((src, bg), dst) in gray.pixels().zip(background.pixels()).zip(out.pixels_mut()) {
         let fg = src.0[0] as f32;
         let bg_v = (bg.0[0] as f32).max(1.0); // guard against div-by-zero
-        // Rescale so a pixel matching the local background lands around
-        // 200 (near-white, but with headroom so it isn't blown out before
-        // the contrast-stretch step restores full range).
+                                              // Rescale so a pixel matching the local background lands around
+                                              // 200 (near-white, but with headroom so it isn't blown out before
+                                              // the contrast-stretch step restores full range).
         let normalized = (fg / bg_v) * 200.0;
         dst.0[0] = normalized.clamp(0.0, 255.0) as u8;
     }
@@ -194,11 +190,7 @@ fn row_sum_variance(img: &GrayImage) -> f32 {
         return 0.0;
     }
     let sums: Vec<f64> = (0..h)
-        .map(|y| {
-            (0..w)
-                .map(|x| img.get_pixel(x, y).0[0] as f64)
-                .sum::<f64>()
-        })
+        .map(|y| (0..w).map(|x| img.get_pixel(x, y).0[0] as f64).sum::<f64>())
         .collect();
     let mean = sums.iter().sum::<f64>() / sums.len() as f64;
     let variance = sums.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / sums.len() as f64;
@@ -312,7 +304,12 @@ fn extract_dct_images(doc: &Document, page_id: lopdf::ObjectId) -> Vec<Vec<u8>> 
         let Ok(Object::Stream(stream)) = doc.get_object(*oid) else {
             continue;
         };
-        let is_image = stream.dict.get(b"Subtype").and_then(Object::as_name_str).ok() == Some("Image");
+        let is_image = stream
+            .dict
+            .get(b"Subtype")
+            .and_then(Object::as_name_str)
+            .ok()
+            == Some("Image");
         if !is_image {
             continue;
         }
@@ -336,7 +333,10 @@ mod tests {
 
     #[test]
     fn mean_confidence_averages_values() {
-        assert_eq!(mean_confidence(&[0.8, 0.6, 1.0]), (0.8 + 0.6 + 1.0f32) / 3.0);
+        assert_eq!(
+            mean_confidence(&[0.8, 0.6, 1.0]),
+            (0.8 + 0.6 + 1.0f32) / 3.0
+        );
     }
 
     /// Builds a synthetic "document" image: a white background with evenly
@@ -431,9 +431,7 @@ mod tests {
     #[test]
     fn stretch_contrast_expands_narrow_range_to_full() {
         // A low-contrast image using only the middle of the range.
-        let img = GrayImage::from_fn(50, 50, |x, _y| {
-            Luma([if x < 25 { 100u8 } else { 140u8 }])
-        });
+        let img = GrayImage::from_fn(50, 50, |x, _y| Luma([if x < 25 { 100u8 } else { 140u8 }]));
         let out = stretch_contrast(&img);
         let (mut lo, mut hi) = (255u8, 0u8);
         for p in out.pixels() {
