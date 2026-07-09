@@ -14,7 +14,7 @@ dicom = { path = "../dicom" }
 serde_json = { workspace = true }
 chrono.workspace = true
 base64 = "0.22"
-aes-gcm = "0.10"
+aes-gcm = "0.11"
 rand = "0.8"
 
 [dev-dependencies]
