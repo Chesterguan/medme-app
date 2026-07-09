@@ -8,7 +8,7 @@ sha2 = "0.10"
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2"
 anyhow = "1"
-jieba-rs = "0.7"
+jieba-rs = "0.10"
 pdf-extract = "0.7"
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
