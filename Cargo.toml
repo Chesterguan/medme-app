@@ -3,7 +3,7 @@ resolver = "2"
 members = ["packages/core-model", "packages/parser", "packages/pipeline", "packages/ocr", "packages/dicom", "packages/share", "apps/cli", "apps/desktop/src-tauri", "apps/mobile/src-tauri"]
 
 [workspace.dependencies]
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
 sha2 = "0.10"
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2"
