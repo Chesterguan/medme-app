@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MedMe 加密分享查看器</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%231789c1'/%3E%3Ctext x='50' y='58' font-size='62' font-weight='900' text-anchor='middle' dominant-baseline='central' fill='white' font-family='PingFang SC'%3E医%3C/text%3E%3C/svg%3E">
 <style>
   * { box-sizing: border-box; }
   body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Segoe UI", sans-serif; color: #1e293b; margin: 0; padding: 0; background: #f8fafc; }
@@ -22,6 +23,12 @@
   /* 头部 */
   .doc-header { border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 20px; }
   .doc-header h1 { font-size: 22px; color: #1d4ed8; margin: 0 0 6px; }
+  .brandmark { display: inline-flex; align-items: center; justify-content: center;
+    background: linear-gradient(148deg,#2bc0d2 0%,#1789c1 52%,#1560a8 100%); color: #fff;
+    font-weight: 900; font-family: "PingFang SC","Hiragino Sans GB",sans-serif; border-radius: 26%;
+    line-height: 1; flex-shrink: 0; transform: translateY(-3%); }
+  .brand-row { display: flex; align-items: center; gap: 10px; }
+  .brand-row h1 { margin: 0; }
   .patient { font-size: 14px; color: #334155; }
   .generated { font-size: 12px; color: #94a3b8; margin-top: 4px; }
   .privacy-note { font-size: 12px; color: #475569; background: #eff6ff; border: 1px solid #dbeafe; border-radius: 10px; padding: 10px 12px; margin-bottom: 20px; line-height: 1.6; }
@@ -95,7 +102,10 @@
 <body>
 <div id="gate" class="gate">
   <div class="gate-card">
-    <h1>MedMe 加密分享查看器</h1>
+    <div class="brand-row" style="margin-bottom:6px">
+      <span class="brandmark" style="width:34px;height:34px;font-size:20px">医</span>
+      <h1>MedMe 加密分享查看器</h1>
+    </div>
     <p>数据在你的浏览器本地解密,不经过任何服务器。请拖入本人给你的 MedMe 加密分享文件并输入其另行告知的<b>口令</b>。</p>
     <div id="drop" class="dropzone" role="button" tabindex="0">
       <div class="dz-icon">📄</div>
@@ -600,7 +610,9 @@ function render(payload) {
   const patientLine = parts.length ? parts.join(" · ") : "(未识别到患者基本信息)";
   const gen = (payload.generated || "").slice(0, 10);
 
-  let html = '<header class="doc-header"><h1>MedMe 医我 · 加密病历分享</h1>';
+  let html = '<header class="doc-header"><div class="brand-row" style="margin-bottom:6px">'
+    + '<span class="brandmark" style="width:28px;height:28px;font-size:17px">医</span>'
+    + '<h1>MedMe 医我 · 加密病历分享</h1></div>';
   html += '<div class="patient">' + patientLine + "</div>";
   html += '<div class="generated">生成时间:' + esc(gen) + " · 共 " + (p.record_count || 0) + " 份记录</div></header>";
   html += '<div class="privacy-note">本页由 MedMe 端到端加密分享生成,数据在您的浏览器本地解密,未上传任何服务器。不构成医疗建议,以原件为准。</div>';
