@@ -6,7 +6,12 @@ edition = "2021"
 [dependencies]
 core-model = { path = "../core-model" }
 parser = { path = "../parser" }
-ocr = { path = "../ocr" }
+# Leave the `engine` (oar-ocr/ONNX Runtime) feature off by default here;
+# consumers that need real local OCR (desktop, CLI, iOS) re-enable it via
+# their own direct `ocr` dep (feature unification). The Android mobile build
+# doesn't re-enable it, so it never links ONNX Runtime -- oar-ocr doesn't
+# work there anyway (see `engine` feature doc in packages/ocr/Cargo.toml).
+ocr = { path = "../ocr", default-features = false }
 # No DICOM pixel decoding here — pipeline only calls `dicom::parse_meta`
 # (pure Rust). Leave the C/C++ `codecs` feature off; consumers that render
 # (desktop) re-enable it via their own direct `dicom` dep (feature unification).

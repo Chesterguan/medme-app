@@ -10,5 +10,8 @@ path = "src/main.rs"
 [dependencies]
 core-model = { path = "../../packages/core-model" }
 pipeline = { path = "../../packages/pipeline" }
+# Re-enable oar-ocr (feature unification with pipeline's default-features-off
+# dep) so the CLI keeps real local OCR, unchanged from before the Android gate.
+ocr = { path = "../../packages/ocr" }
 clap.workspace = true
 anyhow.workspace = true

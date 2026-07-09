@@ -25,6 +25,9 @@ serde_json = "1"
 core-model = { path = "../../../packages/core-model" }
 pipeline = { path = "../../../packages/pipeline" }
 dicom = { path = "../../../packages/dicom" }
+# Re-enable oar-ocr (feature unification with pipeline's default-features-off
+# dep) so desktop keeps real local OCR, unchanged from before the Android gate.
+ocr = { path = "../../../packages/ocr" }
 medme-share = { path = "../../../packages/share" }
 notify = "8.2.0"
 tauri-plugin-dialog = "2.7.1"

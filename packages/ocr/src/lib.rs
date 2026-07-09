@@ -11,10 +11,14 @@ use image::{DynamicImage, GenericImageView, GrayImage, Luma};
 use imageproc::filter::gaussian_blur_f32;
 use imageproc::geometric_transformations::{rotate_about_center, Border, Interpolation};
 use lopdf::{Document, Object};
+#[cfg(feature = "engine")]
 use oar_ocr::oarocr::{OAROCRBuilder, OAROCR};
+#[cfg(feature = "engine")]
 use oar_ocr::utils::dynamic_to_rgb;
+#[cfg(feature = "engine")]
 use std::sync::OnceLock;
 
+#[cfg(feature = "engine")]
 static PIPELINE: OnceLock<OAROCR> = OnceLock::new();
 
 /// Result of an OCR recognition call: the recognized text plus a confidence
@@ -26,7 +30,9 @@ pub struct OcrOutcome {
     pub confidence: f32,
 }
 
-/// Mean of `Some` confidences, or `0.0` if there are none.
+/// Mean of `Some` confidences, or `0.0` if there are none. Pure float helper
+/// (no `oar-ocr` types involved), used by both `recognize` (engine-gated)
+/// and `recognize_pdf` (not gated -- it just calls `recognize` per page).
 fn mean_confidence(confidences: &[f32]) -> f32 {
     if confidences.is_empty() {
         0.0
@@ -35,6 +41,7 @@ fn mean_confidence(confidences: &[f32]) -> f32 {
     }
 }
 
+#[cfg(feature = "engine")]
 fn pipeline() -> Result<&'static OAROCR> {
     if let Some(p) = PIPELINE.get() {
         return Ok(p);
@@ -214,6 +221,7 @@ fn deskew(gray: &GrayImage, angle_deg: f32) -> GrayImage {
 /// lines' per-line confidences; `0.0` if no lines were recognized). Lazily
 /// builds the OCR pipeline on first call (models auto-download from
 /// ModelScope on first ever run on this machine).
+#[cfg(feature = "engine")]
 pub fn recognize(image_bytes: &[u8]) -> Result<OcrOutcome> {
     let ocr = pipeline()?;
     let dynamic = image::load_from_memory(image_bytes).context("ocr::recognize: decode image")?;
@@ -240,6 +248,15 @@ pub fn recognize(image_bytes: &[u8]) -> Result<OcrOutcome> {
         text: lines.join("\n"),
         confidence: mean_confidence(&confidences),
     })
+}
+
+/// No-`engine` stub (Android build): oar-ocr/ONNX Runtime isn't linked in on
+/// this platform (it wouldn't work there anyway -- see the `engine` feature
+/// doc in Cargo.toml). Always errors; callers already treat OCR failure as
+/// non-fatal and fall back to storing the file without extracted text.
+#[cfg(not(feature = "engine"))]
+pub fn recognize(_image_bytes: &[u8]) -> Result<OcrOutcome> {
+    anyhow::bail!("ocr::recognize: OCR engine not available on this platform")
 }
 
 /// OCR a PDF that has no text layer: extract each page's embedded image

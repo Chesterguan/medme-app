@@ -29,14 +29,24 @@ parser = { path = "../../../packages/parser" }
 # cmake for the Android NDK, and mobile does no DICOM pixel viewing. iOS keeps
 # them (re-enabled in the target block below) so iOS behavior is unchanged.
 dicom = { path = "../../../packages/dicom", default-features = false }
+# OCR: default-features off here so the Android build does NOT compile/link
+# oar-ocr + ONNX Runtime (~hundreds of MB unstripped) — it doesn't work on
+# Android anyway (auto-downloads models into a home dir the sandbox lacks);
+# Android OCR will eventually use Google ML Kit. iOS keeps it (re-enabled in
+# the target block below): iOS still uses `recognize_pdf` for scanned/
+# image-only PDFs (only images route to Apple Vision).
+ocr = { path = "../../../packages/ocr", default-features = false }
 medme-share = { path = "../../../packages/share" }
 chrono.workspace = true
 anyhow.workspace = true
 
 # iOS keeps the full DICOM pixel codecs (unchanged from before this split):
 # Apple targets cross-compile the C/C++ libs fine. Only Android drops them.
+# Same for OCR: iOS keeps oar-ocr/ONNX Runtime for scanned-PDF OCR; Android
+# drops it (doesn't work there, and it's the bulk of the debug .so's size).
 [target.'cfg(target_os = "ios")'.dependencies]
 dicom = { path = "../../../packages/dicom", features = ["codecs"] }
+ocr = { path = "../../../packages/ocr", features = ["engine"] }
 
 [dev-dependencies]
 tempfile = { workspace = true }

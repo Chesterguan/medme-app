@@ -4,10 +4,28 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-oar-ocr = { version = "0.7.4", features = ["auto-download"] }
+oar-ocr = { version = "0.7.4", features = ["auto-download"], optional = true }
 image = "0.25"
 imageproc = "0.27"
 anyhow.workspace = true
 lopdf.workspace = true
 
 [dev-dependencies]
+
+[features]
+# `engine` pulls in `oar-ocr` (PP-OCRv5 via ONNX Runtime / `ort`), which
+# statically bundles the ONNX Runtime library -- hundreds of MB unstripped,
+# still tens of MB stripped. On by default so desktop/CLI and this crate's own
+# preprocess tests keep full local-OCR support unchanged. The mobile *Android*
+# build disables it (default-features = false, see pipeline's and cli's
+# Cargo.toml): oar-ocr doesn't work there anyway (it auto-downloads models
+# into a home directory the Android sandbox doesn't have), and Android OCR
+# will eventually use Google ML Kit instead. iOS re-enables it (mobile's
+# Cargo.toml, iOS target block) because iOS still uses `recognize_pdf` for
+# scanned/image-only PDFs (only image files route to Apple Vision, see
+# `ingest_image_via_vision`). Without `engine`, `recognize`/`recognize_pdf`
+# still compile and return an error ("OCR not available"); callers already
+# treat OCR failure as non-fatal (pipeline falls back to the near-empty text
+# layer / stores the file with no extracted text).
+default = ["engine"]
+engine = ["dep:oar-ocr"]

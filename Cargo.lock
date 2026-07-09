@@ -3560,6 +3560,7 @@ dependencies = [
  "anyhow",
  "clap",
  "core-model",
+ "ocr",
  "pipeline",
 ]
 
@@ -3572,6 +3573,7 @@ dependencies = [
  "dicom",
  "medme-share",
  "notify",
+ "ocr",
  "pipeline",
  "serde",
  "serde_json",
@@ -3591,6 +3593,7 @@ dependencies = [
  "core-model",
  "dicom",
  "medme-share",
+ "ocr",
  "parser",
  "pipeline",
  "serde",
