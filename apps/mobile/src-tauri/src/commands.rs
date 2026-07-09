@@ -61,10 +61,14 @@ pub fn load_archive(state: State<AppState>) -> Result<Vec<TimelineGroup>, String
     Ok(groups.into_iter().map(|(_, g)| g).collect())
 }
 
-/// 跑一次 pipeline ingest 并映射为前端 `ImportOutcome`。抽取失败(扫描图等)不致命
+/// 跑一次 ingest 并映射为前端 `ImportOutcome`。抽取失败(扫描图等)不致命
 /// —— 原文件已进 CAS,返回 status="failed" 让前端提示「未能识别」而非报错崩溃。
-fn ingest_one(v: &Vault, path: &std::path::Path) -> ImportOutcome {
-    match pipeline::ingest(v, path) {
+///
+/// iOS 与桌面的分岔点在 `ingest_dispatch`:iOS 上的**图片**走 Apple Vision(见
+/// `vision` 模块 / `ingest_image_via_vision`),其余一切(以及桌面/host 构建)沿用
+/// 未改动的 `pipeline::ingest`。
+fn ingest_one(app: &tauri::AppHandle, v: &Vault, path: &std::path::Path) -> ImportOutcome {
+    match ingest_dispatch(app, v, path) {
         Ok(o) => {
             let status = match o.status {
                 pipeline::IngestStatus::New => "new",
@@ -97,12 +101,132 @@ fn ingest_one(v: &Vault, path: &std::path::Path) -> ImportOutcome {
     }
 }
 
-/// 采集(mobile P1):对一张拍摄/选取的文件跑 pipeline ingest,然后重建就诊分组。
+/// ingest 分岔:iOS 图片 → Apple Vision;其余 → 共享 `pipeline::ingest`(桌面行为不变)。
+fn ingest_dispatch(
+    app: &tauri::AppHandle,
+    v: &Vault,
+    path: &std::path::Path,
+) -> anyhow::Result<pipeline::IngestOutcome> {
+    let _ = app; // 非 iOS 上未用
+    #[cfg(target_os = "ios")]
+    {
+        if is_image(path) {
+            return ingest_image_via_vision(v, path);
+        }
+    }
+    pipeline::ingest(v, path)
+}
+
+/// 图片 MIME 判定(仅 iOS 用于路由到 Vision)。
+#[cfg(target_os = "ios")]
+fn is_image(path: &std::path::Path) -> bool {
+    matches!(
+        pipeline::mime_for(path),
+        "image/jpeg" | "image/png" | "image/tiff"
+    )
+}
+
+/// iOS 图片 OCR:Apple Vision(设备端、离线、无模型下载)替代沙盒里跑不通的 oar-ocr。
+///
+/// 复刻 `pipeline::ingest` 图片分支的语义,但文本取自 Vision:先把原始字节存进 CAS
+/// (「真相」),识别出文字则按文本建 document + ocr_result(后端 `AppleVision`,带平均
+/// 置信度)并据文本分类/取日期;识别为空则退回文件名元数据(StoredNoText),原件仍可见。
+/// 桌面/`pipeline`/`ocr` 一律不受影响。
+#[cfg(target_os = "ios")]
+fn ingest_image_via_vision(
+    v: &Vault,
+    path: &std::path::Path,
+) -> anyhow::Result<pipeline::IngestOutcome> {
+    use core_model::{NewDocument, NewOcr, OcrBackendKind};
+    use pipeline::{IngestOutcome, IngestStatus};
+
+    let bytes = std::fs::read(path)?;
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("unknown")
+        .to_string();
+
+    // 原始字节先入 CAS(与 pipeline 一致,去重同一张图)。
+    let imp = v.import(&name, pipeline::mime_for(path), &bytes)?;
+    let sid = imp.source_file.id;
+    if imp.deduped && v.has_document(sid)? {
+        return Ok(IngestOutcome {
+            source_file_id: sid,
+            name,
+            status: IngestStatus::Deduped,
+            doc_type: None,
+        });
+    }
+
+    // 设备端 Apple Vision OCR(离线)。
+    let vision = crate::vision::recognize(path)?;
+    let text = vision.text.trim().to_string();
+
+    if !text.is_empty() {
+        let doc_type = parser::classify(&text);
+        let (doc_date, doc_date_end) = parser::guess_date_range(&text);
+        let doc = v.add_document(NewDocument {
+            source_file_id: sid,
+            doc_type: doc_type.clone(),
+            doc_date,
+            doc_date_end,
+            title: Some(name.clone()),
+            language: parser::detect_language(&text),
+            page_count: 1,
+        })?;
+        v.add_ocr(NewOcr {
+            document_id: doc.id,
+            page_no: 1,
+            backend: OcrBackendKind::AppleVision,
+            model_version: "apple-vision".into(),
+            text: vision.text,
+            confidence: Some(vision.confidence),
+        })?;
+        let status = if imp.deduped {
+            IngestStatus::Backfilled
+        } else {
+            IngestStatus::New
+        };
+        Ok(IngestOutcome {
+            source_file_id: sid,
+            name,
+            status,
+            doc_type: Some(doc_type),
+        })
+    } else {
+        // Vision 未识别出文字:退回文件名元数据(与 pipeline 的 StoredNoText 同构),
+        // 不建 ocr_result;原件已永存,时间线仍可见、可出示。
+        let (doc_date, doc_date_end) = parser::guess_date_range(&name);
+        let doc_type = parser::classify(&name);
+        v.add_document(NewDocument {
+            source_file_id: sid,
+            doc_type: doc_type.clone(),
+            doc_date,
+            doc_date_end,
+            title: Some(name.clone()),
+            language: None,
+            page_count: 1,
+        })?;
+        Ok(IngestOutcome {
+            source_file_id: sid,
+            name,
+            status: IngestStatus::StoredNoText,
+            doc_type: Some(doc_type),
+        })
+    }
+}
+
+/// 采集(mobile P1):对一张拍摄/选取的文件跑 ingest,然后重建就诊分组。
 /// 单文件版本的 `import_paths`。桌面/带真实沙盒路径的场景仍可用(例如插件返回路径)。
 #[tauri::command]
-pub fn ingest_file(state: State<AppState>, path: String) -> Result<ImportOutcome, String> {
+pub fn ingest_file(
+    app: tauri::AppHandle,
+    state: State<AppState>,
+    path: String,
+) -> Result<ImportOutcome, String> {
     let v = lock(&state)?;
-    let outcome = ingest_one(&v, std::path::Path::new(&path));
+    let outcome = ingest_one(&app, &v, std::path::Path::new(&path));
     v.rebuild_encounters().map_err(|e| e.to_string())?;
     Ok(outcome)
 }
@@ -152,7 +276,7 @@ pub fn ingest_bytes(
 
     let outcome = {
         let v = lock(&state)?;
-        let o = ingest_one(&v, &tmp_path);
+        let o = ingest_one(&app, &v, &tmp_path);
         v.rebuild_encounters().map_err(|e| e.to_string())?;
         o
     };

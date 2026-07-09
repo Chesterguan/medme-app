@@ -49,6 +49,9 @@ pub enum OcrBackendKind {
     Native,
     Onnx,
     Vlm,
+    /// Apple Vision (`VNRecognizeTextRequest`) — on-device, offline OCR used on
+    /// iOS instead of the oar-ocr model download (impossible in the iOS sandbox).
+    AppleVision,
 }
 impl OcrBackendKind {
     pub fn as_str(&self) -> &'static str {
@@ -56,6 +59,7 @@ impl OcrBackendKind {
             OcrBackendKind::Native => "native",
             OcrBackendKind::Onnx => "onnx",
             OcrBackendKind::Vlm => "vlm",
+            OcrBackendKind::AppleVision => "apple_vision",
         }
     }
 }

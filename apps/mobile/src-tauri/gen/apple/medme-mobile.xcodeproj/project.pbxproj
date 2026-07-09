@@ -14,6 +14,8 @@
 		5B40C20D9B92D917CB0865A6 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DA9EB4589746F1FEEB9C3040 /* CoreGraphics.framework */; };
 		71509B851D2F68AB2DC8404E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8194B305A0DB642B8EB8A92C /* Assets.xcassets */; };
 		9993D5D1D08D6AB1278C58A9 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 712ADE78B0989A3FD5BBCF57 /* main.mm */; };
+		A1B2C3D4E5F60718293A4B5D /* Vision.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* Vision.swift */; };
+		A1B2C3D4E5F60718293A4B5F /* Vision.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5E /* Vision.framework */; };
 		A26D6A8AEE2214A16AD52A8E /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 4BCC7665B69E211DBCC35BC4 /* assets */; };
 		D0140BB11B2A71D1F40857B2 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7870BBA9C713048894A85BA1 /* UIKit.framework */; };
 		D7F8090D29058DD97B5E54E3 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E08983439CB1331BF264B6A /* Security.framework */; };
@@ -30,6 +32,8 @@
 		4BCC7665B69E211DBCC35BC4 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
 		5E08983439CB1331BF264B6A /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		712ADE78B0989A3FD5BBCF57 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5C /* Vision.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Vision.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5E /* Vision.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Vision.framework; path = System/Library/Frameworks/Vision.framework; sourceTree = SDKROOT; };
 		7870BBA9C713048894A85BA1 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		8194B305A0DB642B8EB8A92C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		823FB38D7D65A829C181B0E6 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -54,6 +58,7 @@
 				0DFDA6E6ECD4CCE4D05CD271 /* QuartzCore.framework in Frameworks */,
 				D7F8090D29058DD97B5E54E3 /* Security.framework in Frameworks */,
 				D0140BB11B2A71D1F40857B2 /* UIKit.framework in Frameworks */,
+				A1B2C3D4E5F60718293A4B5F /* Vision.framework in Frameworks */,
 				03744D36C9056745480383F3 /* WebKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -120,6 +125,7 @@
 				DE5EEEEE2AA8FF7A0F9A3923 /* QuartzCore.framework */,
 				5E08983439CB1331BF264B6A /* Security.framework */,
 				7870BBA9C713048894A85BA1 /* UIKit.framework */,
+				A1B2C3D4E5F60718293A4B5E /* Vision.framework */,
 				256D311E4D6D1130C15FE6CB /* WebKit.framework */,
 			);
 			name = Frameworks;
@@ -137,6 +143,7 @@
 			isa = PBXGroup;
 			children = (
 				712ADE78B0989A3FD5BBCF57 /* main.mm */,
+				A1B2C3D4E5F60718293A4B5C /* Vision.swift */,
 				D3B3AF4CAC9E75A5B98BC75D /* bindings */,
 			);
 			path = "medme-mobile";
@@ -246,6 +253,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				9993D5D1D08D6AB1278C58A9 /* main.mm in Sources */,
+				A1B2C3D4E5F60718293A4B5D /* Vision.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

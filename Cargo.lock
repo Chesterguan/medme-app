@@ -3586,10 +3586,12 @@ dependencies = [
 name = "medme-mobile"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "chrono",
  "core-model",
  "dicom",
  "medme-share",
+ "parser",
  "pipeline",
  "serde",
  "serde_json",

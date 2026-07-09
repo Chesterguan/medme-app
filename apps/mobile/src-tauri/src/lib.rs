@@ -1,5 +1,9 @@
 mod commands;
 mod dto;
+/// Apple Vision OCR bridge — iOS only (see module docs). Compiled out on the
+/// macOS host build and desktop, which keep the oar-ocr pipeline path.
+#[cfg(target_os = "ios")]
+mod vision;
 
 use commands::AppState;
 use core_model::Vault;

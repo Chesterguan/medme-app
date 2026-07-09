@@ -23,9 +23,11 @@ serde_json = "1"
 # Shared platform-independent crates, reused verbatim from the desktop app.
 core-model = { path = "../../../packages/core-model" }
 pipeline = { path = "../../../packages/pipeline" }
+parser = { path = "../../../packages/parser" }
 dicom = { path = "../../../packages/dicom" }
 medme-share = { path = "../../../packages/share" }
 chrono.workspace = true
+anyhow.workspace = true
 
 [dev-dependencies]
 tempfile = { workspace = true }
