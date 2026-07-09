@@ -35,6 +35,9 @@
     ],
     "resources": [
       "demo-data"
-    ]
+    ],
+    "iOS": {
+      "developmentTeam": "49G34P23QP"
+    }
   }
 }
