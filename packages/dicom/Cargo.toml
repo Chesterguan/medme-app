@@ -12,6 +12,12 @@ image = "0.25"
 anyhow.workspace = true
 chrono.workspace = true
 
+[dev-dependencies]
+# Used only by tests to synthesize a DICOM whose header declares oversized
+# pixel dimensions (exercising the decode-size cap without a huge fixture).
+dicom-core = "0.10"
+dicom-dictionary-std = "0.10"
+
 [features]
 # `codecs` pulls the vendored C/C++ pixel decoders (OpenJPEG for JPEG 2000,
 # CharLS for JPEG-LS) via cmake. On by default so desktop/CLI/iOS and the

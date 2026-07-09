@@ -101,6 +101,54 @@ pub fn parse_meta(dcm_bytes: &[u8]) -> anyhow::Result<DicomMeta> {
     })
 }
 
+/// Upper bound on the number of decoded pixel bytes we will allocate for one
+/// DICOM instance, computed from the header BEFORE any pixel decoding. A tiny
+/// crafted file can declare enormous Rows/Columns/NumberOfFrames in its header;
+/// without this guard those values size the decode buffers directly, forcing a
+/// multi-gigabyte allocation (or, for compressed transfer syntaxes decoded via
+/// C FFI — JPEG 2000 / JPEG-LS — a decompression bomb) before we ever touch the
+/// pixels. 512 MiB is far above any real single medical image yet bounds the
+/// worst case. This cap applies regardless of the `codecs` feature.
+pub const MAX_DECODE_BYTES: u64 = 512 * 1024 * 1024;
+
+/// Reads the pixel-geometry header tags (Rows 0028,0010 × Columns 0028,0011 ×
+/// BitsAllocated 0028,0100 × SamplesPerPixel 0028,0002 × NumberOfFrames
+/// 0028,0008) and rejects the instance when the declared decoded size exceeds
+/// [`MAX_DECODE_BYTES`] — BEFORE any decode/allocation. Missing tags default
+/// conservatively (SamplesPerPixel=1, BitsAllocated=8, NumberOfFrames=1) so a
+/// header that omits them cannot slip past the cap, and the multiplication is
+/// saturating so an overflowing product is treated as "over cap".
+fn check_decode_bounds(obj: &FileDicomObject<InMemDicomObject>) -> anyhow::Result<()> {
+    let tag_u64 = |name: &str, default: u64| -> u64 {
+        obj.element_by_name(name)
+            .ok()
+            .and_then(|e| e.to_int::<u64>().ok())
+            .unwrap_or(default)
+    };
+    let rows = tag_u64("Rows", 0);
+    let cols = tag_u64("Columns", 0);
+    let samples = tag_u64("SamplesPerPixel", 1).max(1);
+    let bits = tag_u64("BitsAllocated", 8).max(1);
+    let bytes_per_sample = bits.div_ceil(8);
+    let frames = tag_u64("NumberOfFrames", 1).max(1);
+
+    let total = rows
+        .checked_mul(cols)
+        .and_then(|v| v.checked_mul(bytes_per_sample))
+        .and_then(|v| v.checked_mul(samples))
+        .and_then(|v| v.checked_mul(frames))
+        .unwrap_or(u64::MAX);
+
+    if total > MAX_DECODE_BYTES {
+        anyhow::bail!(
+            "DICOM declares {total} bytes of pixel data \
+             ({rows}x{cols}, {samples} sample(s), {bytes_per_sample} B/sample, {frames} frame(s)), \
+             exceeding the {MAX_DECODE_BYTES}-byte decode cap"
+        );
+    }
+    Ok(())
+}
+
 /// Decodes the first frame's pixel data and renders it as an 8-bit,
 /// windowed (VOI LUT applied when present) grayscale PNG.
 ///
@@ -109,6 +157,8 @@ pub fn parse_meta(dcm_bytes: &[u8]) -> anyhow::Result<DicomMeta> {
 pub fn render_png(dcm_bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
     let obj = dicom_object::from_reader(Cursor::new(dcm_bytes))
         .context("failed to parse DICOM object")?;
+    // Reject oversized/bomb dimensions from the header before allocating.
+    check_decode_bounds(&obj)?;
     let pixel_data = obj
         .decode_pixel_data()
         .context("failed to decode DICOM pixel data")?;
@@ -187,6 +237,8 @@ pub fn decode_frame(dcm_bytes: &[u8], frame_index: u32) -> anyhow::Result<Decode
 
     let obj = dicom_object::from_reader(Cursor::new(dcm_bytes))
         .context("failed to parse DICOM object")?;
+    // Reject oversized/bomb dimensions from the header before allocating.
+    check_decode_bounds(&obj)?;
     // Decode just this frame (cheap for large multi-frame series; keeps
     // scrolling + neighbor prefetch responsive).
     let decoded = obj
@@ -354,6 +406,73 @@ mod tests {
     #[test]
     fn parse_meta_errors_on_garbage_bytes() {
         assert!(parse_meta(b"not a dicom file").is_err());
+    }
+
+    /// Builds a minimal Explicit-VR-LE DICOM whose header declares `rows`x`cols`
+    /// (16-bit grayscale) but carries only a few bytes of actual PixelData — the
+    /// shape of a "tiny file, huge declared dims" allocation/decompression bomb.
+    fn oversized_dcm(rows: u16, cols: u16) -> Vec<u8> {
+        use dicom_core::{dicom_value, DataElement, PrimitiveValue, VR};
+        use dicom_dictionary_std::tags;
+        use dicom_object::{FileMetaTableBuilder, InMemDicomObject};
+
+        let obj = InMemDicomObject::from_element_iter([
+            DataElement::new(tags::SAMPLES_PER_PIXEL, VR::US, PrimitiveValue::from(1_u16)),
+            DataElement::new(
+                tags::PHOTOMETRIC_INTERPRETATION,
+                VR::CS,
+                PrimitiveValue::from("MONOCHROME2"),
+            ),
+            DataElement::new(tags::ROWS, VR::US, PrimitiveValue::from(rows)),
+            DataElement::new(tags::COLUMNS, VR::US, PrimitiveValue::from(cols)),
+            DataElement::new(tags::BITS_ALLOCATED, VR::US, PrimitiveValue::from(16_u16)),
+            DataElement::new(tags::BITS_STORED, VR::US, PrimitiveValue::from(16_u16)),
+            DataElement::new(tags::HIGH_BIT, VR::US, PrimitiveValue::from(15_u16)),
+            DataElement::new(tags::PIXEL_REPRESENTATION, VR::US, PrimitiveValue::from(0_u16)),
+            // Deliberately tiny actual pixel data — far smaller than the header
+            // claims. A decoder that trusted the header would over-allocate.
+            DataElement::new(tags::PIXEL_DATA, VR::OW, dicom_value!(U16, [0, 0, 0, 0])),
+        ]);
+        let meta = FileMetaTableBuilder::new()
+            .transfer_syntax("1.2.840.10008.1.2.1") // Explicit VR Little Endian
+            .media_storage_sop_class_uid("1.2.840.10008.5.1.4.1.1.7")
+            .media_storage_sop_instance_uid("1.2.3.4.5")
+            .build()
+            .expect("build file meta");
+        let mut out = Vec::new();
+        obj.with_exact_meta(meta)
+            .write_all(&mut out)
+            .expect("write DICOM");
+        out
+    }
+
+    #[test]
+    fn render_png_rejects_oversized_dimensions_before_alloc() {
+        // 60000 x 60000 x 2 bytes = ~6.7 GB declared — far over the 512 MiB cap.
+        let bytes = oversized_dcm(60000, 60000);
+        let err = render_png(&bytes).expect_err("oversized dims must be rejected");
+        assert!(
+            err.to_string().contains("decode cap"),
+            "expected the size-cap guard to fire, got: {err:#}"
+        );
+    }
+
+    #[test]
+    fn decode_frame_rejects_oversized_dimensions_before_alloc() {
+        let bytes = oversized_dcm(60000, 60000);
+        let err = decode_frame(&bytes, 0).expect_err("oversized dims must be rejected");
+        assert!(
+            err.to_string().contains("decode cap"),
+            "expected the size-cap guard to fire, got: {err:#}"
+        );
+    }
+
+    #[test]
+    fn sane_dimensions_pass_the_bounds_check() {
+        // A normally-sized instance sails through the cap and decodes as before.
+        let bytes = sample("CT_small.dcm");
+        assert!(render_png(&bytes).is_ok());
+        assert!(decode_frame(&bytes, 0).is_ok());
     }
 
     #[test]
