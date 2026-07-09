@@ -37,10 +37,12 @@
 }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 18px; }
 .brand .logo {
-  width: 26px; height: 26px; border-radius: 8px; background: var(--blue);
+  width: 26px; height: 26px; border-radius: 7px;
+  background: linear-gradient(148deg, #2bc0d2, #1789c1 52%, #1560a8);
   display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 900; font-size: 16px; line-height: 1;
+  font-family: "PingFang SC", "Hiragino Sans GB", sans-serif;
 }
-.brand .logo svg { width: 16px; height: 16px; color: #fff; }
 .who {
   width: 30px; height: 30px; border-radius: 50%; background: var(--blue-soft);
   border: 1px solid var(--line); display: flex; align-items: center; justify-content: center;
