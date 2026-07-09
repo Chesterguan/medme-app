@@ -48,8 +48,10 @@ jobs:
           # Windows: NSIS .exe installer (WiX/MSI `light.exe` is flaky in CI).
           - os: windows-latest # required
             bundles: nsis
-          # macOS: .dmg (skip .app-only; dmg is the shippable installer).
-          - os: macos-latest # nice-to-have
+          # macOS: .dmg. Pinned to macos-14 + Xcode 15 — macos-latest rolled to
+          # Xcode 16.4 whose clang toolchain lacks `clang_rt.osx`, breaking the
+          # Rust link step non-deterministically.
+          - os: macos-14 # nice-to-have
             bundles: dmg
           # Linux: .deb + AppImage (skip rpm — needs rpmbuild, not on the runner).
           - os: ubuntu-latest # nice-to-have
