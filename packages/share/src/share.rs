@@ -234,6 +234,7 @@ const VIEWER_TEMPLATE: &str = r####"<!doctype html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MedMe 加密病历分享</title>
 <style>
