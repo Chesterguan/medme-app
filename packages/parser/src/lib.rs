@@ -22,7 +22,16 @@ pub fn extract(path: &Path) -> anyhow::Result<Extracted> {
     let (text, page_count) = match ext.as_str() {
         "txt" => (std::fs::read_to_string(path)?, 1),
         "pdf" => {
-            let t = pdf_extract::extract_text(path)?;
+            // pdf-extract 0.7 PANICS (internal unwrap/index/`unimplemented!`) on
+            // malformed/truncated PDFs rather than returning Err, and that panic
+            // would unwind past the caller's non-fatal fallback and crash the
+            // process. Catch it here and convert to a normal Err so the existing
+            // fallback (store the file without extracted text) engages. Valid
+            // PDFs are unaffected.
+            let t = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                pdf_extract::extract_text(path)
+            }))
+            .map_err(|_| anyhow::anyhow!("pdf_extract panicked on malformed PDF"))??;
             let pages = t.matches('\u{0C}').count() as i32 + 1; // 换页符估页数
             (t, pages)
         }
@@ -310,6 +319,93 @@ mod tests {
             e.doc_date.unwrap().format("%Y-%m-%d").to_string(),
             "2023-05-01"
         );
+    }
+
+    /// Builds a structurally-valid single-page PDF (parseable by lopdf) whose
+    /// content stream is `content`. When `include_font` is false the page's
+    /// Resources have no `/Font`, so a text-show operator referencing `/F1`
+    /// drives pdf-extract 0.7 into an internal panic during text extraction.
+    fn build_pdf(content: &[u8], include_font: bool) -> Vec<u8> {
+        let font_res: &[u8] = if include_font { b"/Font << /F1 5 0 R >>" } else { b"" };
+        let mut objs: Vec<Vec<u8>> = vec![
+            b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+        ];
+        let mut page = b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << ".to_vec();
+        page.extend_from_slice(font_res);
+        page.extend_from_slice(b" >> >>");
+        objs.push(page);
+        let mut stream = format!("<< /Length {} >>\nstream\n", content.len()).into_bytes();
+        stream.extend_from_slice(content);
+        stream.extend_from_slice(b"\nendstream");
+        objs.push(stream);
+        if include_font {
+            objs.push(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_vec());
+        }
+
+        let mut out = b"%PDF-1.5\n".to_vec();
+        let mut offsets = Vec::new();
+        for (i, o) in objs.iter().enumerate() {
+            offsets.push(out.len());
+            out.extend_from_slice(format!("{} 0 obj\n", i + 1).as_bytes());
+            out.extend_from_slice(o);
+            out.extend_from_slice(b"\nendobj\n");
+        }
+        let xref_start = out.len();
+        out.extend_from_slice(format!("xref\n0 {}\n", objs.len() + 1).as_bytes());
+        out.extend_from_slice(b"0000000000 65535 f \n");
+        for off in &offsets {
+            out.extend_from_slice(format!("{off:010} 00000 n \n").as_bytes());
+        }
+        out.extend_from_slice(
+            format!(
+                "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{}\n%%EOF",
+                objs.len() + 1,
+                xref_start
+            )
+            .as_bytes(),
+        );
+        out
+    }
+
+    fn write_pdf(bytes: &[u8]) -> tempfile::NamedTempFile {
+        use std::io::Write;
+        let mut f = tempfile::Builder::new()
+            .suffix(".pdf")
+            .tempfile()
+            .expect("temp pdf");
+        f.write_all(bytes).expect("write pdf");
+        f.flush().expect("flush");
+        f
+    }
+
+    #[test]
+    fn malformed_pdf_returns_err_not_panic() {
+        // This structurally-valid PDF shows text with a font missing from the
+        // page's Resources, which makes pdf-extract 0.7 PANIC during text
+        // extraction (not return Err). Without the catch_unwind firewall in
+        // `extract`, that panic unwinds past the caller's non-fatal fallback and
+        // aborts this test process; with it, `extract` returns a normal Err.
+        let panicking = build_pdf(b"BT /F1 12 Tf (Hello) Tj ET", false);
+        let f = write_pdf(&panicking);
+        assert!(
+            extract(f.path()).is_err(),
+            "panic-inducing PDF should return Err, not crash the process"
+        );
+
+        // A truncated PDF (pdf-extract returns Err here) still errors cleanly.
+        let truncated = write_pdf(b"%PDF-1.5\n1 0 obj\n<< /Type /Catalog");
+        assert!(extract(truncated.path()).is_err());
+    }
+
+    #[test]
+    fn valid_pdf_still_extracts_text() {
+        // Regression guard: the firewall must not change behavior for valid PDFs.
+        let good = build_pdf(b"BT /F1 12 Tf (Hello) Tj ET", true);
+        let f = write_pdf(&good);
+        let e = extract(f.path()).expect("valid PDF should parse");
+        assert!(e.text.contains("Hello"), "unexpected text: {:?}", e.text);
+        assert_eq!(e.page_count, 1);
     }
 
     #[test]

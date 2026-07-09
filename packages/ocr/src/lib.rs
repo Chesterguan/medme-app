@@ -56,6 +56,36 @@ fn pipeline() -> Result<&'static OAROCR> {
     Ok(PIPELINE.get_or_init(|| built))
 }
 
+/// Upper bound on the pixel buffer a decoded input image may allocate. A tiny
+/// crafted file can declare enormous dimensions in its header (a "pixel flood"):
+/// left unbounded, `image` allocates the full raw-pixel buffer, and `preprocess`
+/// then allocates several more full-resolution buffers (grayscale + f32 blur
+/// intermediates) on top — OOM from a few hundred bytes of input. We decode with
+/// explicit [`image::Limits`] so such inputs return `Err` instead. 512 MiB is far
+/// above any real phone photo / document scan yet bounds the worst case.
+const MAX_IMAGE_ALLOC_BYTES: u64 = 512 * 1024 * 1024;
+/// Hard ceiling on either image dimension. The alloc cap above already rejects
+/// most floods, but a 1-byte-per-pixel grayscale image can declare very large
+/// dimensions while staying just under it; this bounds each axis explicitly.
+const MAX_IMAGE_DIM: u32 = 20_000;
+
+/// Decode image bytes (png/jpg/tiff/...) into a [`DynamicImage`] under explicit
+/// allocation + dimension limits, so a small file declaring huge dimensions
+/// errors cleanly rather than driving a multi-gigabyte allocation. Behaves
+/// identically to `image::load_from_memory` for normally-sized inputs.
+fn decode_image_bounded(image_bytes: &[u8]) -> Result<DynamicImage> {
+    let mut limits = image::Limits::default();
+    limits.max_alloc = Some(MAX_IMAGE_ALLOC_BYTES);
+    limits.max_image_width = Some(MAX_IMAGE_DIM);
+    limits.max_image_height = Some(MAX_IMAGE_DIM);
+
+    let mut reader = image::ImageReader::new(std::io::Cursor::new(image_bytes))
+        .with_guessed_format()
+        .context("ocr: guess image format")?;
+    reader.limits(limits);
+    reader.decode().context("ocr: decode image within limits")
+}
+
 /// Mild image preprocessing to bring messy phone photos of paper reports
 /// closer to scan quality before OCR: grayscale, de-shadow / illumination
 /// flattening, contrast stretch, and (only if a clear skew is detected) a
@@ -224,7 +254,7 @@ fn deskew(gray: &GrayImage, angle_deg: f32) -> GrayImage {
 #[cfg(feature = "engine")]
 pub fn recognize(image_bytes: &[u8]) -> Result<OcrOutcome> {
     let ocr = pipeline()?;
-    let dynamic = image::load_from_memory(image_bytes).context("ocr::recognize: decode image")?;
+    let dynamic = decode_image_bounded(image_bytes).context("ocr::recognize: decode image")?;
     let dynamic = preprocess(dynamic);
     let image = dynamic_to_rgb(dynamic);
     let results = ocr
@@ -342,6 +372,72 @@ fn extract_dct_images(doc: &Document, page_id: lopdf::ObjectId) -> Vec<Vec<u8>> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Minimal IEEE CRC-32 (used to forge a valid PNG IHDR chunk below).
+    fn crc32(bytes: &[u8]) -> u32 {
+        let mut crc: u32 = 0xFFFF_FFFF;
+        for &b in bytes {
+            crc ^= b as u32;
+            for _ in 0..8 {
+                let mask = (crc & 1).wrapping_neg();
+                crc = (crc >> 1) ^ (0xEDB8_8320 & mask);
+            }
+        }
+        !crc
+    }
+
+    /// Builds a byte-tiny but structurally-valid PNG whose IHDR declares
+    /// `w`x`h` RGB pixels. The image decoder reads these dimensions from the
+    /// header and would allocate `w*h*3` bytes for the raw buffer — this is the
+    /// classic "pixel flood": a few dozen bytes of input demanding gigabytes.
+    fn png_with_declared_dimensions(w: u32, h: u32) -> Vec<u8> {
+        let mut out = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+        let mut ihdr = Vec::new();
+        ihdr.extend_from_slice(b"IHDR");
+        ihdr.extend_from_slice(&w.to_be_bytes());
+        ihdr.extend_from_slice(&h.to_be_bytes());
+        ihdr.extend_from_slice(&[8, 2, 0, 0, 0]); // 8-bit, color type 2 (RGB)
+        out.extend_from_slice(&13u32.to_be_bytes()); // IHDR data length
+        out.extend_from_slice(&ihdr);
+        out.extend_from_slice(&crc32(&ihdr).to_be_bytes());
+        // A single empty IDAT + IEND so the stream is well-formed up to the point
+        // the size check fires (it fires before any IDAT is read).
+        out.extend_from_slice(&0u32.to_be_bytes());
+        out.extend_from_slice(b"IDAT");
+        out.extend_from_slice(&crc32(b"IDAT").to_be_bytes());
+        out.extend_from_slice(&0u32.to_be_bytes());
+        out.extend_from_slice(b"IEND");
+        out.extend_from_slice(&crc32(b"IEND").to_be_bytes());
+        out
+    }
+
+    #[test]
+    fn decode_rejects_pixel_flood_instead_of_ooming() {
+        // ~46000 x 46000 x 3 = ~6.3 GB demanded from ~50 bytes of input. With the
+        // bounded decoder this returns Err; unbounded, it would try to allocate
+        // gigabytes (OOM) before `preprocess` ever ran.
+        let bomb = png_with_declared_dimensions(46_000, 46_000);
+        assert!(bomb.len() < 128, "the bomb file itself is tiny");
+        let err = decode_image_bounded(&bomb).expect_err("pixel flood must be rejected");
+        // "Memory limit exceeded" / "Image size exceeds limit" — proves the IHDR
+        // parsed and the *size* guard fired (not a CRC/format rejection).
+        let msg = format!("{err:#}");
+        assert!(
+            msg.contains("limit"),
+            "expected a decode-limit error, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn decode_accepts_normal_image() {
+        // A small, real image decodes identically to before (behavior preserved).
+        let img = DynamicImage::ImageLuma8(GrayImage::from_pixel(64, 48, Luma([200])));
+        let mut png = std::io::Cursor::new(Vec::new());
+        img.write_to(&mut png, image::ImageFormat::Png)
+            .expect("encode png");
+        let decoded = decode_image_bounded(png.get_ref()).expect("normal image decodes");
+        assert_eq!(decoded.dimensions(), (64, 48));
+    }
 
     #[test]
     fn mean_confidence_of_empty_is_zero() {

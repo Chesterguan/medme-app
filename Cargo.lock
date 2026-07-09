@@ -1315,6 +1315,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
+ "dicom-core",
+ "dicom-dictionary-std",
  "dicom-object",
  "dicom-pixeldata",
  "image",
@@ -4500,6 +4502,7 @@ dependencies = [
  "core-model",
  "pdf-extract",
  "regex",
+ "tempfile",
 ]
 
 [[package]]

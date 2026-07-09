@@ -11,3 +11,4 @@ pdf-extract.workspace = true
 regex.workspace = true
 
 [dev-dependencies]
+tempfile.workspace = true
