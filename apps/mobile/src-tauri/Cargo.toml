@@ -24,10 +24,19 @@ serde_json = "1"
 core-model = { path = "../../../packages/core-model" }
 pipeline = { path = "../../../packages/pipeline" }
 parser = { path = "../../../packages/parser" }
-dicom = { path = "../../../packages/dicom" }
+# DICOM: default-features off here so the Android build does NOT compile the
+# vendored C/C++ pixel codecs (OpenJPEG/CharLS) — they can't cross-compile via
+# cmake for the Android NDK, and mobile does no DICOM pixel viewing. iOS keeps
+# them (re-enabled in the target block below) so iOS behavior is unchanged.
+dicom = { path = "../../../packages/dicom", default-features = false }
 medme-share = { path = "../../../packages/share" }
 chrono.workspace = true
 anyhow.workspace = true
+
+# iOS keeps the full DICOM pixel codecs (unchanged from before this split):
+# Apple targets cross-compile the C/C++ libs fine. Only Android drops them.
+[target.'cfg(target_os = "ios")'.dependencies]
+dicom = { path = "../../../packages/dicom", features = ["codecs"] }
 
 [dev-dependencies]
 tempfile = { workspace = true }

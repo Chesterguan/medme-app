@@ -7,7 +7,10 @@ edition = "2021"
 core-model = { path = "../core-model" }
 parser = { path = "../parser" }
 ocr = { path = "../ocr" }
-dicom = { path = "../dicom" }
+# No DICOM pixel decoding here — pipeline only calls `dicom::parse_meta`
+# (pure Rust). Leave the C/C++ `codecs` feature off; consumers that render
+# (desktop) re-enable it via their own direct `dicom` dep (feature unification).
+dicom = { path = "../dicom", default-features = false }
 anyhow.workspace = true
 chrono.workspace = true
 

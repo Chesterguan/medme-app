@@ -5,9 +5,22 @@ edition = "2021"
 
 [dependencies]
 dicom-object = "0.10"
-dicom-pixeldata = { version = "0.10", features = ["image", "openjpeg-sys", "charls"] }
+dicom-pixeldata = { version = "0.10", features = ["image"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 image = "0.25"
 anyhow.workspace = true
 chrono.workspace = true
+
+[features]
+# `codecs` pulls the vendored C/C++ pixel decoders (OpenJPEG for JPEG 2000,
+# CharLS for JPEG-LS) via cmake. On by default so desktop/CLI/iOS and the
+# crate's own render/decode tests keep full transfer-syntax support unchanged.
+# The mobile *Android* build disables it (default-features = false): Android
+# does no DICOM pixel viewing, and cmake-rs + CMake 4.x can't cross-compile
+# these C++ libs for the Android NDK. `parse_meta` (pure-Rust metadata) and
+# `render_png`/`decode_frame` still compile without it — only J2K/JPEG-LS
+# transfer syntaxes become unsupported at runtime (share previews degrade to
+# a text line, per share's existing fallback).
+default = ["codecs"]
+codecs = ["dicom-pixeldata/openjpeg-sys", "dicom-pixeldata/charls"]
