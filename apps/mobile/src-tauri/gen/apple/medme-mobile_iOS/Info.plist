@@ -30,7 +30,7 @@
 	<string>MedMe 需要访问相册,以便你选择医疗单据图片存入健康档案。</string>
 	<key>NSUbiquitousContainers</key>
 	<dict>
-		<key>iCloud.49G34P23QP.com.medme.mobile</key>
+		<key>iCloud.com.medme.mobile</key>
 		<dict>
 			<key>NSUbiquitousContainerIsDocumentScopePublic</key>
 			<true/>

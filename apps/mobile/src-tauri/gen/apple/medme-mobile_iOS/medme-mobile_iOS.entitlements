@@ -15,11 +15,11 @@
 	</array>
 	<key>com.apple.developer.icloud-container-identifiers</key>
 	<array>
-		<string>iCloud.49G34P23QP.com.medme.mobile</string>
+		<string>iCloud.com.medme.mobile</string>
 	</array>
 	<key>com.apple.developer.ubiquity-container-identifiers</key>
 	<array>
-		<string>iCloud.49G34P23QP.com.medme.mobile</string>
+		<string>iCloud.com.medme.mobile</string>
 	</array>
 </dict>
 </plist>
