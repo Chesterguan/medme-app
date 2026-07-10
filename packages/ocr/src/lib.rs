@@ -354,17 +354,13 @@ fn extract_dct_images(doc: &Document, page_id: lopdf::ObjectId) -> Vec<Vec<u8>> 
         let Ok(Object::Stream(stream)) = doc.get_object(*oid) else {
             continue;
         };
-        let is_image = stream
-            .dict
-            .get(b"Subtype")
-            .and_then(Object::as_name_str)
-            .ok()
-            == Some("Image");
+        let is_image =
+            stream.dict.get(b"Subtype").and_then(Object::as_name).ok() == Some(b"Image".as_slice());
         if !is_image {
             continue;
         }
         let filters = stream.filters().unwrap_or_default();
-        if filters.len() == 1 && filters[0] == "DCTDecode" {
+        if filters.len() == 1 && filters[0] == b"DCTDecode" {
             out.push(stream.content.clone());
         }
         // Other filters not handled -- see doc comment on recognize_pdf.
