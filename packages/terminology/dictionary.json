@@ -1,0 +1,611 @@
+{
+  "version": "2026-07-10",
+  "note": "Clinical terminology normalization dictionary for MedMe (docs/015 §3.5). Codes pulled from the local OMOP vocab (LOINC / RxNorm / ATC + OMOP standard concept_id). Conversions are affine: canonical_value = slope * source_value + intercept. LOINC property/scale is chosen to agree with canonical_unit (molar LOINC for SI molar canonicals). See docs/superpowers/specs/2026-07-10-terminology-normalization-layer-design.md.",
+  "entries": [
+    {
+      "key": "creatinine",
+      "canonical_name": "肌酐",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "14682-9", "omop_concept_id": 3020564 },
+      "canonical_unit": "umol/L",
+      "units": [
+        { "unit": "umol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "mg/dL", "slope": 88.42, "intercept": 0.0 }
+      ],
+      "aliases": ["肌酐", "血肌酐", "血清肌酐", "Cr", "CREA", "CRE", "SCr", "Creatinine"],
+      "ocr_confusions": ["肌研", "肌肝", "肌酥"]
+    },
+    {
+      "key": "egfr",
+      "canonical_name": "估算肾小球滤过率",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "33914-3", "omop_concept_id": 3030354 },
+      "canonical_unit": "mL/min/1.73m2",
+      "units": [
+        { "unit": "mL/min/1.73m2", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["估算肾小球滤过率", "肾小球滤过率", "肾小球滤过率估算值", "eGFR", "GFR"],
+      "ocr_confusions": [],
+      "note": "LOINC 33914-3 is the MDRD-formula eGFR; its OMOP concept (3030354) is non-standard (blank standard_concept) — OMOP has no clean standard eGFR measurement concept, so this is the best available and a deliberate deviation from the standard_concept='S' rule."
+    },
+    {
+      "key": "urea",
+      "canonical_name": "尿素",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "22664-7", "omop_concept_id": 3020779 },
+      "canonical_unit": "mmol/L",
+      "units": [
+        { "unit": "mmol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "mg/dL", "slope": 0.357, "intercept": 0.0 }
+      ],
+      "aliases": ["尿素", "尿素氮", "血尿素", "血尿素氮", "Urea", "BUN"],
+      "ocr_confusions": ["尿紊"],
+      "note": "Canonical is molar urea (mmol/L, LOINC 22664-7). The mg/dL row assumes the source is BUN (urea nitrogen, as N): factor 0.357 = 10/28.014. This is correct for US labs reporting BUN in mg/dL (the near-universal mg/dL convention). Do NOT apply it to a value reporting urea mass in mg/dL (MW 60.06 → ×0.1665)."
+    },
+    {
+      "key": "uric_acid",
+      "canonical_name": "尿酸",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "14933-6", "omop_concept_id": 3026493 },
+      "canonical_unit": "umol/L",
+      "units": [
+        { "unit": "umol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "mg/dL", "slope": 59.48, "intercept": 0.0 }
+      ],
+      "aliases": ["尿酸", "血尿酸", "血清尿酸", "UA", "Uric acid", "Urate"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "glucose",
+      "canonical_name": "血糖",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "14749-6", "omop_concept_id": 3013826 },
+      "canonical_unit": "mmol/L",
+      "units": [
+        { "unit": "mmol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "mg/dL", "slope": 0.0555, "intercept": 0.0 }
+      ],
+      "aliases": ["空腹血糖", "血糖", "葡萄糖", "血浆葡萄糖", "GLU", "FPG", "FBG", "Glucose"],
+      "ocr_confusions": [],
+      "note": "Generic serum/plasma glucose (LOINC 14749-6, Moles/volume). Fasting-specific aliases (空腹血糖/FPG/FBG) also map here in V1 — the fasting-vs-random distinction is not preserved. If that distinction is needed later, split to fasting LOINC 14771-0 (concept 3018251)."
+    },
+    {
+      "key": "hba1c",
+      "canonical_name": "糖化血红蛋白",
+      "category": "lab",
+      "system": "blood",
+      "codes": { "loinc": "4548-4", "omop_concept_id": 3004410 },
+      "canonical_unit": "%",
+      "units": [
+        { "unit": "%", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "mmol/mol", "slope": 0.09148, "intercept": 2.152 }
+      ],
+      "aliases": ["糖化血红蛋白", "糖化血红蛋白A1c", "糖化", "HbA1c", "A1c", "GHb"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "cholesterol",
+      "canonical_name": "总胆固醇",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "14647-2", "omop_concept_id": 3019900 },
+      "canonical_unit": "mmol/L",
+      "units": [
+        { "unit": "mmol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "mg/dL", "slope": 0.02586, "intercept": 0.0 }
+      ],
+      "aliases": ["总胆固醇", "胆固醇", "血清总胆固醇", "TC", "CHOL", "TCHO", "Cholesterol"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "ldl",
+      "canonical_name": "低密度脂蛋白胆固醇",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "22748-8", "omop_concept_id": 3001308 },
+      "canonical_unit": "mmol/L",
+      "units": [
+        { "unit": "mmol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "mg/dL", "slope": 0.02586, "intercept": 0.0 }
+      ],
+      "aliases": ["低密度脂蛋白胆固醇", "低密度脂蛋白", "低密度", "LDL", "LDL-C", "LDLC"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "hdl",
+      "canonical_name": "高密度脂蛋白胆固醇",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "14646-4", "omop_concept_id": 3023602 },
+      "canonical_unit": "mmol/L",
+      "units": [
+        { "unit": "mmol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "mg/dL", "slope": 0.02586, "intercept": 0.0 }
+      ],
+      "aliases": ["高密度脂蛋白胆固醇", "高密度脂蛋白", "高密度", "HDL", "HDL-C", "HDLC"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "triglycerides",
+      "canonical_name": "甘油三酯",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "14927-8", "omop_concept_id": 3025839 },
+      "canonical_unit": "mmol/L",
+      "units": [
+        { "unit": "mmol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "mg/dL", "slope": 0.01129, "intercept": 0.0 }
+      ],
+      "aliases": ["甘油三酯", "三酰甘油", "甘油三脂", "TG", "TRIG", "Triglyceride", "Triglycerides"],
+      "ocr_confusions": ["甘油三醋"]
+    },
+    {
+      "key": "alt",
+      "canonical_name": "谷丙转氨酶",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "1742-6", "omop_concept_id": 3006923 },
+      "canonical_unit": "U/L",
+      "units": [
+        { "unit": "U/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "IU/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["谷丙转氨酶", "丙氨酸氨基转移酶", "丙氨酸转氨酶", "谷丙转胺酶", "ALT", "GPT", "SGPT"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "ast",
+      "canonical_name": "谷草转氨酶",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "1920-8", "omop_concept_id": 3013721 },
+      "canonical_unit": "U/L",
+      "units": [
+        { "unit": "U/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "IU/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["谷草转氨酶", "天门冬氨酸氨基转移酶", "天冬氨酸氨基转移酶", "门冬氨酸氨基转移酶", "AST", "GOT", "SGOT"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "tbil",
+      "canonical_name": "总胆红素",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "14631-6", "omop_concept_id": 3006140 },
+      "canonical_unit": "umol/L",
+      "units": [
+        { "unit": "umol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "mg/dL", "slope": 17.1, "intercept": 0.0 }
+      ],
+      "aliases": ["总胆红素", "血清总胆红素", "TBIL", "T-BIL", "STB", "Bilirubin"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "albumin",
+      "canonical_name": "白蛋白",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "1751-7", "omop_concept_id": 3024561 },
+      "canonical_unit": "g/L",
+      "units": [
+        { "unit": "g/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "g/dL", "slope": 10.0, "intercept": 0.0 }
+      ],
+      "aliases": ["白蛋白", "血清白蛋白", "清蛋白", "ALB", "Albumin"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "wbc",
+      "canonical_name": "白细胞",
+      "category": "lab",
+      "system": "blood",
+      "codes": { "loinc": "6690-2", "omop_concept_id": 3000905 },
+      "canonical_unit": "10*9/L",
+      "units": [
+        { "unit": "10*9/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "10*3/uL", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["白细胞", "白细胞计数", "白血球", "WBC", "Leukocytes"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "hgb",
+      "canonical_name": "血红蛋白",
+      "category": "lab",
+      "system": "blood",
+      "codes": { "loinc": "718-7", "omop_concept_id": 3000963 },
+      "canonical_unit": "g/L",
+      "units": [
+        { "unit": "g/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "g/dL", "slope": 10.0, "intercept": 0.0 }
+      ],
+      "aliases": ["血红蛋白", "血色素", "血红素", "HGB", "Hb", "Hemoglobin", "Haemoglobin"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "plt",
+      "canonical_name": "血小板",
+      "category": "lab",
+      "system": "blood",
+      "codes": { "loinc": "777-3", "omop_concept_id": 3024929 },
+      "canonical_unit": "10*9/L",
+      "units": [
+        { "unit": "10*9/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "10*3/uL", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["血小板", "血小板计数", "PLT", "Platelets", "Platelet"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "neut_pct",
+      "canonical_name": "中性粒细胞百分比",
+      "category": "lab",
+      "system": "blood",
+      "codes": { "loinc": "770-8", "omop_concept_id": 3008342 },
+      "canonical_unit": "%",
+      "units": [
+        { "unit": "%", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["中性粒细胞百分比", "中性粒细胞比率", "中性粒细胞比例", "中性粒百分比", "NEUT%", "N%", "NE%"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "tsh",
+      "canonical_name": "促甲状腺激素",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "3016-3", "omop_concept_id": 3009201 },
+      "canonical_unit": "mIU/L",
+      "units": [
+        { "unit": "mIU/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "uIU/mL", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["促甲状腺激素", "促甲状腺素", "甲状腺刺激素", "TSH", "Thyrotropin"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "bp_systolic",
+      "canonical_name": "收缩压",
+      "category": "vital",
+      "system": "arterial",
+      "codes": { "loinc": "8480-6", "omop_concept_id": 3004249 },
+      "canonical_unit": "mmHg",
+      "units": [
+        { "unit": "mmHg", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["收缩压", "高压", "SBP", "Systolic", "Systolic blood pressure"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "bp_diastolic",
+      "canonical_name": "舒张压",
+      "category": "vital",
+      "system": "arterial",
+      "codes": { "loinc": "8462-4", "omop_concept_id": 3012888 },
+      "canonical_unit": "mmHg",
+      "units": [
+        { "unit": "mmHg", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["舒张压", "低压", "DBP", "Diastolic", "Diastolic blood pressure"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "heart_rate",
+      "canonical_name": "心率",
+      "category": "vital",
+      "system": "cardiovascular",
+      "codes": { "loinc": "8867-4", "omop_concept_id": 3027018 },
+      "canonical_unit": "/min",
+      "units": [
+        { "unit": "/min", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["心率", "心跳", "脉搏", "HR", "Heart rate", "Pulse"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "body_weight",
+      "canonical_name": "体重",
+      "category": "vital",
+      "system": "whole body",
+      "codes": { "loinc": "29463-7", "omop_concept_id": 3025315 },
+      "canonical_unit": "kg",
+      "units": [
+        { "unit": "kg", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "g", "slope": 0.001, "intercept": 0.0 },
+        { "unit": "[lb_av]", "slope": 0.45359237, "intercept": 0.0 }
+      ],
+      "aliases": ["体重", "BW", "Body weight", "Weight"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "bmi",
+      "canonical_name": "体质指数",
+      "category": "vital",
+      "system": "whole body",
+      "codes": { "loinc": "39156-5", "omop_concept_id": 3038553 },
+      "canonical_unit": "kg/m2",
+      "units": [
+        { "unit": "kg/m2", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["体质指数", "体重指数", "身体质量指数", "BMI", "Body mass index"],
+      "ocr_confusions": []
+    },
+
+    {
+      "key": "metformin",
+      "canonical_name": "二甲双胍",
+      "category": "drug",
+      "ingredient": "Metformin",
+      "codes": { "rxnorm": "6809", "atc": "A10BA02", "omop_concept_id": 1503297 },
+      "aliases": ["二甲双胍", "盐酸二甲双胍", "二甲双胍缓释片", "盐酸二甲双胍缓释片", "格华止", "美迪康", "甲福明", "Metformin"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "glimepiride",
+      "canonical_name": "格列美脲",
+      "category": "drug",
+      "ingredient": "Glimepiride",
+      "codes": { "rxnorm": "25789", "atc": "A10BB12", "omop_concept_id": 1597756 },
+      "aliases": ["格列美脲", "亚莫利", "圣平", "迪北", "Glimepiride", "Amaryl"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "gliclazide",
+      "canonical_name": "格列齐特",
+      "category": "drug",
+      "ingredient": "Gliclazide",
+      "codes": { "rxnorm": "4816", "atc": "A10BB09", "omop_concept_id": 19059796 },
+      "aliases": ["格列齐特", "格列齐特缓释片", "达美康", "甲磺吡脲", "Gliclazide"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "acarbose",
+      "canonical_name": "阿卡波糖",
+      "category": "drug",
+      "ingredient": "Acarbose",
+      "codes": { "rxnorm": "16681", "atc": "A10BF01", "omop_concept_id": 1529331 },
+      "aliases": ["阿卡波糖", "拜糖平", "卡博平", "Acarbose"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "empagliflozin",
+      "canonical_name": "恩格列净",
+      "category": "drug",
+      "ingredient": "Empagliflozin",
+      "codes": { "rxnorm": "1545653", "atc": "A10BK03", "omop_concept_id": 45774751 },
+      "aliases": ["恩格列净", "欧唐静", "Empagliflozin", "Jardiance"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "dapagliflozin",
+      "canonical_name": "达格列净",
+      "category": "drug",
+      "ingredient": "Dapagliflozin",
+      "codes": { "rxnorm": "1488564", "atc": "A10BK01", "omop_concept_id": 44785829 },
+      "aliases": ["达格列净", "安达唐", "Dapagliflozin", "Farxiga", "Forxiga"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "sitagliptin",
+      "canonical_name": "西格列汀",
+      "category": "drug",
+      "ingredient": "Sitagliptin",
+      "codes": { "rxnorm": "593411", "atc": "A10BH01", "omop_concept_id": 1580747 },
+      "aliases": ["西格列汀", "磷酸西格列汀", "捷诺维", "Sitagliptin", "Januvia"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "semaglutide",
+      "canonical_name": "司美格鲁肽",
+      "category": "drug",
+      "ingredient": "Semaglutide",
+      "codes": { "rxnorm": "1991302", "atc": "A10BJ06", "omop_concept_id": 793143 },
+      "aliases": ["司美格鲁肽", "诺和泰", "诺和忻", "Semaglutide", "Ozempic", "Wegovy", "Rybelsus"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "insulin_glargine",
+      "canonical_name": "甘精胰岛素",
+      "category": "drug",
+      "ingredient": "Insulin glargine",
+      "codes": { "rxnorm": "274783", "atc": "A10AE04", "omop_concept_id": 1502905 },
+      "aliases": ["甘精胰岛素", "来得时", "长秀霖", "Insulin glargine", "Lantus", "Glargine"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "insulin_aspart",
+      "canonical_name": "门冬胰岛素",
+      "category": "drug",
+      "ingredient": "Insulin aspart",
+      "codes": { "rxnorm": "51428", "atc": "A10AB05", "omop_concept_id": 1567198 },
+      "aliases": ["门冬胰岛素", "诺和锐", "Insulin aspart", "NovoRapid", "NovoLog", "Aspart"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "valsartan",
+      "canonical_name": "缬沙坦",
+      "category": "drug",
+      "ingredient": "Valsartan",
+      "codes": { "rxnorm": "69749", "atc": "C09CA03", "omop_concept_id": 1308842 },
+      "aliases": ["缬沙坦", "代文", "缬克", "Valsartan"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "losartan",
+      "canonical_name": "氯沙坦",
+      "category": "drug",
+      "ingredient": "Losartan",
+      "codes": { "rxnorm": "52175", "atc": "C09CA01", "omop_concept_id": 1367500 },
+      "aliases": ["氯沙坦", "氯沙坦钾", "科素亚", "Losartan"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "irbesartan",
+      "canonical_name": "厄贝沙坦",
+      "category": "drug",
+      "ingredient": "Irbesartan",
+      "codes": { "rxnorm": "83818", "atc": "C09CA04", "omop_concept_id": 1347384 },
+      "aliases": ["厄贝沙坦", "伊贝沙坦", "安博维", "Irbesartan"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "amlodipine",
+      "canonical_name": "氨氯地平",
+      "category": "drug",
+      "ingredient": "Amlodipine",
+      "codes": { "rxnorm": "17767", "atc": "C08CA01", "omop_concept_id": 1332418 },
+      "aliases": ["氨氯地平", "苯磺酸氨氯地平", "氨氯地平片", "络活喜", "压氏达", "安内真", "Amlodipine"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "nifedipine",
+      "canonical_name": "硝苯地平",
+      "category": "drug",
+      "ingredient": "Nifedipine",
+      "codes": { "rxnorm": "7417", "atc": "C08CA05", "omop_concept_id": 1318853 },
+      "aliases": ["硝苯地平", "硝苯地平控释片", "硝苯吡啶", "拜新同", "心痛定", "Nifedipine"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "metoprolol",
+      "canonical_name": "美托洛尔",
+      "category": "drug",
+      "ingredient": "Metoprolol",
+      "codes": { "rxnorm": "6918", "atc": "C07AB02", "omop_concept_id": 1307046 },
+      "aliases": ["美托洛尔", "酒石酸美托洛尔", "琥珀酸美托洛尔", "倍他乐克", "美多心安", "Metoprolol"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "hydrochlorothiazide",
+      "canonical_name": "氢氯噻嗪",
+      "category": "drug",
+      "ingredient": "Hydrochlorothiazide",
+      "codes": { "rxnorm": "5487", "atc": "C03AA03", "omop_concept_id": 974166 },
+      "aliases": ["氢氯噻嗪", "双氢克尿噻", "双氢氯噻嗪", "HCTZ", "Hydrochlorothiazide"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "perindopril",
+      "canonical_name": "培哚普利",
+      "category": "drug",
+      "ingredient": "Perindopril",
+      "codes": { "rxnorm": "54552", "atc": "C09AA04", "omop_concept_id": 1373225 },
+      "aliases": ["培哚普利", "培哚普利叔丁胺", "培哚普利氨丁三醇", "雅施达", "Perindopril"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "atorvastatin",
+      "canonical_name": "阿托伐他汀",
+      "category": "drug",
+      "ingredient": "Atorvastatin",
+      "codes": { "rxnorm": "83367", "atc": "C10AA05", "omop_concept_id": 1545958 },
+      "aliases": ["阿托伐他汀", "阿托伐他汀钙", "立普妥", "阿乐", "尤佳", "Atorvastatin"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "rosuvastatin",
+      "canonical_name": "瑞舒伐他汀",
+      "category": "drug",
+      "ingredient": "Rosuvastatin",
+      "codes": { "rxnorm": "301542", "atc": "C10AA07", "omop_concept_id": 1510813 },
+      "aliases": ["瑞舒伐他汀", "瑞舒伐他汀钙", "可定", "托妥", "Rosuvastatin", "Crestor"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "simvastatin",
+      "canonical_name": "辛伐他汀",
+      "category": "drug",
+      "ingredient": "Simvastatin",
+      "codes": { "rxnorm": "36567", "atc": "C10AA01", "omop_concept_id": 1539403 },
+      "aliases": ["辛伐他汀", "舒降之", "京必舒新", "Simvastatin"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "ezetimibe",
+      "canonical_name": "依折麦布",
+      "category": "drug",
+      "ingredient": "Ezetimibe",
+      "codes": { "rxnorm": "341248", "atc": "C10AX09", "omop_concept_id": 1526475 },
+      "aliases": ["依折麦布", "益适纯", "Ezetimibe", "Zetia"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "aspirin",
+      "canonical_name": "阿司匹林",
+      "category": "drug",
+      "ingredient": "Aspirin",
+      "codes": { "rxnorm": "1191", "atc": "B01AC06", "omop_concept_id": 1112807 },
+      "aliases": ["阿司匹林", "乙酰水杨酸", "阿斯匹林", "拜阿司匹林", "阿司匹林肠溶片", "Aspirin", "ASA"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "clopidogrel",
+      "canonical_name": "氯吡格雷",
+      "category": "drug",
+      "ingredient": "Clopidogrel",
+      "codes": { "rxnorm": "32968", "atc": "B01AC04", "omop_concept_id": 1322184 },
+      "aliases": ["氯吡格雷", "硫酸氢氯吡格雷", "波立维", "泰嘉", "Clopidogrel", "Plavix"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "warfarin",
+      "canonical_name": "华法林",
+      "category": "drug",
+      "ingredient": "Warfarin",
+      "codes": { "rxnorm": "11289", "atc": "B01AA03", "omop_concept_id": 1310149 },
+      "aliases": ["华法林", "华法林钠", "华法令", "苄丙酮香豆素钠", "Warfarin"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "rivaroxaban",
+      "canonical_name": "利伐沙班",
+      "category": "drug",
+      "ingredient": "Rivaroxaban",
+      "codes": { "rxnorm": "1114195", "atc": "B01AF01", "omop_concept_id": 40241331 },
+      "aliases": ["利伐沙班", "拜瑞妥", "Rivaroxaban", "Xarelto"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "allopurinol",
+      "canonical_name": "别嘌醇",
+      "category": "drug",
+      "ingredient": "Allopurinol",
+      "codes": { "rxnorm": "519", "atc": "M04AA01", "omop_concept_id": 1167322 },
+      "aliases": ["别嘌醇", "别嘌呤醇", "别嘌呤", "Allopurinol"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "febuxostat",
+      "canonical_name": "非布司他",
+      "category": "drug",
+      "ingredient": "Febuxostat",
+      "codes": { "rxnorm": "73689", "atc": "M04AA03", "omop_concept_id": 19017742 },
+      "aliases": ["非布司他", "非布索坦", "优立通", "Febuxostat", "Uloric"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "levothyroxine",
+      "canonical_name": "左甲状腺素",
+      "category": "drug",
+      "ingredient": "Levothyroxine",
+      "codes": { "rxnorm": "10582", "atc": "H03AA01", "omop_concept_id": 1501700 },
+      "aliases": ["左甲状腺素", "左甲状腺素钠", "优甲乐", "加衡", "雷替斯", "Levothyroxine", "L-T4"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "pantoprazole",
+      "canonical_name": "泮托拉唑",
+      "category": "drug",
+      "ingredient": "Pantoprazole",
+      "codes": { "rxnorm": "40790", "atc": "A02BC02", "omop_concept_id": 948078 },
+      "aliases": ["泮托拉唑", "泮托拉唑钠", "潘妥拉唑", "泰美尼克", "韦迪", "Pantoprazole"],
+      "ocr_confusions": []
+    }
+  ]
+}
