@@ -5,6 +5,7 @@ import type {
   ShareResult,
   PatientProfile,
   DocumentDetail,
+  IcloudStatus,
 } from "./types";
 
 export const api = {
@@ -26,4 +27,7 @@ export const api = {
   loadDemoData: () => invoke<number>("load_demo_data"),
   getVaultPath: () => invoke<string>("get_vault_path"),
   resetVault: () => invoke<void>("reset_vault"),
+  // iCloud 同步(仅 iOS)。status 供开关渲染;enable 迁移真相到 iCloud 容器。
+  icloudStatus: () => invoke<IcloudStatus>("icloud_status"),
+  enableIcloudSync: () => invoke<boolean>("enable_icloud_sync"),
 };

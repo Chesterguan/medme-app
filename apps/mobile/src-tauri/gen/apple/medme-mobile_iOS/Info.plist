@@ -22,6 +22,18 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSUbiquitousContainers</key>
+	<dict>
+		<key>iCloud.49G34P23QP.com.medme.mobile</key>
+		<dict>
+			<key>NSUbiquitousContainerIsDocumentScopePublic</key>
+			<true/>
+			<key>NSUbiquitousContainerName</key>
+			<string>MedMe 保险箱</string>
+			<key>NSUbiquitousContainerSupportedFolderLevels</key>
+			<string>Any</string>
+		</dict>
+	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>MedMe 需要使用相机来拍摄病历、化验单、报告并存入你的健康档案。</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

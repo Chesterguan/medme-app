@@ -55,3 +55,8 @@ export interface DocumentDetail {
   ocr_confidence: number | null;
   ocr_backend: string | null;
 }
+
+export interface IcloudStatus {
+  available: boolean;
+  enabled: boolean;
+}

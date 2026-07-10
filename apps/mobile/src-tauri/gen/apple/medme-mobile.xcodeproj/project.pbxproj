@@ -15,6 +15,7 @@
 		71509B851D2F68AB2DC8404E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8194B305A0DB642B8EB8A92C /* Assets.xcassets */; };
 		9993D5D1D08D6AB1278C58A9 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 712ADE78B0989A3FD5BBCF57 /* main.mm */; };
 		A1B2C3D4E5F60718293A4B5D /* OcrVision.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* OcrVision.swift */; };
+		A1B2C3D4E5F60718293A4C6D /* ICloud.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4C6C /* ICloud.swift */; };
 		A1B2C3D4E5F60718293A4B5F /* Vision.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5E /* Vision.framework */; };
 		A26D6A8AEE2214A16AD52A8E /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 4BCC7665B69E211DBCC35BC4 /* assets */; };
 		D0140BB11B2A71D1F40857B2 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7870BBA9C713048894A85BA1 /* UIKit.framework */; };
@@ -33,6 +34,7 @@
 		5E08983439CB1331BF264B6A /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		712ADE78B0989A3FD5BBCF57 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4B5C /* OcrVision.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OcrVision.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4C6C /* ICloud.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICloud.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4B5E /* Vision.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Vision.framework; path = System/Library/Frameworks/Vision.framework; sourceTree = SDKROOT; };
 		7870BBA9C713048894A85BA1 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		8194B305A0DB642B8EB8A92C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -144,6 +146,7 @@
 			children = (
 				712ADE78B0989A3FD5BBCF57 /* main.mm */,
 				A1B2C3D4E5F60718293A4B5C /* OcrVision.swift */,
+				A1B2C3D4E5F60718293A4C6C /* ICloud.swift */,
 				D3B3AF4CAC9E75A5B98BC75D /* bindings */,
 			);
 			path = "medme-mobile";
@@ -254,6 +257,7 @@
 			files = (
 				9993D5D1D08D6AB1278C58A9 /* main.mm in Sources */,
 				A1B2C3D4E5F60718293A4B5D /* OcrVision.swift in Sources */,
+				A1B2C3D4E5F60718293A4C6D /* ICloud.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

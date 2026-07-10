@@ -1,13 +1,18 @@
 mod commands;
 mod dto;
+/// iCloud ubiquity-container bridge — iOS only (see module docs). Resolves the
+/// container path + triggers downloads of evicted objects. Compiled out on the
+/// macOS host build and desktop/Android, which keep the plain local vault.
+#[cfg(target_os = "ios")]
+mod icloud;
 /// Apple Vision OCR bridge — iOS only (see module docs). Compiled out on the
 /// macOS host build and desktop, which keep the oar-ocr pipeline path.
 #[cfg(target_os = "ios")]
 mod vision;
 
-use commands::AppState;
+use commands::{AppState, VaultPaths};
 use core_model::Vault;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::Manager;
 
@@ -32,29 +37,93 @@ fn machine_device_id(app_data_dir: &Path) -> String {
     id
 }
 
+/// Where the vault's truth (`objects/` + `log/`) and its derived db live this
+/// launch. If the user turned on iCloud sync (`<data_dir>/icloud_enabled`
+/// marker) AND the ubiquity container resolves, the truth lives at
+/// `<container>/Documents/vault` and the derived db in the sandbox
+/// (`<data_dir>/medme.db`); otherwise both sit under the local sandbox vault
+/// (identical to the pre-iCloud layout). An enabled-but-unavailable container
+/// (not signed in / offline first launch) falls back to local — never fatal.
+fn resolve_vault_paths(sandbox_vault: &Path, data_dir: &Path) -> (PathBuf, PathBuf) {
+    #[cfg(target_os = "ios")]
+    {
+        if data_dir.join("icloud_enabled").exists() {
+            if let Some(container) = icloud::container_path() {
+                return (
+                    container.join("Documents").join("vault"),
+                    data_dir.join("medme.db"),
+                );
+            }
+            eprintln!(
+                "[icloud] sync enabled but ubiquity container unavailable — using local vault"
+            );
+        }
+    }
+    #[cfg(not(target_os = "ios"))]
+    let _ = data_dir;
+    (sandbox_vault.to_path_buf(), sandbox_vault.join("medme.db"))
+}
+
+/// Open the vault at the resolved (truth_root, db_path); if that fails (e.g. an
+/// iCloud container path that resolved but isn't writable), fall back to the
+/// local sandbox vault so the app always starts. Returns the vault plus the
+/// paths it actually opened at (so `AppState` reflects reality).
+fn open_vault_with_fallback(
+    truth_root: PathBuf,
+    db_path: PathBuf,
+    sandbox_vault: &Path,
+    device_id: &str,
+) -> (Vault, PathBuf, PathBuf) {
+    match Vault::open_split(&truth_root, &db_path, device_id) {
+        Ok(v) => (v, truth_root, db_path),
+        Err(e) => {
+            eprintln!(
+                "[vault] open at {truth_root:?} failed ({e}); falling back to local sandbox vault"
+            );
+            let db = sandbox_vault.join("medme.db");
+            let v = Vault::open_split(sandbox_vault, &db, device_id).expect("open local vault");
+            (v, sandbox_vault.to_path_buf(), db)
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            // 保险箱放在 iOS 沙盒的 Documents 目录。
-            // TODO iCloud container:v1.1 迁移到 iCloud container，实现与桌面经
-            // 用户自己的云盘自动同步(见 docs/011_Storage_Sync.md)。现在先用
-            // Documents,保证 M1 能开箱可用。
+            // Sandbox Documents/vault is the DEFAULT truth root (and always the
+            // home of shares/ + the display path). When the user turns on iCloud
+            // sync, the truth (objects/ + log/) moves into the iCloud ubiquity
+            // container and the derived db moves to the sandbox — but shares stay
+            // here. See `enable_icloud_sync` / `docs/011_Storage_Sync.md`.
             let docs = app.path().document_dir().expect("iOS documents dir");
             std::fs::create_dir_all(&docs).ok();
-            let vault_dir = docs.join("vault");
+            let sandbox_vault = docs.join("vault");
             // Machine-local device id lives in app_data_dir (NOT the vault
             // Documents folder), so a shared/synced vault never leaks one
             // device's id to another — each keeps its own log segment.
             let data_dir = app.path().app_data_dir().expect("app data dir");
             std::fs::create_dir_all(&data_dir).ok();
             let device_id = machine_device_id(&data_dir);
-            let vault = Vault::open_with_device_id(&vault_dir, &device_id).expect("open vault");
+
+            // Decide where the truth + derived db live this launch: iCloud
+            // container if the user enabled sync AND it resolves, else the local
+            // sandbox. Never fatal — an unavailable container falls back to local.
+            let (truth_root, db_path) = resolve_vault_paths(&sandbox_vault, &data_dir);
+            let (vault, truth_root, db_path) =
+                open_vault_with_fallback(truth_root, db_path, &sandbox_vault, &device_id);
+
             app.manage(AppState {
                 vault: Mutex::new(vault),
-                vault_dir,
+                vault_dir: sandbox_vault,
+                device_id,
+                data_dir,
+                paths: Mutex::new(VaultPaths {
+                    truth_root,
+                    db_path,
+                }),
             });
 
             // Android on-device OCR: the PP-OCRv5 models are shipped in the APK
@@ -81,6 +150,8 @@ pub fn run() {
             commands::load_demo_data,
             commands::get_vault_path,
             commands::reset_vault,
+            commands::enable_icloud_sync,
+            commands::icloud_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -4,6 +4,14 @@
 use core_model::{Document, Encounter, SourceFile};
 use serde::Serialize;
 
+/// iCloud 同步状态(设置页开关据此渲染)。`available` = 当前能否解析到 iCloud
+/// 容器;`enabled` = 本设备是否已开启同步。非 iOS 恒为 false(开关隐藏)。
+#[derive(Serialize)]
+pub struct IcloudStatus {
+    pub available: bool,
+    pub enabled: bool,
+}
+
 #[derive(Serialize)]
 pub struct DocumentSummary {
     pub id: i64,

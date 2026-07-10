@@ -9,6 +9,7 @@ import type {
   ShareResult,
   PatientProfile,
   DocumentDetail,
+  IcloudStatus,
 } from "./types";
 import {
   DocTypeIcon,
@@ -80,6 +81,11 @@ function groupDesc(g: TimelineGroup): string {
 
 type Tab = "capture" | "archive" | "settings";
 
+// iCloud 同步只在 iOS(苹果设备)上可用 —— 据此在设置里显示/隐藏开关。
+// WKWebView 的 UA 含 iPhone/iPad/iPod;Android WebView 含 Android,故不显示。
+const IS_IOS =
+  typeof navigator !== "undefined" && /iP(hone|ad|od)/i.test(navigator.userAgent);
+
 export default function App() {
   const [tab, setTab] = useState<Tab>("capture");
   const [groups, setGroups] = useState<TimelineGroup[]>([]);
@@ -89,6 +95,8 @@ export default function App() {
   const [share, setShare] = useState<ShareResult | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [version, setVersion] = useState("");
+  // iCloud 同步状态(仅 iOS)。null = 尚未查询 / 不适用。
+  const [icloud, setIcloud] = useState<IcloudStatus | null>(null);
   // 点开的文档 id —— 非空时全屏展示文档详情(见 DetailScreen)。
   const [detailId, setDetailId] = useState<number | null>(null);
   // 就诊组在档案里点开时展开其子文档(每份可再点开详情)。
@@ -120,6 +128,28 @@ export default function App() {
       .then(setVersion)
       .catch(() => {});
   }, []);
+
+  // iCloud 同步状态:仅 iOS 查询(Android/桌面无 iCloud,开关不显示)。
+  useEffect(() => {
+    if (!IS_IOS) return;
+    api.icloudStatus().then(setIcloud).catch(() => {});
+  }, []);
+
+  // 开启 iCloud 同步:把保险箱真相迁入 iCloud 容器(数据库仍留本地并重建)。
+  // 一次性开启;开启后各苹果设备自动同步。失败(未登录 iCloud)诚实提示,不改动本地库。
+  const enableIcloud = useCallback(async () => {
+    if (icloud?.enabled) return; // 已开启,幂等
+    try {
+      setBusy("正在开启 iCloud 同步…");
+      await api.enableIcloudSync();
+      setIcloud({ available: true, enabled: true });
+      await refresh();
+    } catch (e) {
+      alert(`开启 iCloud 同步失败:${e}`);
+    } finally {
+      setBusy(null);
+    }
+  }, [icloud, refresh]);
 
   // 采集:iOS WKWebView 里最可靠的相机路径 = 隐藏的 HTML file input。
   //  - `accept="image/*" capture="environment"` → 直接调起后置相机拍照;
@@ -390,17 +420,33 @@ export default function App() {
             </button>
           </div>
 
-          {/* 同步:诚实说明——手机端数据本地存;跨设备现用加密分享,自动同步 v1.1 */}
+          {/* 同步:iOS 提供 iCloud 一键开启;其余诚实说明本地存 + 加密分享 */}
           <div className="sect">同步与备份</div>
           <div className="group">
+            {IS_IOS && (
+              <button
+                className="row"
+                onClick={enableIcloud}
+                disabled={!!busy || icloud?.enabled === true}
+              >
+                <span className="ri"><ShieldIcon /></span>
+                <span className="rt">
+                  <b>iCloud 同步{icloud?.enabled ? " · 已开启" : ""}</b>
+                  <span>
+                    开启后,你的病历在所有苹果设备间自动同步;数据端到端由 iCloud 保管。
+                  </span>
+                </span>
+                <span className="chev">{icloud?.enabled ? "✓" : "›"}</span>
+              </button>
+            )}
             <div className="info">
               病历存在<b>这台手机</b>上。想给医生、或换一台设备看某份记录,
               用记录详情页里的<b>「加密分享」</b>——发一个加密文件 + 一串口令,不经过任何服务器。
             </div>
             <div className="info">
-              <b>多设备自动同步:</b>在<b>电脑端</b>把保险箱文件夹放进云盘就能自动同步——
-              <b>设备全是苹果 → 用 iCloud 云盘;有安卓 / Windows → 用坚果云</b>。
-              手机端自动同步(iCloud)将在 v1.1 上线。
+              <b>多设备自动同步:</b>iPhone / iPad 上用上面的<b>「iCloud 同步」</b>一键开启;
+              <b>电脑端</b>把保险箱文件夹放进云盘也能同步——
+              <b>全是苹果 → iCloud 云盘;有安卓 / Windows → 坚果云</b>。
             </div>
           </div>
 
