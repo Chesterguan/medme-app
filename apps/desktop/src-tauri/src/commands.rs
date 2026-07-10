@@ -33,7 +33,9 @@ pub struct AppState {
 // bricking the whole app past one bad operation — the Vault's own truth is the
 // append-only log + CAS, not transient in-memory state, so a recovered guard is safe.
 fn lock<'a>(s: &'a State<'a, AppState>) -> Result<std::sync::MutexGuard<'a, Vault>, String> {
-    Ok(s.vault.lock().unwrap_or_else(|poisoned| poisoned.into_inner()))
+    Ok(s.vault
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()))
 }
 
 /// Panic firewall around `pipeline::ingest`. A panic inside the parser/dicom/ocr
@@ -43,10 +45,7 @@ fn lock<'a>(s: &'a State<'a, AppState>) -> Result<std::sync::MutexGuard<'a, Vaul
 /// because `&Vault` (rusqlite connection) isn't `UnwindSafe`; that's fine — on a
 /// caught panic we do not touch any half-mutated state, we just report the failure and
 /// the caller moves on to the next file.
-fn ingest_guarded(
-    v: &Vault,
-    path: &std::path::Path,
-) -> Result<pipeline::IngestOutcome, String> {
+fn ingest_guarded(v: &Vault, path: &std::path::Path) -> Result<pipeline::IngestOutcome, String> {
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pipeline::ingest(v, path))) {
         Ok(Ok(o)) => Ok(o),
         Ok(Err(e)) => Err(e.to_string()),
@@ -66,8 +65,7 @@ fn validate_dest_path(path: &str, allowed_ext: &[&str]) -> Result<std::path::Pat
     if !p.is_absolute() {
         return Err("拒绝:目标路径必须是绝对路径".to_string());
     }
-    if p
-        .components()
+    if p.components()
         .any(|c| matches!(c, std::path::Component::ParentDir))
     {
         return Err("拒绝:目标路径不得包含 `..`".to_string());
@@ -78,9 +76,7 @@ fn validate_dest_path(path: &str, allowed_ext: &[&str]) -> Result<std::path::Pat
         .map(|e| allowed_ext.iter().any(|a| a.eq_ignore_ascii_case(e)))
         .unwrap_or(false);
     if !ext_ok {
-        return Err(format!(
-            "拒绝:目标文件扩展名必须是 {allowed_ext:?} 之一"
-        ));
+        return Err(format!("拒绝:目标文件扩展名必须是 {allowed_ext:?} 之一"));
     }
     Ok(p)
 }

@@ -326,12 +326,18 @@ mod tests {
     /// Resources have no `/Font`, so a text-show operator referencing `/F1`
     /// drives pdf-extract 0.7 into an internal panic during text extraction.
     fn build_pdf(content: &[u8], include_font: bool) -> Vec<u8> {
-        let font_res: &[u8] = if include_font { b"/Font << /F1 5 0 R >>" } else { b"" };
+        let font_res: &[u8] = if include_font {
+            b"/Font << /F1 5 0 R >>"
+        } else {
+            b""
+        };
         let mut objs: Vec<Vec<u8>> = vec![
             b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
             b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
         ];
-        let mut page = b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << ".to_vec();
+        let mut page =
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << "
+                .to_vec();
         page.extend_from_slice(font_res);
         page.extend_from_slice(b" >> >>");
         objs.push(page);

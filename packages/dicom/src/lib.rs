@@ -428,7 +428,11 @@ mod tests {
             DataElement::new(tags::BITS_ALLOCATED, VR::US, PrimitiveValue::from(16_u16)),
             DataElement::new(tags::BITS_STORED, VR::US, PrimitiveValue::from(16_u16)),
             DataElement::new(tags::HIGH_BIT, VR::US, PrimitiveValue::from(15_u16)),
-            DataElement::new(tags::PIXEL_REPRESENTATION, VR::US, PrimitiveValue::from(0_u16)),
+            DataElement::new(
+                tags::PIXEL_REPRESENTATION,
+                VR::US,
+                PrimitiveValue::from(0_u16),
+            ),
             // Deliberately tiny actual pixel data — far smaller than the header
             // claims. A decoder that trusted the header would over-allocate.
             DataElement::new(tags::PIXEL_DATA, VR::OW, dicom_value!(U16, [0, 0, 0, 0])),

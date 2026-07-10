@@ -306,11 +306,7 @@ fn generate_device_id() -> String {
     format!("{:x}", h.finalize())
 }
 
-fn apply_event(
-    tx: &Transaction,
-    vault: &Vault,
-    event: &Event,
-) -> Result<ApplyOutcome, MedmeError> {
+fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<ApplyOutcome, MedmeError> {
     match event {
         Event::FileImported {
             content_hash,
@@ -835,7 +831,11 @@ mod tests {
 
         // Must not error even though the OCR object is absent.
         let v = Vault::open(dir.path()).unwrap();
-        assert_eq!(v.debug_count("source_file"), 1, "FileImported still applied");
+        assert_eq!(
+            v.debug_count("source_file"),
+            1,
+            "FileImported still applied"
+        );
         assert_eq!(v.debug_count("document"), 1, "DocumentAdded still applied");
         assert_eq!(
             v.debug_count("ocr_result"),
@@ -846,7 +846,11 @@ mod tests {
         // The blob arrives; re-materialize → the deferred OCR now applies.
         std::fs::write(&obj, &saved).unwrap();
         v.materialize().unwrap();
-        assert_eq!(v.debug_count("ocr_result"), 1, "deferred OCR applied once blob present");
+        assert_eq!(
+            v.debug_count("ocr_result"),
+            1,
+            "deferred OCR applied once blob present"
+        );
         assert_eq!(v.search("MissingObjNeedle", 10).unwrap().len(), 1);
     }
 
@@ -930,7 +934,11 @@ mod tests {
 
         // First pass: seq 4 (page 2) applies; seq 3 (page 1) defers on its missing blob.
         v.materialize().unwrap();
-        assert_eq!(v.debug_count("ocr_result"), 1, "only the present page applied");
+        assert_eq!(
+            v.debug_count("ocr_result"),
+            1,
+            "only the present page applied"
+        );
 
         // The missing blob arrives → re-materialize. Without the watermark cap the
         // higher seq (4) would have pushed the watermark past 3 and page 1 would be
