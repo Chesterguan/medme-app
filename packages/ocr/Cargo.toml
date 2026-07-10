@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-oar-ocr = { version = "0.7.4", features = ["auto-download"], optional = true }
+oar-ocr = { version = "0.8.0", features = ["auto-download"], optional = true }
 image = "0.25"
 imageproc = "0.27"
 anyhow.workspace = true

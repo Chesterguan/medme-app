@@ -3,19 +3,19 @@ resolver = "2"
 members = ["packages/core-model", "packages/parser", "packages/pipeline", "packages/ocr", "packages/dicom", "packages/share", "apps/cli", "apps/desktop/src-tauri", "apps/mobile/src-tauri"]
 
 [workspace.dependencies]
-rusqlite = { version = "0.32", features = ["bundled"] }
-sha2 = "0.10"
+rusqlite = { version = "0.40", features = ["bundled"] }
+sha2 = "0.11"
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2"
 anyhow = "1"
-jieba-rs = "0.7"
-pdf-extract = "0.7"
+jieba-rs = "0.10"
+pdf-extract = "0.12"
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tempfile = "3"
 regex = "1"
-lopdf = "0.34"
+lopdf = "0.42"
 
 [profile.release]
 # Strip symbols from release binaries/.so's — the main lever for a slim
