@@ -61,6 +61,29 @@ impl Vault {
             move_into(&src, new_root)
         }
     }
+
+    /// Copy this vault's truth (CAS `objects/` + `log/` segments) into
+    /// `new_root` **without removing anything from the source** — always the
+    /// copy/adopt path, never a move. Use to fork a vault to a new location
+    /// while keeping the original intact: e.g. disabling iCloud sync copies the
+    /// container vault back to the local sandbox and leaves the iCloud copy
+    /// untouched. The derived `medme.db` is NOT copied; reopen the target with
+    /// `open_split` to rebuild it from the merged log. If `new_root` already
+    /// holds a vault, segments/objects merge in (per-device names never collide;
+    /// CAS dedups; larger log segment wins) — same guarantees as adopt.
+    pub fn copy_to(&self, new_root: &Path) -> Result<(), MedmeError> {
+        let src = self.root().to_path_buf();
+        std::fs::create_dir_all(new_root)?;
+        if paths_equal(&src, new_root) {
+            return Err(MedmeError::Other("目标就是当前位置,无需复制".to_string()));
+        }
+        if is_descendant(new_root, &src) {
+            return Err(MedmeError::Other(
+                "目标不能位于当前保险箱目录内部".to_string(),
+            ));
+        }
+        adopt_into(&src, new_root)
+    }
 }
 
 /// True if `new_root/log` contains at least one `.jsonl` segment — i.e. another

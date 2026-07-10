@@ -1328,6 +1328,44 @@ mod tests {
         assert_eq!(v.search("BetaAdoptNeedle", 10).unwrap().len(), 1);
     }
 
+    /// `copy_to` forks the vault to a new location and LEAVES THE SOURCE INTACT
+    /// (used to disable iCloud sync: copy the container vault back to local,
+    /// keep the iCloud copy). After copying into a fresh dir, BOTH the source
+    /// and the target hold the full vault; the target rebuilds usably from the
+    /// copied log (no `medme.db` is copied).
+    #[test]
+    fn copy_to_forks_vault_leaving_source_intact() {
+        let src = tempfile::tempdir().unwrap();
+        seed_doc(src.path(), "alpha.txt", "AlphaCopyNeedle");
+
+        let holder = tempfile::tempdir().unwrap();
+        let local = holder.path().join("local-vault"); // fresh → copy in
+        {
+            let v = Vault::open(src.path()).unwrap();
+            v.copy_to(&local).unwrap();
+        }
+
+        // Source untouched — the iCloud copy is preserved.
+        assert!(
+            src.path().join("objects").exists(),
+            "copy_to leaves source objects"
+        );
+        assert!(src.path().join("log").exists(), "copy_to leaves source log");
+        let vs = Vault::open(src.path()).unwrap();
+        assert_eq!(vs.debug_count("document"), 1, "source still holds its doc");
+
+        // Target holds the full vault after rebuild from the copied log.
+        let v = Vault::open(&local).unwrap();
+        v.rebuild_from_log().unwrap();
+        assert_eq!(v.debug_count("document"), 1, "doc copied to target");
+        assert_eq!(v.debug_count("source_file"), 1);
+        assert_eq!(
+            v.search("AlphaCopyNeedle", 10).unwrap().len(),
+            1,
+            "search rebuilt intact at the target"
+        );
+    }
+
     // ---- machine-local device_id: shared-folder sync must not collide -------
 
     /// Two machines share ONE vault folder (cloud drive). Each opens it with its

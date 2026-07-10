@@ -593,6 +593,52 @@ pub fn enable_icloud_sync(state: State<AppState>) -> Result<bool, String> {
     }
 }
 
+/// 关闭 iCloud 同步(仅 iOS)。把保险箱「真相」从 iCloud 容器**复制**回本机沙盒
+/// (`<Documents>/vault` 重新成为真相),**iCloud 容器里的副本保留不动** —— 其它
+/// 苹果设备若仍开着同步不受影响,也留一份云端备份;用 `copy_to`(只复制、不删源)
+/// 保证这个语义。派生库在本地重建;清掉 `icloud_enabled` 标记,下次启动走本地布局。
+///
+/// 幂等:已是本地布局则清标记后返回。失败不改动当前保险箱,绝不崩溃。
+#[tauri::command]
+pub fn disable_icloud_sync(state: State<AppState>) -> Result<bool, String> {
+    #[cfg(target_os = "ios")]
+    {
+        let local_vault = state.vault_dir.clone();
+        let local_db = local_vault.join("medme.db");
+
+        let mut vault = state.vault.lock().unwrap_or_else(|p| p.into_inner());
+        let mut paths = state.paths.lock().unwrap_or_else(|p| p.into_inner());
+
+        // 已经是本地布局:清标记,幂等返回。
+        if paths.truth_root == local_vault {
+            let _ = std::fs::remove_file(state.data_dir.join("icloud_enabled"));
+            return Ok(true);
+        }
+
+        // 复制容器里的真相回本机(objects + log);iCloud 容器内容保持不动。
+        vault
+            .copy_to(&local_vault)
+            .map_err(|e| format!("把保险箱复制回本机失败:{e}"))?;
+
+        // 本地重开:从复制回来的日志重建派生库。
+        let fresh = Vault::open_split(&local_vault, &local_db, &state.device_id)
+            .map_err(|e| format!("在本机打开保险箱失败:{e}"))?;
+        *vault = fresh;
+        paths.truth_root = local_vault;
+        paths.db_path = local_db;
+
+        // 清开启标记 + 清掉 iCloud 布局用的沙盒派生库(已由本地库取代)。
+        let _ = std::fs::remove_file(state.data_dir.join("icloud_enabled"));
+        let _ = std::fs::remove_file(state.data_dir.join("medme.db"));
+        Ok(true)
+    }
+    #[cfg(not(target_os = "ios"))]
+    {
+        let _ = &state;
+        Err("iCloud 同步仅在 iOS(苹果设备)上可用".to_string())
+    }
+}
+
 /// 记下「本设备已开启 iCloud 同步」的标记(下次启动据此用 open_split 打开容器)。
 #[cfg(target_os = "ios")]
 fn write_icloud_marker(data_dir: &std::path::Path) -> Result<(), String> {

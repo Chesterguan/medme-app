@@ -30,4 +30,6 @@ export const api = {
   // iCloud 同步(仅 iOS)。status 供开关渲染;enable 迁移真相到 iCloud 容器。
   icloudStatus: () => invoke<IcloudStatus>("icloud_status"),
   enableIcloudSync: () => invoke<boolean>("enable_icloud_sync"),
+  // disable 把真相从 iCloud 容器复制回本机(保留 iCloud 副本),本地成为主副本。
+  disableIcloudSync: () => invoke<boolean>("disable_icloud_sync"),
 };
