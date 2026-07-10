@@ -16,7 +16,8 @@
 }
 
 .app {
-  height: 100vh;
+  height: 100vh; /* fallback */
+  height: 100dvh; /* iOS 动态视口:排除地址栏/工具条,底部 tab 不被顶出屏外 */
   display: flex;
   flex-direction: column;
   background: var(--screen);
@@ -45,8 +46,9 @@
 
 /* Scroll body */
 .body {
-  flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch;
-  padding: 16px; display: flex; flex-direction: column; gap: 14px;
+  /* min-height:0 让 flex 列子项能收缩并真正滚动(否则内容一多撑高 .app、overflow 失效、底部被挡) */
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 14px;
 }
 .sect { font-size: 13px; color: var(--faint); font-weight: 700; letter-spacing: .04em; margin: 4px 0 -4px; }
 
