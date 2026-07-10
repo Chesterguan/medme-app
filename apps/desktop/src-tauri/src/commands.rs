@@ -25,10 +25,33 @@ pub struct AppState {
     pub inbox_watcher: Mutex<Option<notify::RecommendedWatcher>>,
 }
 
+// SECURITY/robustness: recover a poisoned lock instead of failing every command.
+// The ingest/dicom command entry points now run their library calls under
+// `catch_unwind` (see `ingest_guarded` / `render_dicom` / `decode_dicom_frame`), so a
+// bad file can't poison this mutex in the first place. But if some *other* path ever
+// panics while holding the guard, `into_inner()` keeps the Vault usable rather than
+// bricking the whole app past one bad operation — the Vault's own truth is the
+// append-only log + CAS, not transient in-memory state, so a recovered guard is safe.
 fn lock<'a>(s: &'a State<'a, AppState>) -> Result<std::sync::MutexGuard<'a, Vault>, String> {
-    s.vault
-        .lock()
-        .map_err(|_| "vault lock poisoned".to_string())
+    Ok(s.vault.lock().unwrap_or_else(|poisoned| poisoned.into_inner()))
+}
+
+/// Panic firewall around `pipeline::ingest`. A panic inside the parser/dicom/ocr
+/// stack (defense-in-depth: those libs already have internal guards) is caught here
+/// and turned into a normal `Err(String)`, so it can't unwind the command thread past
+/// the held Vault guard and poison the shared mutex. `AssertUnwindSafe` is required
+/// because `&Vault` (rusqlite connection) isn't `UnwindSafe`; that's fine — on a
+/// caught panic we do not touch any half-mutated state, we just report the failure and
+/// the caller moves on to the next file.
+fn ingest_guarded(
+    v: &Vault,
+    path: &std::path::Path,
+) -> Result<pipeline::IngestOutcome, String> {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pipeline::ingest(v, path))) {
+        Ok(Ok(o)) => Ok(o),
+        Ok(Err(e)) => Err(e.to_string()),
+        Err(_) => Err("导入时发生内部错误(已隔离),该文件已跳过".to_string()),
+    }
 }
 
 /// SECURITY: validate a JS-supplied save destination before we write app-generated
@@ -168,7 +191,7 @@ pub fn import_paths(
         }
         // 单个文件失败不该拖垮整批 —— 记一条失败结果继续处理剩下的文件(与
         // inbox.rs::scan_inbox 的容错方式一致),而不是 `?` 提前返回丢弃已成功的导入。
-        match pipeline::ingest(&v, path) {
+        match ingest_guarded(&v, path) {
             Ok(o) => {
                 let status = match o.status {
                     pipeline::IngestStatus::New => "new",
@@ -252,7 +275,7 @@ pub fn load_demo_data(app: tauri::AppHandle, state: State<AppState>) -> Result<u
     let v = lock(&state)?;
     let mut count = 0usize;
     for path in &files {
-        match pipeline::ingest(&v, path) {
+        match ingest_guarded(&v, path) {
             Ok(_) => count += 1,
             Err(e) => eprintln!("[demo-data] ingest failed for {}: {e}", path.display()),
         }
@@ -297,7 +320,15 @@ pub fn render_dicom(state: State<AppState>, id: i64) -> Result<tauri::ipc::Respo
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("source_file {id} not found"))?;
     let bytes = std::fs::read(v.root_join(&sf.storage_path)).map_err(|e| e.to_string())?;
-    let png = dicom::render_png(&bytes).map_err(|e| e.to_string())?;
+    // 面板级 panic 防火墙:畸形/敌意 DICOM 可能让解码器 panic —— 用 catch_unwind
+    // 隔离,转成命令的正常 Err(前端已能处理),既不 unwind 命令线程也不污染 Vault
+    // 锁。dicom 库本身已有内部守护,这里是边界处的纵深防御。
+    let png = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        dicom::render_png(&bytes)
+    })) {
+        Ok(r) => r.map_err(|e| e.to_string())?,
+        Err(_) => return Err("DICOM 渲染时发生内部错误(已隔离)".to_string()),
+    };
     Ok(tauri::ipc::Response::new(png))
 }
 
@@ -318,7 +349,13 @@ pub fn decode_dicom_frame(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("source_file {source_file_id} not found"))?;
     let bytes = std::fs::read(v.root_join(&sf.storage_path)).map_err(|e| e.to_string())?;
-    let frame = dicom::decode_frame(&bytes, frame_index).map_err(|e| e.to_string())?;
+    // 面板级 panic 防火墙(同 render_dicom):压缩传输语法解码路径尤其可能 panic。
+    let frame = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        dicom::decode_frame(&bytes, frame_index)
+    })) {
+        Ok(r) => r.map_err(|e| e.to_string())?,
+        Err(_) => return Err("DICOM 解码时发生内部错误(已隔离)".to_string()),
+    };
     let wire = frame.into_ipc_bytes().map_err(|e| e.to_string())?;
     Ok(tauri::ipc::Response::new(wire))
 }

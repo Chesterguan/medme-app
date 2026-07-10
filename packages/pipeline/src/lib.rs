@@ -3,6 +3,12 @@ use core_model::{DocType, NewDocument, NewImagingInstance, NewOcr, OcrBackendKin
 use std::collections::HashMap;
 use std::path::Path;
 
+/// 单个文件导入体积上限(字节)。超过即拒绝,**在把整份文件读进内存之前**就返回
+/// 错误 —— 否则一份几个 GB 的文件/畸形附件会在任何解析器跑起来之前就把进程 OOM。
+/// 200MB 足以覆盖高分辨率照片、扫描 PDF 与常见单张 DICOM;超大 DICOM 序列本就按
+/// 单张切片逐个导入,单文件不会撞上限。移动端 `ingest_bytes` 复用此常量校验 payload。
+pub const MAX_INGEST_BYTES: u64 = 200 * 1024 * 1024;
+
 fn is_pdf(path: &Path) -> bool {
     mime_for(path) == "application/pdf"
 }
@@ -245,6 +251,14 @@ pub struct IngestOutcome {
 /// 导入一个文件:存 CAS(去重)→ 若尚无 document 则抽文本层并建 document/ocr。
 /// 抽取失败(如扫描图片)不致命 → StoredNoText(原文件已永存,留待后续 OCR 补索引)。
 pub fn ingest(vault: &Vault, path: &Path) -> anyhow::Result<IngestOutcome> {
+    // 体积闸门:先看元数据里的文件大小,超上限就拒绝 —— 绝不 slurp 一份不可信的
+    // 超大文件进内存(那会在解析前就 OOM)。用 metadata().len() 而非读入后再判。
+    let len = std::fs::metadata(path)?.len();
+    if len > MAX_INGEST_BYTES {
+        anyhow::bail!(
+            "文件过大:{len} 字节,超过上限 {MAX_INGEST_BYTES} 字节(200MB),已拒绝导入 / file too large"
+        );
+    }
     let bytes = std::fs::read(path)?;
     let name = path
         .file_name()
@@ -625,6 +639,29 @@ mod tests {
             text.contains("肌酐") || text.contains("Creatinine"),
             "unexpected OCR text: {text}"
         );
+    }
+
+    /// 超过体积上限的文件被拒绝:用 `set_len` 造一个稀疏文件(metadata 报大小
+    /// > 上限,但磁盘上几乎不占空间、内存里一个字节都没读),确认 ingest 在
+    /// `fs::read` 之前就凭 metadata 返回「文件过大」错误,而非 OOM。
+    #[test]
+    fn ingest_rejects_oversized_file_before_reading() {
+        let vdir = tempfile::tempdir().unwrap();
+        let fdir = tempfile::tempdir().unwrap();
+        let v = Vault::open(vdir.path()).unwrap();
+        let p = fdir.path().join("huge.pdf");
+        let f = std::fs::File::create(&p).unwrap();
+        // 稀疏:声明比上限多 1 字节的长度,不实际写入数据。
+        f.set_len(MAX_INGEST_BYTES + 1).unwrap();
+        drop(f);
+
+        let err = ingest(&v, &p).unwrap_err();
+        assert!(
+            err.to_string().contains("文件过大"),
+            "expected size-cap error, got: {err}"
+        );
+        // 什么都不该入库(既没读文件,也没建 document)。
+        assert_eq!(v.timeline().unwrap().len(), 0);
     }
 
     #[test]

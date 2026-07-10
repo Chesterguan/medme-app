@@ -12,8 +12,14 @@ pub struct AppState {
     pub vault_dir: std::path::PathBuf,
 }
 
+// SECURITY/robustness: recover a poisoned lock instead of failing every command.
+// The ingest entry points now run `pipeline::ingest` under `catch_unwind` (see
+// `ingest_one`), so a bad file can't poison this mutex in the first place. If some
+// other path ever panics while holding the guard, `into_inner()` keeps the Vault
+// usable rather than bricking the app past one bad operation — the Vault's truth is
+// the append-only log + CAS, so a recovered guard is safe.
 fn lock<'a>(s: &'a State<'a, AppState>) -> Result<std::sync::MutexGuard<'a, Vault>, String> {
-    s.vault.lock().map_err(|_| "vault lock poisoned".to_string())
+    Ok(s.vault.lock().unwrap_or_else(|poisoned| poisoned.into_inner()))
 }
 
 /// 影像 study 文档在时间线上显示切片数;非影像文档 slice_count 为 None。
@@ -68,7 +74,18 @@ pub fn load_archive(state: State<AppState>) -> Result<Vec<TimelineGroup>, String
 /// `vision` 模块 / `ingest_image_via_vision`),其余一切(以及桌面/host 构建)沿用
 /// 未改动的 `pipeline::ingest`。
 fn ingest_one(app: &tauri::AppHandle, v: &Vault, path: &std::path::Path) -> ImportOutcome {
-    match ingest_dispatch(app, v, path) {
+    // Panic firewall: a panic inside the parser/dicom/ocr/vision stack (defense-in-depth
+    // over their internal guards) is caught here and turned into a `failed` outcome,
+    // so it can't unwind the command thread past the held Vault guard and poison the
+    // shared mutex. `AssertUnwindSafe` is needed because `&Vault` isn't `UnwindSafe`;
+    // on a caught panic we touch no half-mutated state, just report the failure.
+    let dispatched = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        ingest_dispatch(app, v, path)
+    })) {
+        Ok(r) => r,
+        Err(_) => Err(anyhow::anyhow!("导入时发生内部错误(已隔离),该文件已跳过")),
+    };
+    match dispatched {
         Ok(o) => {
             let status = match o.status {
                 pipeline::IngestStatus::New => "new",
@@ -140,6 +157,15 @@ fn ingest_image_via_vision(
     use core_model::{NewDocument, NewOcr, OcrBackendKind};
     use pipeline::{IngestOutcome, IngestStatus};
 
+    // 体积闸门(与 pipeline::ingest 同一上限):iOS 图片走 Vision 分支时也不 slurp
+    // 一份超大文件进内存,先看 metadata 大小再读。
+    let len = std::fs::metadata(path)?.len();
+    if len > pipeline::MAX_INGEST_BYTES {
+        anyhow::bail!(
+            "文件过大:{len} 字节,超过上限 {} 字节(200MB),已拒绝导入 / file too large",
+            pipeline::MAX_INGEST_BYTES
+        );
+    }
     let bytes = std::fs::read(path)?;
     let name = path
         .file_name()
@@ -248,6 +274,15 @@ pub fn ingest_bytes(
     use tauri::Manager;
     if data.is_empty() {
         return Err("空文件,未采集到任何数据".to_string());
+    }
+    // 体积闸门:在把 payload 落盘 / 读入管线之前就拒绝超大字节流,避免一份几个 GB
+    // 的畸形/敌意上传把进程 OOM(与 pipeline::ingest 的文件大小上限同一常量)。
+    if data.len() as u64 > pipeline::MAX_INGEST_BYTES {
+        return Err(format!(
+            "文件过大:{} 字节,超过上限 {} 字节(200MB),已拒绝采集 / file too large",
+            data.len(),
+            pipeline::MAX_INGEST_BYTES
+        ));
     }
     // 净化文件名:只取基名防路径穿越;缺扩展名兜底 .jpg(相机默认输出 JPEG)。
     let base = std::path::Path::new(&filename)
@@ -413,9 +448,15 @@ pub fn load_demo_data(app: tauri::AppHandle, state: State<AppState>) -> Result<u
     let v = lock(&state)?;
     let mut count = 0usize;
     for path in &files {
-        match pipeline::ingest(&v, path) {
-            Ok(_) => count += 1,
-            Err(e) => eprintln!("[demo-data] ingest failed for {}: {e}", path.display()),
+        // Panic firewall (same rationale as ingest_one): a panic in the parser/dicom/ocr
+        // stack must not unwind past the held Vault guard and poison the mutex.
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            pipeline::ingest(&v, path)
+        }));
+        match result {
+            Ok(Ok(_)) => count += 1,
+            Ok(Err(e)) => eprintln!("[demo-data] ingest failed for {}: {e}", path.display()),
+            Err(_) => eprintln!("[demo-data] ingest panicked (isolated) for {}", path.display()),
         }
     }
     v.rebuild_encounters().map_err(|e| e.to_string())?;
@@ -462,7 +503,10 @@ pub fn reset_vault(state: State<AppState>) -> Result<(), String> {
     if dir.file_name().and_then(|n| n.to_str()) != Some("vault") {
         return Err("保险箱路径异常,已中止重置".to_string());
     }
-    let mut guard = state.vault.lock().map_err(|_| "vault lock poisoned".to_string())?;
+    let mut guard = state
+        .vault
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     if dir.exists() {
         std::fs::remove_dir_all(dir).map_err(|e| format!("清空保险箱失败:{e}"))?;
     }
