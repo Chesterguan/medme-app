@@ -6,6 +6,8 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![CI](https://github.com/Chesterguan/medme/actions/workflows/ci.yml/badge.svg)](https://github.com/Chesterguan/medme/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Chesterguan/medme/actions/workflows/codeql.yml/badge.svg)](https://github.com/Chesterguan/medme/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Chesterguan/medme/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Chesterguan/medme)
 [![Platform](https://img.shields.io/badge/desktop-macOS-lightgrey.svg)](https://chesterguan.github.io/medme/)
 [![Made with Tauri + Rust](https://img.shields.io/badge/built_with-Tauri_v2_%C2%B7_Rust_%C2%B7_React-orange.svg)](#技术架构--architecture)
 
