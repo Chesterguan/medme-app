@@ -434,23 +434,67 @@ mod tests {
     }
 
     #[test]
+    fn total_entry_count_is_expected() {
+        // Coverage expansion (2026-07-10.2): 54 original + 137 curated = 191.
+        // A drift here means an entry was accidentally dropped or duplicated.
+        assert_eq!(
+            dictionary_entries().len(),
+            191,
+            "unexpected dictionary entry count"
+        );
+    }
+
+    #[test]
+    fn new_coverage_keys_resolve() {
+        // Representative sample across the six new fragments (chemistry / heme /
+        // endocrine-cardiac / urine-tumor-vitamin / vitals-drugs / drugs): each
+        // must normalize() to the right key and category at full confidence.
+        let cases: &[(&str, &str, Category)] = &[
+            ("血钾", "potassium", Category::Lab),
+            ("HCT", "hct", Category::Lab),
+            ("FT3", "ft3", Category::Lab),
+            ("CA125", "ca125", Category::Lab),
+            ("尿蛋白", "urine_protein", Category::Lab),
+            ("SpO2", "spo2", Category::Vital),
+            ("替米沙坦", "telmisartan", Category::Drug),
+            ("奥美拉唑", "omeprazole", Category::Drug),
+        ];
+        for (term, key, cat) in cases {
+            let m = normalize(term).unwrap_or_else(|| panic!("no match for {term}"));
+            assert_eq!(m.key, *key, "term {term}");
+            assert_eq!(m.category, *cat, "term {term} category");
+            assert_eq!(m.confidence, 1.0, "term {term} confidence");
+        }
+    }
+
+    #[test]
     fn labs_and_vitals_have_canonical_unit_and_identity_row() {
         for e in dictionary_entries() {
             match e.category {
-                Category::Lab | Category::Vital => {
-                    let cu = e
-                        .canonical_unit
-                        .as_deref()
-                        .unwrap_or_else(|| panic!("{} missing canonical_unit", e.key));
-                    // there must be a units[] row for the canonical unit itself,
-                    // and it must be the identity (slope 1, intercept 0)
-                    let row =
-                        e.units.iter().find(|u| u.unit == cu).unwrap_or_else(|| {
+                // A lab/vital is either QUANTITATIVE (canonical_unit is Some) or
+                // QUALITATIVE (canonical_unit is None, e.g. a urinalysis dipstick
+                // ordinal like -/+/++). Both are valid; each has its own rule.
+                Category::Lab | Category::Vital => match e.canonical_unit.as_deref() {
+                    // Quantitative: there must be a units[] row for the canonical
+                    // unit itself, and it must be the identity (slope 1, intercept 0).
+                    Some(cu) => {
+                        let row = e.units.iter().find(|u| u.unit == cu).unwrap_or_else(|| {
                             panic!("{} has no units row for canonical {cu}", e.key)
                         });
-                    assert_eq!(row.slope, 1.0, "{} canonical row slope", e.key);
-                    assert_eq!(row.intercept, 0.0, "{} canonical row intercept", e.key);
-                }
+                        assert_eq!(row.slope, 1.0, "{} canonical row slope", e.key);
+                        assert_eq!(row.intercept, 0.0, "{} canonical row intercept", e.key);
+                    }
+                    // Qualitative: no canonical unit means there is nothing to
+                    // convert, so units[] MUST be empty — a conversion row here
+                    // would be a bogus numeric mapping over an ordinal result.
+                    None => {
+                        assert!(
+                            e.units.is_empty(),
+                            "{} qualitative lab must have empty units (no bogus conversions)",
+                            e.key
+                        );
+                    }
+                },
                 Category::Drug => {
                     // drugs carry no unit machinery, but must carry an ingredient
                     assert!(e.ingredient.is_some(), "{} drug missing ingredient", e.key);
@@ -481,6 +525,24 @@ mod tests {
             ("hdl", "14646-4", "mmol/L"),
             ("triglycerides", "14927-8", "mmol/L"),
             ("tbil", "14631-6", "umol/L"),
+            // New coverage — electrolytes, canonical molar mmol/L.
+            ("potassium", "2823-3", "mmol/L"),
+            ("sodium", "2951-2", "mmol/L"),
+            ("chloride", "2075-0", "mmol/L"),
+            ("calcium", "2000-8", "mmol/L"),
+            ("phosphate", "14879-1", "mmol/L"),
+            ("magnesium", "2601-3", "mmol/L"),
+            ("bicarbonate", "1963-8", "mmol/L"),
+            // Bilirubin fractions, canonical molar umol/L.
+            ("direct_bilirubin", "14629-0", "umol/L"),
+            ("indirect_bilirubin", "14630-8", "umol/L"),
+            // Other clearly-molar analytes.
+            ("homocysteine", "13965-9", "umol/L"),
+            ("serum_iron", "14798-3", "umol/L"),
+            // SI vitamins — mole-based canonicals (nmol/L, pmol/L).
+            ("vitamin_d_25oh", "68438-1", "nmol/L"),
+            ("vitamin_b12", "14685-2", "pmol/L"),
+            ("folate", "14732-2", "nmol/L"),
         ];
         for (key, loinc, unit) in molar {
             let e = entry_for(key);
@@ -488,7 +550,10 @@ mod tests {
             assert_eq!(e.canonical_unit.as_deref(), Some(*unit), "{key} unit");
             // molar canonical must be a mole-based concentration
             assert!(
-                unit.starts_with("umol") || unit.starts_with("mmol"),
+                unit.starts_with("pmol")
+                    || unit.starts_with("nmol")
+                    || unit.starts_with("umol")
+                    || unit.starts_with("mmol"),
                 "{key} canonical unit not molar"
             );
         }

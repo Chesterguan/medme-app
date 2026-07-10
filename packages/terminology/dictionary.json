@@ -1,5 +1,5 @@
 {
-  "version": "2026-07-10",
+  "version": "2026-07-10.2",
   "note": "Clinical terminology normalization dictionary for MedMe (docs/015 §3.5). Codes pulled from the local OMOP vocab (LOINC / RxNorm / ATC + OMOP standard concept_id). Conversions are affine: canonical_value = slope * source_value + intercept. LOINC property/scale is chosen to agree with canonical_unit (molar LOINC for SI molar canonicals). See docs/superpowers/specs/2026-07-10-terminology-normalization-layer-design.md.",
   "entries": [
     {
@@ -606,6 +606,1711 @@
       "codes": { "rxnorm": "40790", "atc": "A02BC02", "omop_concept_id": 948078 },
       "aliases": ["泮托拉唑", "泮托拉唑钠", "潘妥拉唑", "泰美尼克", "韦迪", "Pantoprazole"],
       "ocr_confusions": []
+    },
+    {
+      "key": "potassium",
+      "canonical_name": "钾",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "2823-3", "omop_concept_id": 3023103 },
+      "canonical_unit": "mmol/L",
+      "units": [
+        { "unit": "mmol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "meq/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["钾", "血钾", "钾离子", "血清钾", "K", "K+", "Kalium", "Potassium"],
+      "ocr_confusions": [],
+      "note": "Potassium is monovalent, so mEq/L is numerically identical to mmol/L (slope 1)."
+    },
+    {
+      "key": "sodium",
+      "canonical_name": "钠",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "2951-2", "omop_concept_id": 3019550 },
+      "canonical_unit": "mmol/L",
+      "units": [
+        { "unit": "mmol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "meq/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["钠", "血钠", "钠离子", "血清钠", "Na", "Na+", "Natrium", "Sodium"],
+      "ocr_confusions": [],
+      "note": "Sodium is monovalent, so mEq/L equals mmol/L (slope 1)."
+    },
+    {
+      "key": "chloride",
+      "canonical_name": "氯",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "2075-0", "omop_concept_id": 3014576 },
+      "canonical_unit": "mmol/L",
+      "units": [
+        { "unit": "mmol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "meq/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["氯", "血氯", "氯离子", "氯化物", "血清氯", "Cl", "Cl-", "Chloride"],
+      "ocr_confusions": [],
+      "note": "Chloride is monovalent, so mEq/L equals mmol/L (slope 1)."
+    },
+    {
+      "key": "calcium",
+      "canonical_name": "钙",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "2000-8", "omop_concept_id": 3015377 },
+      "canonical_unit": "mmol/L",
+      "units": [
+        { "unit": "mmol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "mg/dL", "slope": 0.2495, "intercept": 0.0 }
+      ],
+      "aliases": ["钙", "总钙", "血钙", "血清钙", "血清总钙", "Ca", "Ca2+", "Calcium"],
+      "ocr_confusions": [],
+      "note": "Total calcium (LOINC 2000-8, Moles/volume). mg/dL->mmol/L factor 0.2495 = 10/40.078 (Ca MW). Alias uses 血钙/Ca/Ca2+ and NOT bare 'CA' to avoid collision with tumor markers CA-125/CA19-9 (which always carry their number). Ionized calcium is a distinct analyte and is intentionally not mapped here."
+    },
+    {
+      "key": "phosphate",
+      "canonical_name": "无机磷",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "14879-1", "omop_concept_id": 3003458 },
+      "canonical_unit": "mmol/L",
+      "units": [
+        { "unit": "mmol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "mg/dL", "slope": 0.3229, "intercept": 0.0 }
+      ],
+      "aliases": ["无机磷", "磷", "血磷", "血清无机磷", "P", "Pi", "PHOS", "Phosphate", "Phosphorus"],
+      "ocr_confusions": [],
+      "note": "Serum inorganic phosphate (LOINC 14879-1, Moles/volume). mg/dL->mmol/L factor 0.3229 = 10/30.974 assumes the source reports elemental phosphorus (P), the near-universal mg/dL convention."
+    },
+    {
+      "key": "magnesium",
+      "canonical_name": "镁",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "2601-3", "omop_concept_id": 3012095 },
+      "canonical_unit": "mmol/L",
+      "units": [
+        { "unit": "mmol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "mg/dL", "slope": 0.4114, "intercept": 0.0 }
+      ],
+      "aliases": ["镁", "血镁", "镁离子", "血清镁", "Mg", "Mg2+", "Magnesium"],
+      "ocr_confusions": [],
+      "note": "Serum magnesium (LOINC 2601-3, Moles/volume). mg/dL->mmol/L factor 0.4114 = 10/24.305 (Mg MW)."
+    },
+    {
+      "key": "bicarbonate",
+      "canonical_name": "碳酸氢盐",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "1963-8", "omop_concept_id": 3016293 },
+      "canonical_unit": "mmol/L",
+      "units": [
+        { "unit": "mmol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "meq/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["碳酸氢盐", "碳酸氢根", "二氧化碳结合力", "二氧化碳", "CO2", "CO2CP", "CO2-CP", "TCO2", "HCO3", "HCO3-", "Bicarbonate"],
+      "ocr_confusions": [],
+      "note": "Mapped to Bicarbonate [Moles/volume] (LOINC 1963-8). Chinese chemistry panels labelled 二氧化碳结合力/CO2-CP/二氧化碳 measure total CO2 (bicarbonate + dissolved CO2), which is LOINC 2028-9 (Carbon dioxide, total, concept 3015632); both are reported in mmol/L and are clinically used interchangeably, so they fold to this entry. This is a venous chemistry measure, distinct from arterial blood-gas pCO2."
+    },
+    {
+      "key": "cystatin_c",
+      "canonical_name": "胱抑素C",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "33863-2", "omop_concept_id": 3030366 },
+      "canonical_unit": "mg/L",
+      "units": [
+        { "unit": "mg/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["胱抑素C", "胱抑素", "半胱氨酸蛋白酶抑制剂C", "血清胱抑素C", "CysC", "Cys-C", "Cystatin C"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "urine_microalbumin",
+      "canonical_name": "尿微量白蛋白",
+      "category": "lab",
+      "system": "urine",
+      "codes": { "loinc": "14957-5", "omop_concept_id": 3000034 },
+      "canonical_unit": "mg/L",
+      "units": [
+        { "unit": "mg/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["尿微量白蛋白", "微量白蛋白", "尿白蛋白", "尿液微量白蛋白", "mALB", "MAU", "U-mALB", "Microalbumin"],
+      "ocr_confusions": [],
+      "note": "Spot-urine microalbumin (LOINC 14957-5, Mass/volume). Specimen is urine, kept distinct from serum 白蛋白/ALB (albumin) so the two never collapse."
+    },
+    {
+      "key": "urine_acr",
+      "canonical_name": "尿白蛋白肌酐比",
+      "category": "lab",
+      "system": "urine",
+      "codes": { "loinc": "14959-1", "omop_concept_id": 3001802 },
+      "canonical_unit": "mg/g",
+      "units": [
+        { "unit": "mg/g", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["尿白蛋白肌酐比", "尿白蛋白肌酐比值", "尿微量白蛋白肌酐比", "白蛋白肌酐比值", "尿白蛋白/肌酐", "ACR", "UACR", "mALB/Cr"],
+      "ocr_confusions": [],
+      "note": "Spot-urine microalbumin/creatinine ratio (LOINC 14959-1, Mass Ratio, mg/g). Some Chinese labs report ACR in mg/mmol against a distinct molar-ratio LOINC (Albumin/Creatinine [Molar ratio] 14585-4); that is a different unit basis and is intentionally NOT cross-converted here (no affine factor supplied) to avoid error."
+    },
+    {
+      "key": "direct_bilirubin",
+      "canonical_name": "直接胆红素",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "14629-0", "omop_concept_id": 3028638 },
+      "canonical_unit": "umol/L",
+      "units": [
+        { "unit": "umol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "mg/dL", "slope": 17.1, "intercept": 0.0 }
+      ],
+      "aliases": ["直接胆红素", "结合胆红素", "血清直接胆红素", "DBIL", "D-BIL", "DBil"],
+      "ocr_confusions": [],
+      "note": "Direct (conjugated) bilirubin (LOINC 14629-0, Moles/volume). mg/dL->umol/L factor 17.1 (bilirubin MW 584.66), same basis as total bilirubin."
+    },
+    {
+      "key": "indirect_bilirubin",
+      "canonical_name": "间接胆红素",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "14630-8", "omop_concept_id": 3007242 },
+      "canonical_unit": "umol/L",
+      "units": [
+        { "unit": "umol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "mg/dL", "slope": 17.1, "intercept": 0.0 }
+      ],
+      "aliases": ["间接胆红素", "非结合胆红素", "血清间接胆红素", "IBIL", "I-BIL", "IBil"],
+      "ocr_confusions": [],
+      "note": "Indirect (unconjugated) bilirubin (LOINC 14630-8, Moles/volume). mg/dL->umol/L factor 17.1 (bilirubin MW 584.66)."
+    },
+    {
+      "key": "ggt",
+      "canonical_name": "γ-谷氨酰转肽酶",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "2324-2", "omop_concept_id": 3026910 },
+      "canonical_unit": "U/L",
+      "units": [
+        { "unit": "U/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "IU/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["γ-谷氨酰转肽酶", "γ-谷氨酰转移酶", "谷氨酰转肽酶", "谷氨酰转移酶", "GGT", "γ-GT", "γ-GGT", "GGTP"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "alp",
+      "canonical_name": "碱性磷酸酶",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "6768-6", "omop_concept_id": 3035995 },
+      "canonical_unit": "U/L",
+      "units": [
+        { "unit": "U/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "IU/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["碱性磷酸酶", "血清碱性磷酸酶", "ALP", "AKP", "ALKP"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "total_protein",
+      "canonical_name": "总蛋白",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "2885-2", "omop_concept_id": 3020630 },
+      "canonical_unit": "g/L",
+      "units": [
+        { "unit": "g/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "g/dL", "slope": 10.0, "intercept": 0.0 }
+      ],
+      "aliases": ["总蛋白", "血清总蛋白", "血总蛋白", "TP", "TProt", "Protein"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "globulin",
+      "canonical_name": "球蛋白",
+      "category": "lab",
+      "system": "serum",
+      "codes": { "loinc": "2336-6", "omop_concept_id": 3021886 },
+      "canonical_unit": "g/L",
+      "units": [
+        { "unit": "g/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "g/dL", "slope": 10.0, "intercept": 0.0 }
+      ],
+      "aliases": ["球蛋白", "血清球蛋白", "GLB", "GLO", "Globulin"],
+      "ocr_confusions": [],
+      "note": "Serum globulin (LOINC 2336-6, specimen 'Serum'). Abbreviation GLB is kept distinct from glucose GLU; bare 'GL' is intentionally not added."
+    },
+    {
+      "key": "ag_ratio",
+      "canonical_name": "白球比",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "1759-0", "omop_concept_id": 3020509 },
+      "canonical_unit": "1",
+      "units": [
+        { "unit": "1", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["白球比", "白球比值", "白蛋白球蛋白比值", "白/球比值", "白蛋白/球蛋白", "A/G", "A/G ratio", "AGR"],
+      "ocr_confusions": [],
+      "note": "Albumin/Globulin ratio (LOINC 1759-0, Mass Ratio) — dimensionless. canonical_unit is the UCUM unity unit '1' with an identity conversion row (no unit conversion applies); it is a computed ratio, not a concentration."
+    },
+    {
+      "key": "rbc",
+      "canonical_name": "红细胞计数",
+      "category": "lab",
+      "system": "blood",
+      "codes": { "loinc": "789-8", "omop_concept_id": 3020416 },
+      "canonical_unit": "10*12/L",
+      "units": [
+        { "unit": "10*12/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "10*6/uL", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["红细胞计数", "红细胞", "红血球", "RBC", "Erythrocytes"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "hct",
+      "canonical_name": "红细胞压积",
+      "category": "lab",
+      "system": "blood",
+      "codes": { "loinc": "4544-3", "omop_concept_id": 3023314 },
+      "canonical_unit": "%",
+      "units": [
+        { "unit": "%", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "L/L", "slope": 100.0, "intercept": 0.0 }
+      ],
+      "aliases": ["红细胞压积", "血细胞比容", "红细胞比容", "压积", "HCT", "PCV", "Hematocrit"],
+      "ocr_confusions": [],
+      "note": "Canonical is percent (e.g. 45 %). Analyzers/feeds that report HCT as a volume fraction (e.g. 0.45 L/L) use the L/L row (×100). Both express the same volume fraction; no method assumption."
+    },
+    {
+      "key": "mcv",
+      "canonical_name": "平均红细胞体积",
+      "category": "lab",
+      "system": "blood",
+      "codes": { "loinc": "787-2", "omop_concept_id": 3023599 },
+      "canonical_unit": "fL",
+      "units": [
+        { "unit": "fL", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["平均红细胞体积", "红细胞平均体积", "MCV"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "mch",
+      "canonical_name": "平均红细胞血红蛋白量",
+      "category": "lab",
+      "system": "blood",
+      "codes": { "loinc": "785-6", "omop_concept_id": 3012030 },
+      "canonical_unit": "pg",
+      "units": [
+        { "unit": "pg", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["平均红细胞血红蛋白量", "平均血红蛋白量", "红细胞平均血红蛋白量", "MCH"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "mchc",
+      "canonical_name": "平均红细胞血红蛋白浓度",
+      "category": "lab",
+      "system": "blood",
+      "codes": { "loinc": "786-4", "omop_concept_id": 3009744 },
+      "canonical_unit": "g/L",
+      "units": [
+        { "unit": "g/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "g/dL", "slope": 10.0, "intercept": 0.0 }
+      ],
+      "aliases": ["平均红细胞血红蛋白浓度", "平均血红蛋白浓度", "红细胞平均血红蛋白浓度", "MCHC"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "rdw",
+      "canonical_name": "红细胞分布宽度",
+      "category": "lab",
+      "system": "blood",
+      "codes": { "loinc": "788-0", "omop_concept_id": 3019897 },
+      "canonical_unit": "%",
+      "units": [
+        { "unit": "%", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["红细胞分布宽度", "红细胞体积分布宽度", "RDW", "RDW-CV", "RDWCV"],
+      "ocr_confusions": [],
+      "note": "This is RDW-CV (coefficient of variation, reported in %). RDW-SD (standard deviation, reported in fL, LOINC 21000-5) is a different measurand and is NOT this entry — do not map RDW-SD here."
+    },
+    {
+      "key": "lymph_pct",
+      "canonical_name": "淋巴细胞百分比",
+      "category": "lab",
+      "system": "blood",
+      "codes": { "loinc": "736-9", "omop_concept_id": 3037511 },
+      "canonical_unit": "%",
+      "units": [
+        { "unit": "%", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["淋巴细胞百分比", "淋巴细胞比率", "淋巴细胞比例", "LYMPH%", "LYM%", "LY%"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "mono_pct",
+      "canonical_name": "单核细胞百分比",
+      "category": "lab",
+      "system": "blood",
+      "codes": { "loinc": "5905-5", "omop_concept_id": 3011948 },
+      "canonical_unit": "%",
+      "units": [
+        { "unit": "%", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["单核细胞百分比", "单核细胞比率", "单核细胞比例", "MONO%", "MON%", "MO%"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "eos_pct",
+      "canonical_name": "嗜酸性粒细胞百分比",
+      "category": "lab",
+      "system": "blood",
+      "codes": { "loinc": "713-8", "omop_concept_id": 3010457 },
+      "canonical_unit": "%",
+      "units": [
+        { "unit": "%", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["嗜酸性粒细胞百分比", "嗜酸粒细胞百分比", "嗜酸细胞百分比", "EOS%", "EO%"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "baso_pct",
+      "canonical_name": "嗜碱性粒细胞百分比",
+      "category": "lab",
+      "system": "blood",
+      "codes": { "loinc": "706-2", "omop_concept_id": 3013869 },
+      "canonical_unit": "%",
+      "units": [
+        { "unit": "%", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["嗜碱性粒细胞百分比", "嗜碱粒细胞百分比", "嗜碱细胞百分比", "BASO%", "BAS%", "BA%"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "neut_count",
+      "canonical_name": "中性粒细胞绝对值",
+      "category": "lab",
+      "system": "blood",
+      "codes": { "loinc": "751-8", "omop_concept_id": 3013650 },
+      "canonical_unit": "10*9/L",
+      "units": [
+        { "unit": "10*9/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "10*3/uL", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["中性粒细胞绝对值", "中性粒细胞计数", "中性粒细胞数", "NEUT#", "NE#", "N#"],
+      "ocr_confusions": [],
+      "note": "Absolute neutrophil count (ANC), distinct from the percentage entry neut_pct (770-8). The '#' aliases are kept qualified so they never collide with the '%' aliases of neut_pct."
+    },
+    {
+      "key": "lymph_count",
+      "canonical_name": "淋巴细胞绝对值",
+      "category": "lab",
+      "system": "blood",
+      "codes": { "loinc": "731-0", "omop_concept_id": 3004327 },
+      "canonical_unit": "10*9/L",
+      "units": [
+        { "unit": "10*9/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "10*3/uL", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["淋巴细胞绝对值", "淋巴细胞计数", "淋巴细胞数", "LYMPH#", "LYM#", "LY#"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "esr",
+      "canonical_name": "红细胞沉降率",
+      "category": "lab",
+      "system": "blood",
+      "codes": { "loinc": "30341-2", "omop_concept_id": 3015183 },
+      "canonical_unit": "mm/h",
+      "units": [
+        { "unit": "mm/h", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["红细胞沉降率", "血沉", "血细胞沉降率", "ESR"],
+      "ocr_confusions": [],
+      "note": "Method-agnostic ESR (LOINC 30341-2). Chinese labs are predominantly Westergren (LOINC 4537-7, concept 3013707); values are read in mm/h regardless of method, so no conversion is needed."
+    },
+    {
+      "key": "pt",
+      "canonical_name": "凝血酶原时间",
+      "category": "lab",
+      "system": "plasma",
+      "codes": { "loinc": "5902-2", "omop_concept_id": 3034426 },
+      "canonical_unit": "s",
+      "units": [
+        { "unit": "s", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["凝血酶原时间", "凝血酶原", "PT", "Prothrombin time"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "inr",
+      "canonical_name": "国际标准化比值",
+      "category": "lab",
+      "system": "plasma",
+      "codes": { "loinc": "6301-6", "omop_concept_id": 3022217 },
+      "canonical_unit": "1",
+      "units": [
+        { "unit": "1", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["国际标准化比值", "国际标准化比率", "INR"],
+      "ocr_confusions": [],
+      "note": "INR is a dimensionless ratio (PT patient/PT normal, ISI-corrected). Canonical unit '1' (UCUM unity) with an identity row; there is no cross-unit conversion."
+    },
+    {
+      "key": "aptt",
+      "canonical_name": "活化部分凝血活酶时间",
+      "category": "lab",
+      "system": "plasma",
+      "codes": { "loinc": "14979-9", "omop_concept_id": 3018677 },
+      "canonical_unit": "s",
+      "units": [
+        { "unit": "s", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["活化部分凝血活酶时间", "部分凝血活酶时间", "活化部分凝血活酶", "APTT"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "fibrinogen",
+      "canonical_name": "纤维蛋白原",
+      "category": "lab",
+      "system": "plasma",
+      "codes": { "loinc": "3255-7", "omop_concept_id": 3016407 },
+      "canonical_unit": "g/L",
+      "units": [
+        { "unit": "g/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "mg/dL", "slope": 0.01, "intercept": 0.0 }
+      ],
+      "aliases": ["纤维蛋白原", "FIB", "Fibrinogen"],
+      "ocr_confusions": []
+    },
+    {
+      "key": "d_dimer",
+      "canonical_name": "D-二聚体",
+      "category": "lab",
+      "system": "plasma",
+      "codes": { "loinc": "48065-7", "omop_concept_id": 3051714 },
+      "canonical_unit": "mg/L",
+      "units": [
+        { "unit": "mg/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "ug/mL", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "ng/mL", "slope": 0.001, "intercept": 0.0 }
+      ],
+      "aliases": ["D-二聚体", "D二聚体", "D-Dimer", "DDimer", "DDI"],
+      "ocr_confusions": [],
+      "note": "Canonical is FEU (fibrinogen-equivalent units), mg/L, LOINC 48065-7. The ug/mL (=mg/L numerically) and ng/mL (÷1000) rows are pure mass-unit scaling that ASSUME the source is also FEU. Do NOT convert between FEU and DDU (D-dimer units): FEU ≈ 2 × DDU is assay-dependent and not a fixed factor — a DDU-reported result must be treated as a different quantity, not scaled into this entry."
+    },
+    {
+      "key": "ft3",
+      "canonical_name": "游离三碘甲状腺原氨酸",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "14928-6", "omop_concept_id": 3026989 },
+      "canonical_unit": "pmol/L",
+      "units": [
+        { "unit": "pmol/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["游离三碘甲状腺原氨酸", "游离T3", "游离T3测定", "FT3", "FT-3"],
+      "ocr_confusions": [],
+      "note": "游离三碘甲状腺原氨酸(free T3)。规范单位 pmol/L(molar,LOINC 14928-6 [Moles/volume])。部分实验室以质量单位 pg/mL 报告(FT3 分子量≈651);质量↔摩尔换算随分析方法而异,不作自动换算。区别于总T3(键 t3)。"
+    },
+    {
+      "key": "ft4",
+      "canonical_name": "游离甲状腺素",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "14920-3", "omop_concept_id": 3008486 },
+      "canonical_unit": "pmol/L",
+      "units": [
+        { "unit": "pmol/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["游离甲状腺素", "游离四碘甲状腺原氨酸", "游离T4", "游离T4测定", "FT4", "FT-4"],
+      "ocr_confusions": [],
+      "note": "游离甲状腺素(free T4)。规范单位 pmol/L(molar,LOINC 14920-3 [Moles/volume])。部分实验室以质量单位 ng/dL 报告(FT4 分子量≈777);不作自动换算。区别于总T4(键 t4)。"
+    },
+    {
+      "key": "t3",
+      "canonical_name": "总三碘甲状腺原氨酸",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "14930-2", "omop_concept_id": 3008304 },
+      "canonical_unit": "nmol/L",
+      "units": [
+        { "unit": "nmol/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["总三碘甲状腺原氨酸", "三碘甲状腺原氨酸", "总T3", "总T3测定", "T3", "TT3"],
+      "ocr_confusions": [],
+      "note": "总三碘甲状腺原氨酸(total T3)。规范单位 nmol/L(molar,LOINC 14930-2 [Moles/volume])。部分实验室以质量单位 ng/mL 报告;不作自动换算。区别于游离T3(键 ft3)。"
+    },
+    {
+      "key": "t4",
+      "canonical_name": "总甲状腺素",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "14921-1", "omop_concept_id": 3014620 },
+      "canonical_unit": "nmol/L",
+      "units": [
+        { "unit": "nmol/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["总甲状腺素", "甲状腺素", "总四碘甲状腺原氨酸", "总T4", "总T4测定", "T4", "TT4"],
+      "ocr_confusions": [],
+      "note": "总甲状腺素(total T4)。规范单位 nmol/L(molar,LOINC 14921-1 [Moles/volume])。部分实验室以质量单位 µg/dL 报告;不作自动换算。区别于游离T4(键 ft4)。"
+    },
+    {
+      "key": "tpo_ab",
+      "canonical_name": "甲状腺过氧化物酶抗体",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "8099-4", "omop_concept_id": 3027238 },
+      "canonical_unit": "IU/mL",
+      "units": [
+        { "unit": "IU/mL", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "kIU/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["甲状腺过氧化物酶抗体", "抗甲状腺过氧化物酶抗体", "TPO抗体", "anti-TPO", "TPOAb", "TPO-Ab", "TPO"],
+      "ocr_confusions": [],
+      "note": "甲状腺过氧化物酶抗体(anti-TPO / TPOAb)。IU/mL 与 kIU/L 数值等同(1 IU/mL = 1 kIU/L)。"
+    },
+    {
+      "key": "tg_ab",
+      "canonical_name": "甲状腺球蛋白抗体",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "8098-6", "omop_concept_id": 3025547 },
+      "canonical_unit": "IU/mL",
+      "units": [
+        { "unit": "IU/mL", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "kIU/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["甲状腺球蛋白抗体", "抗甲状腺球蛋白抗体", "TG抗体", "anti-Tg", "TgAb", "TG-Ab"],
+      "ocr_confusions": [],
+      "note": "甲状腺球蛋白抗体(anti-Tg / TgAb)。刻意不使用裸缩写 'TG'/'Tg' 作别名——它与甘油三酯(triglycerides)的别名 'TG' 归一化后冲突。IU/mL 与 kIU/L 数值等同。"
+    },
+    {
+      "key": "insulin",
+      "canonical_name": "胰岛素",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "20448-7", "omop_concept_id": 3016244 },
+      "canonical_unit": "u[IU]/mL",
+      "units": [
+        { "unit": "u[IU]/mL", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "uIU/mL", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "mIU/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["胰岛素", "空腹胰岛素", "血清胰岛素", "胰岛素测定", "Insulin", "INS", "FINS"],
+      "ocr_confusions": [],
+      "note": "胰岛素(检测项,非药物)。规范单位 µIU/mL(UCUM u[IU]/mL);µIU/mL = mIU/L 数值等同。部分实验室以摩尔单位 pmol/L 报告(约 1 µIU/mL ≈ 6.0 pmol/L,但随标准品/方法而异),不作自动换算。空腹胰岛素别名在 V1 归此通用项。"
+    },
+    {
+      "key": "c_peptide",
+      "canonical_name": "C肽",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "1986-9", "omop_concept_id": 3010084 },
+      "canonical_unit": "ng/mL",
+      "units": [
+        { "unit": "ng/mL", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "ug/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "nmol/L", "slope": 3.020, "intercept": 0.0 }
+      ],
+      "aliases": ["C肽", "C-肽", "C肽测定", "C-peptide", "C peptide", "C-P"],
+      "ocr_confusions": [],
+      "note": "C肽(connecting peptide)。规范单位 ng/mL(= µg/L)。nmol/L 摩尔单位换算基于 C肽分子量 3020.29:1 nmol/L = 3.020 ng/mL(即 1 ng/mL = 0.331 nmol/L)。"
+    },
+    {
+      "key": "glucose_2h_pp",
+      "canonical_name": "餐后2小时血糖",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "14761-1", "omop_concept_id": 3012413 },
+      "canonical_unit": "mmol/L",
+      "units": [
+        { "unit": "mmol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "mg/dL", "slope": 0.0555, "intercept": 0.0 }
+      ],
+      "aliases": ["餐后2小时血糖", "餐后两小时血糖", "餐后2h血糖", "2小时餐后血糖", "餐后血糖", "2hPG", "2hPBG", "2hPPG", "PPG", "PBG"],
+      "ocr_confusions": [],
+      "note": "餐后2小时血糖(2-hour postprandial glucose,LOINC 14761-1 --2 hours post meal,molar)。与空腹/随机血糖(键 glucose)为独立项,故不使用裸别名 '血糖'/'葡萄糖'/'GLU' 以免冲突。OGTT 服糖后2小时血糖(post-75 g,LOINC 14995-5 / concept 3017538)为相关但不同的概念。"
+    },
+    {
+      "key": "nt_probnp",
+      "canonical_name": "氨基末端脑钠肽前体",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "33762-6", "omop_concept_id": 3029187 },
+      "canonical_unit": "pg/mL",
+      "units": [
+        { "unit": "pg/mL", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "ng/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["氨基末端脑钠肽前体", "N末端脑钠肽前体", "氨基末端B型钠尿肽前体", "N末端B型钠尿肽前体", "NT-proBNP", "NTproBNP", "NT-pro-BNP", "proBNP"],
+      "ocr_confusions": [],
+      "note": "氨基末端脑钠肽前体(NT-proBNP)。pg/mL = ng/L 数值等同。极少数以 pmol/L 报告,方法学相关,不作自动换算。与 BNP(键 bnp)为不同分析物。"
+    },
+    {
+      "key": "bnp",
+      "canonical_name": "脑钠肽",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "30934-4", "omop_concept_id": 3011960 },
+      "canonical_unit": "pg/mL",
+      "units": [
+        { "unit": "pg/mL", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "ng/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["脑钠肽", "脑利钠肽", "B型钠尿肽", "B型利钠肽", "脑钠素", "BNP"],
+      "ocr_confusions": [],
+      "note": "脑钠肽(BNP)。pg/mL = ng/L 数值等同。与 NT-proBNP(键 nt_probnp)为不同分析物,数值不可互换。"
+    },
+    {
+      "key": "hscrp",
+      "canonical_name": "超敏C反应蛋白",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "30522-7", "omop_concept_id": 3010156 },
+      "canonical_unit": "mg/L",
+      "units": [
+        { "unit": "mg/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "mg/dL", "slope": 10.0, "intercept": 0.0 }
+      ],
+      "aliases": ["超敏C反应蛋白", "高敏C反应蛋白", "超敏CRP", "hs-CRP", "hsCRP"],
+      "ocr_confusions": [],
+      "note": "超敏C反应蛋白(hs-CRP,LOINC 30522-7 高敏方法)。与常规 CRP(键 crp)为不同 LOINC/方法(高敏用于心血管风险分层),刻意分开;别名不含裸 'CRP'。mg/dL → mg/L 系数 10。"
+    },
+    {
+      "key": "crp",
+      "canonical_name": "C反应蛋白",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "1988-5", "omop_concept_id": 3020460 },
+      "canonical_unit": "mg/L",
+      "units": [
+        { "unit": "mg/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "mg/dL", "slope": 10.0, "intercept": 0.0 }
+      ],
+      "aliases": ["C反应蛋白", "C-反应蛋白", "CRP"],
+      "ocr_confusions": [],
+      "note": "C反应蛋白(常规 CRP,LOINC 1988-5)。与超敏 hs-CRP(键 hscrp)为不同 LOINC/方法,刻意分开。mg/dL → mg/L 系数 10。"
+    },
+    {
+      "key": "homocysteine",
+      "canonical_name": "同型半胱氨酸",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "13965-9", "omop_concept_id": 3016724 },
+      "canonical_unit": "umol/L",
+      "units": [
+        { "unit": "umol/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["同型半胱氨酸", "高半胱氨酸", "同型半胱胺酸", "Homocysteine", "Hcy", "tHcy"],
+      "ocr_confusions": [],
+      "note": "同型半胱氨酸(Hcy)。规范单位 µmol/L(molar,LOINC 13965-9)。质量单位 mg/L 在临床罕用(分子量 135.18),未列换算行。"
+    },
+    {
+      "key": "ck",
+      "canonical_name": "肌酸激酶",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "2157-6", "omop_concept_id": 3007220 },
+      "canonical_unit": "U/L",
+      "units": [
+        { "unit": "U/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "IU/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["肌酸激酶", "肌酸磷酸激酶", "肌酸激酶测定", "CK", "CPK"],
+      "ocr_confusions": [],
+      "note": "肌酸激酶总活性(CK / CPK,catalytic activity)。与同工酶 CK-MB(键 ckmb)为不同项,别名不含 'MB'。"
+    },
+    {
+      "key": "ckmb",
+      "canonical_name": "肌酸激酶同工酶MB",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "32673-6", "omop_concept_id": 3029790 },
+      "canonical_unit": "U/L",
+      "units": [
+        { "unit": "U/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "IU/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["肌酸激酶同工酶MB", "肌酸激酶同工酶", "肌酸激酶MB同工酶", "CK-MB", "CKMB", "CK-MB活性"],
+      "ocr_confusions": [],
+      "note": "肌酸激酶 MB 同工酶。规范单位取活性 U/L(LOINC 32673-6 [catalytic activity],中国以活性法为主)。另有质量法 CK-MB mass(ng/mL,LOINC 13969-1 / concept 3005785):活性与质量为不同检测,数值不可互换,故未列换算行。"
+    },
+    {
+      "key": "ldh",
+      "canonical_name": "乳酸脱氢酶",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "2532-0", "omop_concept_id": 3016436 },
+      "canonical_unit": "U/L",
+      "units": [
+        { "unit": "U/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "IU/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["乳酸脱氢酶", "乳酸去氢酶", "乳酸脱氢酶测定", "LDH", "LD"],
+      "ocr_confusions": [],
+      "note": "乳酸脱氢酶总活性(LDH,catalytic activity)。"
+    },
+    {
+      "key": "troponin_i",
+      "canonical_name": "肌钙蛋白I",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "10839-9", "omop_concept_id": 3021337 },
+      "canonical_unit": "ng/mL",
+      "units": [
+        { "unit": "ng/mL", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "ug/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["肌钙蛋白I", "心肌肌钙蛋白I", "肌钙蛋白-I", "cTnI", "TnI", "cTn-I"],
+      "ocr_confusions": [],
+      "note": "心肌肌钙蛋白I(cTnI)。规范单位 ng/mL(= µg/L)。高敏 hs-cTnI 常以 ng/L 报告(1 ng/mL = 1000 ng/L);因方法/单位标注常不可靠,刻意不列 ng/L 自动换算,使用前须核对单位与方法。仅用限定别名(不含裸 '肌钙蛋白')以免与 cTnT 混淆。"
+    },
+    {
+      "key": "troponin_t",
+      "canonical_name": "肌钙蛋白T",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "6598-7", "omop_concept_id": 3019800 },
+      "canonical_unit": "ng/mL",
+      "units": [
+        { "unit": "ng/mL", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "ug/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["肌钙蛋白T", "心肌肌钙蛋白T", "肌钙蛋白-T", "cTnT", "TnT", "cTn-T"],
+      "ocr_confusions": [],
+      "note": "心肌肌钙蛋白T(cTnT)。规范单位 ng/mL(= µg/L)。高敏 hs-cTnT 常以 ng/L 报告(1 ng/mL = 1000 ng/L);刻意不列 ng/L 自动换算,使用前须核对单位与方法。仅用限定别名(不含裸 '肌钙蛋白')以免与 cTnI 混淆。"
+    },
+    {
+      "key": "urine_protein",
+      "canonical_name": "尿蛋白",
+      "category": "lab",
+      "system": "urine",
+      "codes": { "loinc": "20454-5", "omop_concept_id": 3014051 },
+      "canonical_unit": null,
+      "units": [],
+      "aliases": ["尿蛋白", "尿蛋白定性", "尿液蛋白", "尿常规蛋白", "Urine protein", "U-PRO", "PRO-U", "URO-PRO"],
+      "ocr_confusions": [],
+      "note": "Dipstick urine protein (LOINC 20454-5, [Presence]/ordinal). Result is qualitative/semi-quantitative reported as -, ±, +, ++, +++ — no numeric unit, so canonical_unit is null and units is empty. Distinct from serum albumin (blood 'ALB')."
+    },
+    {
+      "key": "urine_glucose",
+      "canonical_name": "尿糖",
+      "category": "lab",
+      "system": "urine",
+      "codes": { "loinc": "25428-4", "omop_concept_id": 3009261 },
+      "canonical_unit": null,
+      "units": [],
+      "aliases": ["尿糖", "尿葡萄糖", "尿糖定性", "尿液葡萄糖", "Urine glucose", "U-GLU", "GLU-U"],
+      "ocr_confusions": [],
+      "note": "Dipstick urine glucose (LOINC 25428-4, [Presence]/ordinal), reported -, ±, +, ++, +++ — qualitative, canonical_unit null. Deliberately does NOT carry bare 'GLU'/'葡萄糖'/'血糖'/'Glucose' to avoid colliding with the serum glucose entry."
+    },
+    {
+      "key": "urine_occult_blood",
+      "canonical_name": "尿隐血",
+      "category": "lab",
+      "system": "urine",
+      "codes": { "loinc": "5794-3", "omop_concept_id": 3011397 },
+      "canonical_unit": null,
+      "units": [],
+      "aliases": ["尿隐血", "尿潜血", "尿隐血试验", "隐血", "潜血", "Urine occult blood", "Occult blood", "U-BLD", "BLD"],
+      "ocr_confusions": [],
+      "note": "Dipstick urine blood/hemoglobin (LOINC 5794-3, [Presence]/ordinal), reported -, ±, +, ++, +++ — qualitative, canonical_unit null."
+    },
+    {
+      "key": "urine_ketones",
+      "canonical_name": "尿酮体",
+      "category": "lab",
+      "system": "urine",
+      "codes": { "loinc": "2514-8", "omop_concept_id": 3035350 },
+      "canonical_unit": null,
+      "units": [],
+      "aliases": ["尿酮体", "尿酮", "酮体", "尿酮体定性", "Urine ketones", "Ketones", "U-KET", "KET"],
+      "ocr_confusions": [],
+      "note": "Dipstick urine ketones (LOINC 2514-8, [Presence]/ordinal), reported -, ±, +, ++, +++ — qualitative, canonical_unit null."
+    },
+    {
+      "key": "urine_leukocyte_esterase",
+      "canonical_name": "尿白细胞",
+      "category": "lab",
+      "system": "urine",
+      "codes": { "loinc": "5799-2", "omop_concept_id": 3000348 },
+      "canonical_unit": null,
+      "units": [],
+      "aliases": ["尿白细胞", "白细胞酯酶", "尿白细胞酯酶", "尿白细胞定性", "Urine leukocyte esterase", "Leukocyte esterase", "U-LEU", "LEU"],
+      "ocr_confusions": [],
+      "note": "Dipstick urine leukocyte esterase (LOINC 5799-2, [Presence]/ordinal), reported -, ±, +, ++, +++ — qualitative, canonical_unit null. Deliberately does NOT carry bare '白细胞'/'WBC' to avoid colliding with the blood WBC-count entry."
+    },
+    {
+      "key": "urine_nitrite",
+      "canonical_name": "尿亚硝酸盐",
+      "category": "lab",
+      "system": "urine",
+      "codes": { "loinc": "5802-4", "omop_concept_id": 3021601 },
+      "canonical_unit": null,
+      "units": [],
+      "aliases": ["尿亚硝酸盐", "亚硝酸盐", "尿亚硝酸", "尿亚硝酸盐定性", "Urine nitrite", "Nitrite", "U-NIT", "NIT"],
+      "ocr_confusions": [],
+      "note": "Dipstick urine nitrite (LOINC 5802-4, [Presence]/ordinal), reported - / + (negative/positive) — qualitative, canonical_unit null."
+    },
+    {
+      "key": "urine_specific_gravity",
+      "canonical_name": "尿比重",
+      "category": "lab",
+      "system": "urine",
+      "codes": { "loinc": "5811-5", "omop_concept_id": 3000330 },
+      "canonical_unit": "1",
+      "units": [
+        { "unit": "1", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["尿比重", "比重", "尿液比重", "Urine specific gravity", "Specific gravity", "U-SG", "SG"],
+      "ocr_confusions": [],
+      "note": "Numeric dipstick urine specific gravity (LOINC 5811-5), typically 1.005–1.030. Dimensionless ratio — canonical_unit '1' (UCUM dimensionless), identity row only; there is no alternate unit to convert."
+    },
+    {
+      "key": "urine_ph",
+      "canonical_name": "尿酸碱度",
+      "category": "lab",
+      "system": "urine",
+      "codes": { "loinc": "5803-2", "omop_concept_id": 3022621 },
+      "canonical_unit": null,
+      "units": [],
+      "aliases": ["尿酸碱度", "尿pH", "尿PH", "尿pH值", "尿液酸碱度", "Urine pH", "U-pH"],
+      "ocr_confusions": [],
+      "note": "Numeric dipstick urine pH (LOINC 5803-2), typically 4.5–8.0 on the pH scale. pH is a dimensionless logarithmic scale with no meaningful unit conversion, so canonical_unit is null and units is empty. Does NOT carry bare 'pH' (reserved/ambiguous) or '尿酸' (that is uric acid)."
+    },
+    {
+      "key": "afp",
+      "canonical_name": "甲胎蛋白",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "1834-1", "omop_concept_id": 3009306 },
+      "canonical_unit": "ng/mL",
+      "units": [
+        { "unit": "ng/mL", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "ug/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["甲胎蛋白", "甲种胎儿球蛋白", "α-甲胎蛋白", "AFP", "Alpha-fetoprotein", "Alpha-1-fetoprotein"],
+      "ocr_confusions": [],
+      "note": "AFP tumor marker (LOINC 1834-1, [Mass/volume]). ug/L is identical to ng/mL (same number)."
+    },
+    {
+      "key": "cea",
+      "canonical_name": "癌胚抗原",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "2039-6", "omop_concept_id": 3003785 },
+      "canonical_unit": "ng/mL",
+      "units": [
+        { "unit": "ng/mL", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "ug/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["癌胚抗原", "癌胚性抗原", "CEA", "Carcinoembryonic antigen"],
+      "ocr_confusions": [],
+      "note": "CEA tumor marker (LOINC 2039-6, [Mass/volume]). ug/L is identical to ng/mL (same number)."
+    },
+    {
+      "key": "ca19_9",
+      "canonical_name": "糖类抗原19-9",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "24108-3", "omop_concept_id": 3022914 },
+      "canonical_unit": "U/mL",
+      "units": [
+        { "unit": "U/mL", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "kU/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["糖类抗原19-9", "糖链抗原19-9", "糖抗原19-9", "CA19-9", "CA199", "CA 19-9", "CA-19-9"],
+      "ocr_confusions": [],
+      "note": "CA19-9 tumor marker (LOINC 24108-3, [Units/volume]). U/mL = kU/L (same number). Uses the numbered alias only — never bare 'CA' (collides with calcium/other CA markers)."
+    },
+    {
+      "key": "ca125",
+      "canonical_name": "糖类抗原125",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "10334-1", "omop_concept_id": 3037551 },
+      "canonical_unit": "U/mL",
+      "units": [
+        { "unit": "U/mL", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "kU/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["糖类抗原125", "糖链抗原125", "糖抗原125", "CA125", "CA-125", "CA 125"],
+      "ocr_confusions": [],
+      "note": "CA125 tumor marker (LOINC 10334-1, [Units/volume]). U/mL = kU/L (same number). Uses the numbered alias only — never bare 'CA'."
+    },
+    {
+      "key": "ca15_3",
+      "canonical_name": "糖类抗原15-3",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "6875-9", "omop_concept_id": 3006588 },
+      "canonical_unit": "U/mL",
+      "units": [
+        { "unit": "U/mL", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "kU/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["糖类抗原15-3", "糖链抗原15-3", "糖抗原15-3", "CA15-3", "CA153", "CA 15-3", "CA-15-3"],
+      "ocr_confusions": [],
+      "note": "CA15-3 tumor marker (LOINC 6875-9, [Units/volume]). U/mL = kU/L (same number). Uses the numbered alias only — never bare 'CA'."
+    },
+    {
+      "key": "psa_total",
+      "canonical_name": "前列腺特异性抗原",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "2857-1", "omop_concept_id": 3013603 },
+      "canonical_unit": "ng/mL",
+      "units": [
+        { "unit": "ng/mL", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "ug/L", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["前列腺特异性抗原", "前列腺特异抗原", "总前列腺特异性抗原", "总PSA", "PSA", "tPSA", "t-PSA", "Prostate specific antigen", "Total PSA"],
+      "ocr_confusions": [],
+      "note": "Total PSA (LOINC 2857-1, [Mass/volume]). ug/L is identical to ng/mL (same number). This is total PSA, not free PSA (fPSA)."
+    },
+    {
+      "key": "vitamin_d_25oh",
+      "canonical_name": "25羟基维生素D",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "68438-1", "omop_concept_id": 40771025 },
+      "canonical_unit": "nmol/L",
+      "units": [
+        { "unit": "nmol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "ng/mL", "slope": 2.496, "intercept": 0.0 }
+      ],
+      "aliases": ["25羟基维生素D", "25-羟基维生素D", "25羟维生素D", "25-羟维生素D", "总25羟基维生素D", "维生素D", "25(OH)D", "25-OH-D", "25-OHD", "25-hydroxyvitamin D", "Vitamin D"],
+      "ocr_confusions": [],
+      "note": "Total 25-hydroxyvitamin D (D2+D3) (LOINC 68438-1, [Moles/volume]). Canonical is SI nmol/L. ng/mL → nmol/L uses the well-established factor 2.496 (MW 400.64 g/mol; 1 ng/mL = 2.496 nmol/L)."
+    },
+    {
+      "key": "ferritin",
+      "canonical_name": "铁蛋白",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "2276-4", "omop_concept_id": 3001122 },
+      "canonical_unit": "ug/L",
+      "units": [
+        { "unit": "ug/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "ng/mL", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["铁蛋白", "血清铁蛋白", "Ferritin", "Ferr"],
+      "ocr_confusions": [],
+      "note": "Ferritin (LOINC 2276-4, [Mass/volume]). Canonical ug/L; ng/mL is numerically identical (1 ng/mL = 1 ug/L), so both rows are slope 1."
+    },
+    {
+      "key": "serum_iron",
+      "canonical_name": "血清铁",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "14798-3", "omop_concept_id": 3022948 },
+      "canonical_unit": "umol/L",
+      "units": [
+        { "unit": "umol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "ug/dL", "slope": 0.1791, "intercept": 0.0 }
+      ],
+      "aliases": ["血清铁", "血铁", "铁", "Serum iron", "Iron", "Fe"],
+      "ocr_confusions": [],
+      "note": "Serum iron (LOINC 14798-3, [Moles/volume]). Canonical is SI molar umol/L. ug/dL → umol/L uses the well-established factor 0.1791 (Fe MW 55.845; 1 ug/dL = 0.1791 umol/L)."
+    },
+    {
+      "key": "vitamin_b12",
+      "canonical_name": "维生素B12",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "14685-2", "omop_concept_id": 3009035 },
+      "canonical_unit": "pmol/L",
+      "units": [
+        { "unit": "pmol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "pg/mL", "slope": 0.7378, "intercept": 0.0 }
+      ],
+      "aliases": ["维生素B12", "钴胺素", "氰钴胺", "维生素B-12", "VitB12", "VB12", "B12", "Vitamin B12", "Cobalamin"],
+      "ocr_confusions": [],
+      "note": "Vitamin B12 / cobalamin (LOINC 14685-2, [Moles/volume]). Canonical is SI molar pmol/L. pg/mL → pmol/L uses the well-established factor 0.7378 (cyanocobalamin MW 1355.37; 1 pg/mL = 0.7378 pmol/L)."
+    },
+    {
+      "key": "folate",
+      "canonical_name": "叶酸",
+      "category": "lab",
+      "system": "serum/plasma",
+      "codes": { "loinc": "14732-2", "omop_concept_id": 3021960 },
+      "canonical_unit": "nmol/L",
+      "units": [
+        { "unit": "nmol/L", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "ng/mL", "slope": 2.266, "intercept": 0.0 }
+      ],
+      "aliases": ["叶酸", "血清叶酸", "维生素B9", "Folate", "Folic acid"],
+      "ocr_confusions": [],
+      "note": "Serum folate (LOINC 14732-2, [Moles/volume]). Canonical is SI molar nmol/L. ng/mL → nmol/L uses the well-established factor 2.266 (folic acid MW 441.4; 1 ng/mL = 2.266 nmol/L)."
+    },
+    {
+      "key": "height",
+      "canonical_name": "身高",
+      "category": "vital",
+      "system": "whole body",
+      "codes": { "loinc": "8302-2", "omop_concept_id": 3036277 },
+      "canonical_unit": "cm",
+      "units": [
+        { "unit": "cm", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "m", "slope": 100.0, "intercept": 0.0 },
+        { "unit": "[in_i]", "slope": 2.54, "intercept": 0.0 }
+      ],
+      "aliases": ["身高", "身长", "HT", "Height", "Body height", "Stature"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "spo2",
+      "canonical_name": "血氧饱和度",
+      "category": "vital",
+      "system": "arterial",
+      "codes": { "loinc": "59408-5", "omop_concept_id": 40762499 },
+      "canonical_unit": "%",
+      "units": [
+        { "unit": "%", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["血氧饱和度", "血氧", "氧饱和度", "脉氧饱和度", "指脉氧", "SpO2", "SPO2", "SaO2", "Oxygen saturation", "Pulse oximetry"],
+      "ocr_confusions": [],
+      "note": "Canonical LOINC 59408-5 is SpO2 by pulse oximetry (the value patients see on a finger oximeter). Arterial-blood-gas SaO2 (LOINC 2708-6) is included as an alias and folds here in V1; if the pulse-ox-vs-ABG distinction is needed later, split SaO2 to its own entry."
+    },
+    {
+      "key": "body_temperature",
+      "canonical_name": "体温",
+      "category": "vital",
+      "system": "whole body",
+      "codes": { "loinc": "8310-5", "omop_concept_id": 3020891 },
+      "canonical_unit": "Cel",
+      "units": [
+        { "unit": "Cel", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "[degF]", "slope": 0.5555555556, "intercept": -17.7777777778 }
+      ],
+      "aliases": ["体温", "腋温", "口温", "耳温", "Temp", "Temperature", "Body temperature"],
+      "ocr_confusions": [],
+      "note": "Canonical unit is degree Celsius (UCUM 'Cel'). The [degF] row is the exact affine Fahrenheit→Celsius conversion C = (5/9)(F−32) = 0.5555555556·F − 17.7777777778. Bare 'T' is intentionally NOT an alias (collides with thyroid T3/T4)."
+    },
+    {
+      "key": "respiratory_rate",
+      "canonical_name": "呼吸频率",
+      "category": "vital",
+      "system": "respiratory system",
+      "codes": { "loinc": "9279-1", "omop_concept_id": 3024171 },
+      "canonical_unit": "/min",
+      "units": [
+        { "unit": "/min", "slope": 1.0, "intercept": 0.0 }
+      ],
+      "aliases": ["呼吸频率", "呼吸", "呼吸次数", "RR", "Respiratory rate", "Resp rate", "Breaths per minute"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "waist_circumference",
+      "canonical_name": "腰围",
+      "category": "vital",
+      "system": "whole body",
+      "codes": { "loinc": "8280-0", "omop_concept_id": 3016258 },
+      "canonical_unit": "cm",
+      "units": [
+        { "unit": "cm", "slope": 1.0, "intercept": 0.0 },
+        { "unit": "[in_i]", "slope": 2.54, "intercept": 0.0 }
+      ],
+      "aliases": ["腰围", "WC", "Waist circumference", "Waist"],
+      "ocr_confusions": [],
+      "note": null
+    },
+
+    {
+      "key": "repaglinide",
+      "canonical_name": "瑞格列奈",
+      "category": "drug",
+      "ingredient": "Repaglinide",
+      "codes": { "rxnorm": "73044", "atc": "A10BX02", "omop_concept_id": 1516766 },
+      "aliases": ["瑞格列奈", "诺和龙", "Repaglinide", "NovoNorm", "Prandin"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "nateglinide",
+      "canonical_name": "那格列奈",
+      "category": "drug",
+      "ingredient": "Nateglinide",
+      "codes": { "rxnorm": "274332", "atc": "A10BX03", "omop_concept_id": 1502826 },
+      "aliases": ["那格列奈", "唐力", "Nateglinide", "Starlix"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "pioglitazone",
+      "canonical_name": "吡格列酮",
+      "category": "drug",
+      "ingredient": "Pioglitazone",
+      "codes": { "rxnorm": "33738", "atc": "A10BG03", "omop_concept_id": 1525215 },
+      "aliases": ["吡格列酮", "盐酸吡格列酮", "艾可拓", "Pioglitazone", "Actos"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "liraglutide",
+      "canonical_name": "利拉鲁肽",
+      "category": "drug",
+      "ingredient": "Liraglutide",
+      "codes": { "rxnorm": "475968", "atc": "A10BJ02", "omop_concept_id": 40170911 },
+      "aliases": ["利拉鲁肽", "诺和力", "Liraglutide", "Victoza", "Saxenda"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "dulaglutide",
+      "canonical_name": "度拉糖肽",
+      "category": "drug",
+      "ingredient": "Dulaglutide",
+      "codes": { "rxnorm": "1551291", "atc": "A10BJ05", "omop_concept_id": 45774435 },
+      "aliases": ["度拉糖肽", "度易达", "Dulaglutide", "Trulicity"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "canagliflozin",
+      "canonical_name": "卡格列净",
+      "category": "drug",
+      "ingredient": "Canagliflozin",
+      "codes": { "rxnorm": "1373458", "atc": "A10BK02", "omop_concept_id": 43526465 },
+      "aliases": ["卡格列净", "怡可安", "Canagliflozin", "Invokana"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "linagliptin",
+      "canonical_name": "利格列汀",
+      "category": "drug",
+      "ingredient": "Linagliptin",
+      "codes": { "rxnorm": "1100699", "atc": "A10BH05", "omop_concept_id": 40239216 },
+      "aliases": ["利格列汀", "欧唐宁", "Linagliptin", "Tradjenta", "Trajenta"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "saxagliptin",
+      "canonical_name": "沙格列汀",
+      "category": "drug",
+      "ingredient": "Saxagliptin",
+      "codes": { "rxnorm": "857974", "atc": "A10BH03", "omop_concept_id": 40166035 },
+      "aliases": ["沙格列汀", "安立泽", "Saxagliptin", "Onglyza"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "vildagliptin",
+      "canonical_name": "维格列汀",
+      "category": "drug",
+      "ingredient": "Vildagliptin",
+      "codes": { "rxnorm": "596554", "atc": "A10BH02", "omop_concept_id": 19122137 },
+      "aliases": ["维格列汀", "佳维乐", "Vildagliptin", "Galvus"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "insulin_degludec",
+      "canonical_name": "德谷胰岛素",
+      "category": "drug",
+      "ingredient": "Insulin degludec",
+      "codes": { "rxnorm": "1670007", "atc": "A10AE06", "omop_concept_id": 35602717 },
+      "aliases": ["德谷胰岛素", "诺和达", "Insulin degludec", "Degludec", "Tresiba"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "insulin_detemir",
+      "canonical_name": "地特胰岛素",
+      "category": "drug",
+      "ingredient": "Insulin detemir",
+      "codes": { "rxnorm": "139825", "atc": "A10AE05", "omop_concept_id": 1516976 },
+      "aliases": ["地特胰岛素", "诺和平", "Insulin detemir", "Detemir", "Levemir"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "glipizide",
+      "canonical_name": "格列吡嗪",
+      "category": "drug",
+      "ingredient": "Glipizide",
+      "codes": { "rxnorm": "4821", "atc": "A10BB07", "omop_concept_id": 1560171 },
+      "aliases": ["格列吡嗪", "美吡达", "瑞易宁", "Glipizide", "Glucotrol"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "glibenclamide",
+      "canonical_name": "格列本脲",
+      "category": "drug",
+      "ingredient": "Glyburide",
+      "codes": { "rxnorm": "4815", "atc": "A10BB01", "omop_concept_id": 1559684 },
+      "aliases": ["格列本脲", "格列苯脲", "优降糖", "Glibenclamide", "Glyburide"],
+      "ocr_confusions": [],
+      "note": "Chinese name 格列本脲 = glibenclamide (INN); the RxNorm Ingredient is coded under the US synonym 'glyburide' (RxCUI 4815, ATC A10BB01) — same substance."
+    },
+    {
+      "key": "telmisartan",
+      "canonical_name": "替米沙坦",
+      "category": "drug",
+      "ingredient": "Telmisartan",
+      "codes": { "rxnorm": "73494", "atc": "C09CA07", "omop_concept_id": 1317640 },
+      "aliases": ["替米沙坦", "美卡素", "Telmisartan", "Micardis"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "olmesartan",
+      "canonical_name": "奥美沙坦",
+      "category": "drug",
+      "ingredient": "Olmesartan",
+      "codes": { "rxnorm": "321064", "atc": "C09CA08", "omop_concept_id": 40226742 },
+      "aliases": ["奥美沙坦", "奥美沙坦酯", "傲坦", "Olmesartan", "Olmesartan medoxomil", "Benicar", "Olmetec"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "candesartan",
+      "canonical_name": "坎地沙坦",
+      "category": "drug",
+      "ingredient": "Candesartan",
+      "codes": { "rxnorm": "214354", "atc": "C09CA06", "omop_concept_id": 1351557 },
+      "aliases": ["坎地沙坦", "坎地沙坦酯", "必洛斯", "Candesartan", "Atacand"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "enalapril",
+      "canonical_name": "依那普利",
+      "category": "drug",
+      "ingredient": "Enalapril",
+      "codes": { "rxnorm": "3827", "atc": "C09AA02", "omop_concept_id": 1341927 },
+      "aliases": ["依那普利", "马来酸依那普利", "依苏", "悦宁定", "Enalapril", "Vasotec"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "benazepril",
+      "canonical_name": "贝那普利",
+      "category": "drug",
+      "ingredient": "Benazepril",
+      "codes": { "rxnorm": "18867", "atc": "C09AA07", "omop_concept_id": 1335471 },
+      "aliases": ["贝那普利", "盐酸贝那普利", "洛汀新", "Benazepril", "Lotensin"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "captopril",
+      "canonical_name": "卡托普利",
+      "category": "drug",
+      "ingredient": "Captopril",
+      "codes": { "rxnorm": "1998", "atc": "C09AA01", "omop_concept_id": 1340128 },
+      "aliases": ["卡托普利", "开博通", "巯甲丙脯酸", "Captopril", "Capoten"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "fosinopril",
+      "canonical_name": "福辛普利",
+      "category": "drug",
+      "ingredient": "Fosinopril",
+      "codes": { "rxnorm": "50166", "atc": "C09AA09", "omop_concept_id": 1363749 },
+      "aliases": ["福辛普利", "福辛普利钠", "蒙诺", "Fosinopril", "Monopril"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "bisoprolol",
+      "canonical_name": "比索洛尔",
+      "category": "drug",
+      "ingredient": "Bisoprolol",
+      "codes": { "rxnorm": "19484", "atc": "C07AB07", "omop_concept_id": 1338005 },
+      "aliases": ["比索洛尔", "富马酸比索洛尔", "康忻", "博苏", "Bisoprolol", "Concor"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "atenolol",
+      "canonical_name": "阿替洛尔",
+      "category": "drug",
+      "ingredient": "Atenolol",
+      "codes": { "rxnorm": "1202", "atc": "C07AB03", "omop_concept_id": 1314002 },
+      "aliases": ["阿替洛尔", "氨酰心安", "Atenolol", "Tenormin"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "carvedilol",
+      "canonical_name": "卡维地洛",
+      "category": "drug",
+      "ingredient": "Carvedilol",
+      "codes": { "rxnorm": "20352", "atc": "C07AG02", "omop_concept_id": 1346823 },
+      "aliases": ["卡维地洛", "络德", "金络", "达利全", "Carvedilol", "Coreg"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "felodipine",
+      "canonical_name": "非洛地平",
+      "category": "drug",
+      "ingredient": "Felodipine",
+      "codes": { "rxnorm": "4316", "atc": "C08CA02", "omop_concept_id": 1353776 },
+      "aliases": ["非洛地平", "波依定", "Felodipine", "Plendil"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "indapamide",
+      "canonical_name": "吲达帕胺",
+      "category": "drug",
+      "ingredient": "Indapamide",
+      "codes": { "rxnorm": "5764", "atc": "C03BA11", "omop_concept_id": 978555 },
+      "aliases": ["吲达帕胺", "寿比山", "钠催离", "Indapamide", "Natrilix"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "terazosin",
+      "canonical_name": "特拉唑嗪",
+      "category": "drug",
+      "ingredient": "Terazosin",
+      "codes": { "rxnorm": "37798", "atc": "G04CA03", "omop_concept_id": 1341238 },
+      "aliases": ["特拉唑嗪", "盐酸特拉唑嗪", "高特灵", "Terazosin", "Hytrin"],
+      "ocr_confusions": [],
+      "note": "ATC is G04CA03 (alpha-adrenoceptor antagonist, urologicals) — verified against the OMOP ATC vocab. NOT C02CA04, which the vocab assigns to doxazosin."
+    },
+    {
+      "key": "pravastatin",
+      "canonical_name": "普伐他汀",
+      "category": "drug",
+      "ingredient": "Pravastatin",
+      "codes": { "rxnorm": "42463", "atc": "C10AA03", "omop_concept_id": 1551860 },
+      "aliases": ["普伐他汀", "普伐他汀钠", "普拉固", "美百乐镇", "Pravastatin", "Pravachol"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "fluvastatin",
+      "canonical_name": "氟伐他汀",
+      "category": "drug",
+      "ingredient": "Fluvastatin",
+      "codes": { "rxnorm": "41127", "atc": "C10AA04", "omop_concept_id": 1549686 },
+      "aliases": ["氟伐他汀", "氟伐他汀钠", "来适可", "Fluvastatin", "Lescol"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "pitavastatin",
+      "canonical_name": "匹伐他汀",
+      "category": "drug",
+      "ingredient": "Pitavastatin",
+      "codes": { "rxnorm": "861634", "atc": "C10AA08", "omop_concept_id": 40165636 },
+      "aliases": ["匹伐他汀", "匹伐他汀钙", "力清之", "冠爽", "Pitavastatin", "Livalo"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "lovastatin",
+      "canonical_name": "洛伐他汀",
+      "category": "drug",
+      "ingredient": "Lovastatin",
+      "codes": { "rxnorm": "6472", "atc": "C10AA02", "omop_concept_id": 1592085 },
+      "aliases": ["洛伐他汀", "美降之", "罗华宁", "血脂康", "Lovastatin", "Mevacor"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "fenofibrate",
+      "canonical_name": "非诺贝特",
+      "category": "drug",
+      "ingredient": "Fenofibrate",
+      "codes": { "rxnorm": "8703", "atc": "C10AB05", "omop_concept_id": 1551803 },
+      "aliases": ["非诺贝特", "力平之", "力平脂", "Fenofibrate", "Lipanthyl"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "bezafibrate",
+      "canonical_name": "苯扎贝特",
+      "category": "drug",
+      "ingredient": "Bezafibrate",
+      "codes": { "rxnorm": "1525", "atc": "C10AB02", "omop_concept_id": 19022956 },
+      "aliases": ["苯扎贝特", "必降脂", "阿贝他", "Bezafibrate"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "evolocumab",
+      "canonical_name": "依洛尤单抗",
+      "category": "drug",
+      "ingredient": "Evolocumab",
+      "codes": { "rxnorm": "1665684", "atc": "C10AX13", "omop_concept_id": 46287466 },
+      "aliases": ["依洛尤单抗", "瑞百安", "Evolocumab", "Repatha"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "alirocumab",
+      "canonical_name": "阿利西尤单抗",
+      "category": "drug",
+      "ingredient": "Alirocumab",
+      "codes": { "rxnorm": "1659152", "atc": "C10AX14", "omop_concept_id": 46275447 },
+      "aliases": ["阿利西尤单抗", "阿利珠单抗", "Alirocumab", "Praluent"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "ticagrelor",
+      "canonical_name": "替格瑞洛",
+      "category": "drug",
+      "ingredient": "Ticagrelor",
+      "codes": { "rxnorm": "1116632", "atc": "B01AC24", "omop_concept_id": 40241186 },
+      "aliases": ["替格瑞洛", "倍林达", "Ticagrelor", "Brilinta"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "dabigatran_etexilate",
+      "canonical_name": "达比加群酯",
+      "category": "drug",
+      "ingredient": "Dabigatran etexilate",
+      "codes": { "rxnorm": "1037042", "atc": "B01AE07", "omop_concept_id": 40228152 },
+      "aliases": ["达比加群酯", "达比加群", "甲磺酸达比加群酯", "泰毕全", "Dabigatran", "Dabigatran etexilate", "Pradaxa"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "apixaban",
+      "canonical_name": "阿哌沙班",
+      "category": "drug",
+      "ingredient": "Apixaban",
+      "codes": { "rxnorm": "1364430", "atc": "B01AF02", "omop_concept_id": 43013024 },
+      "aliases": ["阿哌沙班", "艾乐妥", "Apixaban", "Eliquis"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "edoxaban",
+      "canonical_name": "艾多沙班",
+      "category": "drug",
+      "ingredient": "Edoxaban",
+      "codes": { "rxnorm": "1599538", "atc": "B01AF03", "omop_concept_id": 45892847 },
+      "aliases": ["艾多沙班", "里先安", "Edoxaban", "Lixiana", "Savaysa"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "cilostazol",
+      "canonical_name": "西洛他唑",
+      "category": "drug",
+      "ingredient": "Cilostazol",
+      "codes": { "rxnorm": "21107", "atc": "B01AC23", "omop_concept_id": 1350310 },
+      "aliases": ["西洛他唑", "培达", "Cilostazol", "Pletal"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "dipyridamole",
+      "canonical_name": "双嘧达莫",
+      "category": "drug",
+      "ingredient": "Dipyridamole",
+      "codes": { "rxnorm": "3521", "atc": "B01AC07", "omop_concept_id": 1331270 },
+      "aliases": ["双嘧达莫", "双嘧啶氨醇", "潘生丁", "Dipyridamole", "Persantin"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "enoxaparin",
+      "canonical_name": "依诺肝素",
+      "category": "drug",
+      "ingredient": "Enoxaparin",
+      "codes": { "rxnorm": "67108", "atc": "B01AB05", "omop_concept_id": 1301025 },
+      "aliases": ["依诺肝素", "依诺肝素钠", "低分子肝素", "克赛", "Enoxaparin", "Clexane", "Lovenox", "LMWH"],
+      "ocr_confusions": [],
+      "note": "低分子肝素/LMWH is strictly the drug class (low-molecular-weight heparin), not a single substance; enoxaparin is the most common representative in Chinese practice, so these class terms are mapped here as aliases per the item scope. Other LMWHs (那屈肝素/达肝素) would also normalize here in V1 — split if that distinction is needed."
+    },
+    {
+      "key": "benzbromarone",
+      "canonical_name": "苯溴马隆",
+      "category": "drug",
+      "ingredient": "Benzbromarone",
+      "codes": { "rxnorm": "1385", "atc": "M04AB03", "omop_concept_id": 19016754 },
+      "aliases": ["苯溴马隆", "立加利仙", "痛风利仙", "Benzbromarone"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "colchicine",
+      "canonical_name": "秋水仙碱",
+      "category": "drug",
+      "ingredient": "Colchicine",
+      "codes": { "rxnorm": "2683", "atc": "M04AC01", "omop_concept_id": 1101554 },
+      "aliases": ["秋水仙碱", "秋水仙素", "Colchicine"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "omeprazole",
+      "canonical_name": "奥美拉唑",
+      "category": "drug",
+      "ingredient": "Omeprazole",
+      "codes": { "rxnorm": "7646", "atc": "A02BC01", "omop_concept_id": 923645 },
+      "aliases": ["奥美拉唑", "奥美拉唑钠", "洛赛克", "奥克", "Omeprazole", "Losec"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "esomeprazole",
+      "canonical_name": "埃索美拉唑",
+      "category": "drug",
+      "ingredient": "Esomeprazole",
+      "codes": { "rxnorm": "283742", "atc": "A02BC05", "omop_concept_id": 904453 },
+      "aliases": ["埃索美拉唑", "艾司奥美拉唑", "埃索美拉唑镁", "耐信", "Esomeprazole", "Nexium"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "lansoprazole",
+      "canonical_name": "兰索拉唑",
+      "category": "drug",
+      "ingredient": "Lansoprazole",
+      "codes": { "rxnorm": "17128", "atc": "A02BC03", "omop_concept_id": 929887 },
+      "aliases": ["兰索拉唑", "达克普隆", "Lansoprazole", "Takepron"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "rabeprazole",
+      "canonical_name": "雷贝拉唑",
+      "category": "drug",
+      "ingredient": "Rabeprazole",
+      "codes": { "rxnorm": "114979", "atc": "A02BC04", "omop_concept_id": 911735 },
+      "aliases": ["雷贝拉唑", "雷贝拉唑钠", "波利特", "济诺", "Rabeprazole", "Pariet"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "famotidine",
+      "canonical_name": "法莫替丁",
+      "category": "drug",
+      "ingredient": "Famotidine",
+      "codes": { "rxnorm": "4278", "atc": "A02BA03", "omop_concept_id": 953076 },
+      "aliases": ["法莫替丁", "高舒达", "信法丁", "Famotidine", "Gaster", "Pepcid"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "mosapride",
+      "canonical_name": "莫沙必利",
+      "category": "drug",
+      "ingredient": "Mosapride",
+      "codes": { "rxnorm": "135091", "atc": "A03FA09", "omop_concept_id": 19011339 },
+      "aliases": ["莫沙必利", "枸橼酸莫沙必利", "加斯清", "瑞琪", "Mosapride"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "furosemide",
+      "canonical_name": "呋塞米",
+      "category": "drug",
+      "ingredient": "Furosemide",
+      "codes": { "rxnorm": "4603", "atc": "C03CA01", "omop_concept_id": 956874 },
+      "aliases": ["呋塞米", "速尿", "呋喃苯胺酸", "Furosemide", "Lasix"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "spironolactone",
+      "canonical_name": "螺内酯",
+      "category": "drug",
+      "ingredient": "Spironolactone",
+      "codes": { "rxnorm": "9997", "atc": "C03DA01", "omop_concept_id": 970250 },
+      "aliases": ["螺内酯", "螺旋内酯", "安体舒通", "Spironolactone", "Aldactone"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "torasemide",
+      "canonical_name": "托拉塞米",
+      "category": "drug",
+      "ingredient": "Torsemide",
+      "codes": { "rxnorm": "38413", "atc": "C03CA04", "omop_concept_id": 942350 },
+      "aliases": ["托拉塞米", "托拉噻米", "特苏尼", "伊迈格", "Torasemide", "Torsemide"],
+      "ocr_confusions": [],
+      "note": "RxNorm ingredient name is the US spelling 'Torsemide' (concept 942350); Chinese/INN spelling is torasemide. ATC C03CA04."
+    },
+    {
+      "key": "methimazole",
+      "canonical_name": "甲巯咪唑",
+      "category": "drug",
+      "ingredient": "Methimazole",
+      "codes": { "rxnorm": "6835", "atc": "H03BB02", "omop_concept_id": 1504620 },
+      "aliases": ["甲巯咪唑", "甲硫咪唑", "他巴唑", "赛治", "Methimazole", "Thiamazole", "MMI", "Thyrozol"],
+      "ocr_confusions": [],
+      "note": "Methimazole (RxNorm) and thiamazole (INN/ATC H03BB02) are the same substance."
+    },
+    {
+      "key": "propylthiouracil",
+      "canonical_name": "丙硫氧嘧啶",
+      "category": "drug",
+      "ingredient": "Propylthiouracil",
+      "codes": { "rxnorm": "8794", "atc": "H03BA02", "omop_concept_id": 1554072 },
+      "aliases": ["丙硫氧嘧啶", "丙基硫氧嘧啶", "PTU", "Propylthiouracil"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "tiotropium",
+      "canonical_name": "噻托溴铵",
+      "category": "drug",
+      "ingredient": "Tiotropium",
+      "codes": { "rxnorm": "69120", "atc": "R03BB04", "omop_concept_id": 1106776 },
+      "aliases": ["噻托溴铵", "噻托溴胺", "思力华", "Tiotropium", "Tiotropium bromide", "Spiriva"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "montelukast",
+      "canonical_name": "孟鲁司特",
+      "category": "drug",
+      "ingredient": "Montelukast",
+      "codes": { "rxnorm": "88249", "atc": "R03DC03", "omop_concept_id": 1154161 },
+      "aliases": ["孟鲁司特", "孟鲁司特钠", "顺尔宁", "Montelukast", "Singulair"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "budesonide",
+      "canonical_name": "布地奈德",
+      "category": "drug",
+      "ingredient": "Budesonide",
+      "codes": { "rxnorm": "19831", "atc": "R03BA02", "omop_concept_id": 939259 },
+      "aliases": ["布地奈德", "普米克", "普米克令舒", "雷诺考特", "Budesonide", "Pulmicort"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "alendronate",
+      "canonical_name": "阿仑膦酸钠",
+      "category": "drug",
+      "ingredient": "Alendronate",
+      "codes": { "rxnorm": "46041", "atc": "M05BA04", "omop_concept_id": 1557272 },
+      "aliases": ["阿仑膦酸钠", "阿仑膦酸", "阿伦膦酸钠", "福善美", "固邦", "Alendronate", "Alendronic acid", "Fosamax"],
+      "ocr_confusions": [],
+      "note": null
+    },
+    {
+      "key": "calcitriol",
+      "canonical_name": "骨化三醇",
+      "category": "drug",
+      "ingredient": "Calcitriol",
+      "codes": { "rxnorm": "1894", "atc": "A11CC04", "omop_concept_id": 19035631 },
+      "aliases": ["骨化三醇", "1,25-二羟维生素D3", "罗盖全", "盖三淳", "Calcitriol", "Rocaltrol"],
+      "ocr_confusions": [],
+      "note": null
     }
   ]
 }
