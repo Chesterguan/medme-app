@@ -94,6 +94,7 @@ export default function App() {
   const [lastImport, setLastImport] = useState<ImportOutcome | null>(null);
   const [share, setShare] = useState<ShareResult | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [confirmDisableIcloud, setConfirmDisableIcloud] = useState(false);
   const [version, setVersion] = useState("");
   // iCloud 同步状态(仅 iOS)。null = 尚未查询 / 不适用。
   const [icloud, setIcloud] = useState<IcloudStatus | null>(null);
@@ -150,6 +151,22 @@ export default function App() {
       setBusy(null);
     }
   }, [icloud, refresh]);
+
+  // 关闭 iCloud 同步:把真相复制回本机(iCloud 里的副本保留),本地成为主副本;
+  // 之后本设备不再自动同步。用 disable_icloud_sync(copy_to,不删源)。
+  const disableIcloud = useCallback(async () => {
+    try {
+      setBusy("正在关闭 iCloud 同步…");
+      await api.disableIcloudSync();
+      setIcloud({ available: true, enabled: false });
+      setConfirmDisableIcloud(false);
+      await refresh();
+    } catch (e) {
+      alert(`关闭 iCloud 同步失败:${e}`);
+    } finally {
+      setBusy(null);
+    }
+  }, [refresh]);
 
   // 采集:iOS WKWebView 里最可靠的相机路径 = 隐藏的 HTML file input。
   //  - `accept="image/*" capture="environment"` → 直接调起后置相机拍照;
@@ -426,17 +443,19 @@ export default function App() {
             {IS_IOS && (
               <button
                 className="row"
-                onClick={enableIcloud}
-                disabled={!!busy || icloud?.enabled === true}
+                onClick={() => (icloud?.enabled ? setConfirmDisableIcloud(true) : enableIcloud())}
+                disabled={!!busy}
               >
                 <span className="ri"><ShieldIcon /></span>
                 <span className="rt">
                   <b>iCloud 同步{icloud?.enabled ? " · 已开启" : ""}</b>
                   <span>
-                    开启后,你的病历在所有苹果设备间自动同步;数据端到端由 iCloud 保管。
+                    {icloud?.enabled
+                      ? "已在所有苹果设备间自动同步。点此关闭:数据搬回本机,iCloud 里的副本保留。"
+                      : "开启后,你的病历在所有苹果设备间自动同步;数据端到端由 iCloud 保管。"}
                   </span>
                 </span>
-                <span className="chev">{icloud?.enabled ? "✓" : "›"}</span>
+                <span className="chev">›</span>
               </button>
             )}
             <div className="info">
@@ -519,6 +538,30 @@ export default function App() {
         </div>
       )}
 
+      {/* 关闭 iCloud 确认:数据搬回本机,iCloud 里的副本保留 */}
+      {confirmDisableIcloud && (
+        <div className="scrim" onClick={() => !busy && setConfirmDisableIcloud(false)}>
+          <div className="dialog" onClick={(e) => e.stopPropagation()}>
+            <h3>关闭 iCloud 同步?</h3>
+            <p>
+              病历会复制回这台手机(本地成为主副本),iCloud 里的副本保留不动。
+              之后这台设备不再自动同步。
+            </p>
+            <div className="acts">
+              <button
+                className="cancel"
+                onClick={() => setConfirmDisableIcloud(false)}
+                disabled={!!busy}
+              >
+                取消
+              </button>
+              <button className="confirm" onClick={disableIcloud} disabled={!!busy}>
+                关闭同步
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* 清空确认:破坏性操作,二次确认 */}
       {confirmReset && (
         <div className="scrim" onClick={() => !busy && setConfirmReset(false)}>

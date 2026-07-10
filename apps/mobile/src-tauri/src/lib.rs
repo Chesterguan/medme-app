@@ -151,6 +151,7 @@ pub fn run() {
             commands::get_vault_path,
             commands::reset_vault,
             commands::enable_icloud_sync,
+            commands::disable_icloud_sync,
             commands::icloud_status,
         ])
         .run(tauri::generate_context!())
