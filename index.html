@@ -110,6 +110,17 @@
   .video-slot .corner{position:absolute;top:14px;right:16px;font-size:11.5px;font-weight:700;
     letter-spacing:.06em;color:#1560a8;background:rgba(255,255,255,.75);
     border:1px solid #c8ebf1;padding:4px 10px;border-radius:999px}
+  /* product demo: phone(自动循环)+ desktop(点击播放) */
+  .demo-wrap{display:flex;gap:30px;align-items:center;justify-content:center;flex-wrap:wrap;max-width:920px;margin:0 auto}
+  .demo-wrap figure{margin:0;text-align:center}
+  .demo-wrap figcaption{margin-top:12px;font-weight:600;color:#1560a8;font-size:15px}
+  .demo-wrap figcaption small{display:block;font-weight:400;color:#64748b;font-size:13px;margin-top:2px}
+  .phone-frame{width:224px;border-radius:34px;overflow:hidden;border:6px solid #0f172a;background:#0f172a;
+    box-shadow:0 20px 50px rgba(15,23,42,.28);margin:0 auto}
+  .phone-frame video{display:block;width:100%;aspect-ratio:1180/2556;background:#0f172a}
+  .demo-desktop{flex:1 1 420px;max-width:560px;min-width:300px}
+  .demo-desktop video{width:100%;aspect-ratio:1602/1080;border-radius:16px;border:1px solid var(--line);
+    box-shadow:0 18px 44px rgba(15,23,42,.16);background:#000}
   /* showpiece: before -> after */
   .show{display:grid;grid-template-columns:0.85fr auto 1.15fr;gap:28px;align-items:center;margin-top:8px}
   .show .arrow{color:#94a3b8;display:flex;align-items:center;justify-content:center}
@@ -300,15 +311,18 @@
 <!-- ===== 它怎么帮你:showpiece before→after ===== -->
 <section id="how">
   <div class="wrap">
-    <!-- ===== 演示视频占位:录制后把下面的 .video-slot 整块替换为
-         <video controls poster="..." style="width:100%;aspect-ratio:16/9;border-radius:20px">
-           <source src="演示视频文件路径.mp4" type="video/mp4">
-         </video>
-         或直接换成一个 <iframe> 嵌入(注意 GitHub Pages 上使用相对路径)。===== -->
-    <div class="video-slot" role="img" aria-label="产品演示视频,录制中,即将上线">
-      <span class="corner">演示视频</span>
-      <span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
-      <span class="cap">产品演示 · 录制中<small>一分钟看懂:怎么把一抽屉报告变成一份健康档案</small></span>
+    <!-- 产品演示:手机(自动循环)+ 桌面(点击播放)。视频在 demo/,相对路径。 -->
+    <div class="demo-wrap">
+      <figure class="demo-phone">
+        <div class="phone-frame">
+          <video src="demo/phone.mp4" autoplay muted loop playsinline preload="metadata" aria-label="手机拍照识别演示"></video>
+        </div>
+        <figcaption>手机随手一拍,自动认字归档<small>化验单 / 病历,OCR 当场识别</small></figcaption>
+      </figure>
+      <figure class="demo-desktop">
+        <video src="demo/desktop.mp4" controls preload="metadata" poster="demo/desktop-poster.jpg" aria-label="桌面完整演示"></video>
+        <figcaption>桌面大屏,管理全家档案<small>完整演示 · 点击播放</small></figcaption>
+      </figure>
     </div>
 
     <span class="kicker" style="margin-top:44px">它怎么帮你</span>
