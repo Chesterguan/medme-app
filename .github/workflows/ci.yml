@@ -88,3 +88,15 @@ jobs:
 
       - name: Build
         run: pnpm -C apps/desktop build
+
+  # Dependency vulnerability scan against the RustSec advisory DB. A newly
+  # disclosed CVE in any (transitive) crate fails this job so it can't land
+  # silently. Runs independently of the build/test jobs.
+  audit:
+    name: Security audit (cargo-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
