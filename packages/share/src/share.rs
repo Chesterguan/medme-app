@@ -14,12 +14,18 @@
 //!     "-",因为 "-" 是 base64url 字母表本身的字符,去掉会破坏密钥。
 //!   - Web Crypto 的 AES-GCM 同样期望 128-bit tag 追加在密文尾部 —— 与本模块输出一致。
 
-use aes_gcm::aead::Aead;
+use aes_gcm::aead::{Aead, Payload};
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use base64::engine::general_purpose::{STANDARD as B64, URL_SAFE_NO_PAD as B64URL};
 use base64::Engine as _;
 use core_model::Vault;
 use rand::RngCore;
+
+/// AES-GCM 的固定关联数据(AAD)。绑定后可抵御格式/版本混淆:任何解密端都必须传入
+/// 逐字节相同的 AAD 才能解密成功。互操作三处必须一致——Rust 加密、内嵌查看器 JS
+/// 解密、`web/hosted-viewer` JS 解密——JS 侧以 `new TextEncoder().encode("medme-share-v1")`
+/// 得到相同字节。改动此常量将使旧分享无法解密。
+const SHARE_AAD: &[u8] = b"medme-share-v1";
 
 /// 把无填充 base64url 口令按 4 字符分组、空格连接,便于口述/抄写。
 /// 查看器解码前会 `replace(/[\s-]/g,'')` 还原,因此分组仅影响显示。
@@ -198,7 +204,13 @@ pub fn build_encrypted_share(
     let cipher = Aes256Gcm::new_from_slice(&key_bytes).map_err(|e| format!("init cipher: {e}"))?;
     let nonce = Nonce::from_slice(&nonce_bytes);
     let ciphertext = cipher
-        .encrypt(nonce, plaintext.as_ref())
+        .encrypt(
+            nonce,
+            Payload {
+                msg: plaintext.as_ref(),
+                aad: SHARE_AAD,
+            },
+        )
         .map_err(|e| format!("encrypt: {e}"))?; // 密文尾部含 16 字节 tag
 
     // blob = nonce(12) || ciphertext_with_tag,整体标准 base64。
@@ -883,15 +895,6 @@ function render(payload) {
   });
 }
 
-function showExpired(expires) {
-  document.getElementById("gate").style.display = "none";
-  const app = document.getElementById("app");
-  const until = (expires || "").slice(0, 10);
-  app.innerHTML = '<div class="expired"><h1>此分享已过期</h1><p>有效期至 ' + esc(until) +
-    ',请向本人重新索取。</p></div>';
-  app.style.display = "block";
-}
-
 async function decryptAndRender(passphrase) {
   const blob = b64ToBytes(EMBEDDED_BLOB);
   const iv = blob.slice(0, 12);
@@ -899,10 +902,12 @@ async function decryptAndRender(passphrase) {
   // 仅去空白/换行还原分组;不可去 "-",因为它是 base64url 字母表的一部分。
   const keyBytes = b64urlToBytes(passphrase.replace(/\s+/g, ""));
   const key = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, ["decrypt"]);
-  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data); // 口令错误则抛异常
+  // AAD 必须与 Rust 加密端 SHARE_AAD 逐字节一致(ASCII "medme-share-v1")。
+  const aad = new TextEncoder().encode("medme-share-v1");
+  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv, additionalData: aad }, key, data); // 口令错误则抛异常
   const payload = JSON.parse(new TextDecoder().decode(pt));
-  // 有效期在解密后的 payload 内强制执行
-  if (payload.expires && Date.now() > Date.parse(payload.expires)) { showExpired(payload.expires); return; }
+  // 注:expires 只是分享方建议的“复阅期限”,是一条礼貌提醒——文件本身不会失效、不会自毁,
+  // 持有文件与口令者始终可离线解密。渲染时以非强制横幅展示,绝不阻断查看。
   render(payload);
 }
 
@@ -977,7 +982,13 @@ mod tests {
         let blob = B64.decode(&html[start..end]).unwrap();
         let cipher = Aes256Gcm::new_from_slice(&key).unwrap();
         let pt = cipher
-            .decrypt(Nonce::from_slice(&blob[..12]), &blob[12..])
+            .decrypt(
+                Nonce::from_slice(&blob[..12]),
+                Payload {
+                    msg: &blob[12..],
+                    aad: SHARE_AAD,
+                },
+            )
             .unwrap();
         let payload: serde_json::Value = serde_json::from_slice(&pt).unwrap();
         assert_eq!(payload["records"].as_array().unwrap().len(), 1);
@@ -1047,7 +1058,13 @@ mod tests {
         let blob = B64.decode(&html[start..end]).unwrap();
         let cipher = Aes256Gcm::new_from_slice(&key).unwrap();
         let pt = cipher
-            .decrypt(Nonce::from_slice(&blob[..12]), &blob[12..])
+            .decrypt(
+                Nonce::from_slice(&blob[..12]),
+                Payload {
+                    msg: &blob[12..],
+                    aad: SHARE_AAD,
+                },
+            )
             .unwrap();
         let payload: serde_json::Value = serde_json::from_slice(&pt).unwrap();
         let dicom = &payload["records"][0]["dicom"];
@@ -1090,6 +1107,66 @@ mod tests {
         wrong[0] ^= 0xff;
         let bad = Aes256Gcm::new_from_slice(&wrong).unwrap();
         assert!(bad.decrypt(Nonce::from_slice(iv), data).is_err());
+    }
+
+    #[test]
+    fn aad_round_trip_and_mismatch_fails() {
+        // 用生产同款 AAD 加密 → 同 AAD 解密应还原;换 AAD 或空 AAD 必须失败。
+        // 这钉住了三处解密端(Rust + 两个 JS 查看器)必须传入相同的 SHARE_AAD。
+        let plaintext = br#"{"records":[]}"#;
+        let mut key_bytes = [0u8; 32];
+        rand::rngs::OsRng.fill_bytes(&mut key_bytes);
+        let mut nonce_bytes = [0u8; 12];
+        rand::rngs::OsRng.fill_bytes(&mut nonce_bytes);
+        let cipher = Aes256Gcm::new_from_slice(&key_bytes).unwrap();
+        let nonce = Nonce::from_slice(&nonce_bytes);
+
+        let ct = cipher
+            .encrypt(
+                nonce,
+                Payload {
+                    msg: plaintext.as_ref(),
+                    aad: SHARE_AAD,
+                },
+            )
+            .unwrap();
+
+        // 相同 AAD → 成功
+        let out = cipher
+            .decrypt(
+                nonce,
+                Payload {
+                    msg: ct.as_ref(),
+                    aad: SHARE_AAD,
+                },
+            )
+            .unwrap();
+        assert_eq!(out, plaintext);
+
+        // 空 AAD → 失败(证明 AAD 确实参与了鉴权)
+        assert!(cipher
+            .decrypt(
+                nonce,
+                Payload {
+                    msg: ct.as_ref(),
+                    aad: b"",
+                },
+            )
+            .is_err());
+
+        // 不同 AAD → 失败
+        assert!(cipher
+            .decrypt(
+                nonce,
+                Payload {
+                    msg: ct.as_ref(),
+                    aad: b"medme-share-v2",
+                },
+            )
+            .is_err());
+
+        // 常量本身即字节串,便于人工比对 JS 的 TextEncoder().encode 结果。
+        assert_eq!(SHARE_AAD, b"medme-share-v1");
     }
 
     #[test]

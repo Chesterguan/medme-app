@@ -674,15 +674,6 @@ function render(payload) {
   });
 }
 
-function showExpired(expires) {
-  document.getElementById("gate").style.display = "none";
-  const app = document.getElementById("app");
-  const until = (expires || "").slice(0, 10);
-  app.innerHTML = '<div class="expired"><h1>此分享已过期</h1><p>有效期至 ' + esc(until) +
-    ',请向本人重新索取。</p></div>';
-  app.style.display = "block";
-}
-
 async function decryptAndRender(passphrase) {
   const blob = b64ToBytes(EMBEDDED_BLOB);
   const iv = blob.slice(0, 12);
@@ -690,10 +681,12 @@ async function decryptAndRender(passphrase) {
   // 仅去空白/换行还原分组;不可去 "-",因为它是 base64url 字母表的一部分。
   const keyBytes = b64urlToBytes(passphrase.replace(/\s+/g, ""));
   const key = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, ["decrypt"]);
-  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data); // 口令错误则抛异常
+  // AAD 必须与 Rust 加密端 SHARE_AAD 逐字节一致(ASCII "medme-share-v1")。
+  const aad = new TextEncoder().encode("medme-share-v1");
+  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv, additionalData: aad }, key, data); // 口令错误则抛异常
   const payload = JSON.parse(new TextDecoder().decode(pt));
-  // 有效期在解密后的 payload 内强制执行
-  if (payload.expires && Date.now() > Date.parse(payload.expires)) { showExpired(payload.expires); return; }
+  // 注:expires 只是分享方建议的“复阅期限”,是一条礼貌提醒——文件本身不会失效、不会自毁,
+  // 持有文件与口令者始终可离线解密。渲染时以非强制横幅展示,绝不阻断查看。
   render(payload);
 }
 
