@@ -14,7 +14,7 @@
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-opener": "^2",
     "dicom-parser": "^1.8.21",
-    "lucide-react": "^1.23.0",
+    "lucide-react": "^1.24.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
@@ -23,9 +23,9 @@
     "@tauri-apps/cli": "^2",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
-    "@vitejs/plugin-react": "^4.6.0",
+    "@vitejs/plugin-react": "^6.0.3",
     "tailwindcss": "^4.3.2",
-    "typescript": "~5.8.3",
-    "vite": "^7.0.4"
+    "typescript": "~7.0.2",
+    "vite": "^8.1.4"
   }
 }
