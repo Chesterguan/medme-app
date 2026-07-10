@@ -23,7 +23,7 @@ jobs:
     name: Rust (core crates + CLI)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # CMake + a C/C++ toolchain are required to build the vendored
       # JPEG2000 (OpenJPEG) / JPEG-LS (CharLS) codecs used by the dicom crate.
@@ -66,15 +66,15 @@ jobs:
     name: Desktop frontend (typecheck + build)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10
 
       - name: Install Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: pnpm
@@ -98,7 +98,7 @@ jobs:
     name: Security audit (cargo-audit)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@cargo-audit
       # --ignore RUSTSEC-2026-0187: lopdf stack-overflow DoS on a deeply-nested
