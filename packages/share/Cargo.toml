@@ -23,3 +23,5 @@ rand = "0.8"
 
 [dev-dependencies]
 tempfile = { workspace = true }
+# 仅供 vendored dicom-parser 的完整性测试(校验内联 JS 未被篡改)。
+sha2 = { workspace = true }

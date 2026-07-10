@@ -1215,4 +1215,40 @@ mod tests {
         let decoded = B64URL.decode(stripped).unwrap();
         assert_eq!(decoded, key);
     }
+
+    #[test]
+    fn vendored_dicom_parser_matches_known_good_sha256() {
+        // 供应链完整性:vendored dicom-parser 被 `include_str!` 内联进每一份
+        // 生成的分享查看器,却没有校验和 —— 谁悄悄改了这个文件(如恶意 PR),
+        // 就把 JS 注进了所有未来的查看器而无人察觉。这里把它按 SHA-256 钉死,
+        // 文件漂移哪怕一个字节,CI 就红。更新库版本时,连带更新下方常量与
+        // `vendor/README.md` 里记录的哈希。
+        //
+        // 上游:cornerstonejs/dicom-parser v1.8.12
+        //   https://github.com/cornerstonejs/dicomParser
+        //   （UMD 构建 dist/dicomParser.min.js)
+        const DICOM_PARSER_JS_SHA256: &str =
+            "2b990e92de021a9c0d58f7dca693c95fa76be6398648b68441df9423de284a2b";
+
+        use sha2::{Digest, Sha256};
+        // 与第 240 行的 `include_str!` 同一相对路径,校验编译期真正嵌入的字节。
+        let bytes = include_bytes!("vendor/dicomParser.min.js");
+        let digest = Sha256::digest(bytes);
+        assert_eq!(
+            hex_lower(&digest),
+            DICOM_PARSER_JS_SHA256,
+            "vendored dicom-parser 的 SHA-256 与已知良好值不符 —— \
+             文件被改动过?若确为有意升级,请同步更新常量与 vendor/README.md。"
+        );
+    }
+
+    /// 把字节切片转成小写十六进制字符串(仅测试用,避免引入额外依赖)。
+    fn hex_lower(bytes: &[u8]) -> String {
+        use std::fmt::Write as _;
+        let mut s = String::with_capacity(bytes.len() * 2);
+        for b in bytes {
+            let _ = write!(s, "{b:02x}");
+        }
+        s
+    }
 }
