@@ -1,0 +1,45 @@
+name: CodeQL
+
+# Static analysis (SAST) of the frontend. Findings land in the repo's
+# Security → Code scanning tab; this workflow does NOT fail PRs on findings.
+# Rust security is already covered by the `cargo audit` + `clippy` gate in
+# ci.yml, so CodeQL only analyzes JS/TS here (reliable, no build step). To add
+# Rust CodeQL later, append `rust` to the matrix and give it a build step.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "27 3 * * 1" # weekly, Monday 03:27 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-and-quality
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
