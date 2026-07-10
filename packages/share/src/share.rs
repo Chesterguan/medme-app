@@ -379,6 +379,15 @@ function esc(s) {
     ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 }
 
+// SECURITY: only accept a data: image URI that strictly matches an allowlisted
+// base64 image shape before putting it in `<img src>`. A value that doesn't match —
+// e.g. one carrying a `"` to break out of the attribute and inject markup / exfil PHI —
+// is skipped, never string-concatenated raw.
+function isDataImage(s) {
+  return typeof s === "string" &&
+    /^data:image\/(png|jpe?g|tiff);base64,[A-Za-z0-9+\/=\s]+$/.test(s);
+}
+
 // ── 内容解析(移植 ReportContent.tsx)──
 function splitCells(line) { return line.trim().split(/\s{2,}|\t/).filter(c => c.length > 0); }
 function isTableHeader(line) {
@@ -861,7 +870,7 @@ function render(payload) {
     html += "<h2>" + esc(title) + '</h2><span class="date">' + esc(dateStr) + "</span></div>";
     html += '<div class="content">' + renderContent(r.text || "", type);
     for (const img of (r.images || [])) {
-      if (typeof img === "string" && img.startsWith("data:image/")) html += '<img class="img" src="' + img + '" alt="原件">';
+      if (isDataImage(img)) html += '<img class="img" src="' + img + '" alt="原件">';
     }
     // 影像检查:诊断档(交互阅片)或降级档(关键切片 PNG + 说明)。
     const dcm = r.dicom;
@@ -873,7 +882,7 @@ function render(payload) {
       html += '</div>';
     } else if (dcm && dcm.mode === "png") {
       html += '<div class="imaging-card">';
-      if (dcm.png) html += '<img class="imaging-png" src="' + dcm.png + '" alt="影像关键切片">';
+      if (isDataImage(dcm.png)) html += '<img class="imaging-png" src="' + dcm.png + '" alt="影像关键切片">';
       if (dcm.note) html += '<div class="imaging-note">' + esc(dcm.note) + '</div>';
       html += '</div>';
     }
@@ -996,6 +1005,30 @@ mod tests {
         assert_eq!(payload["records"][0]["doc_type"], "lab_report");
         assert_eq!(payload["patient"]["record_count"], 1);
         assert!(payload["expires"].is_string());
+    }
+
+    /// SECURITY (XSS): the share viewer must only put a data: image into `<img src>`
+    /// via the strict `isDataImage` validator — never by raw string-concat of a value
+    /// that merely `startsWith("data:image/")` (which a crafted `"`-carrying value
+    /// could exploit to break out of the attribute and exfiltrate PHI).
+    #[test]
+    fn share_viewer_gates_img_sinks_through_validator() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Vault::open(dir.path()).unwrap();
+        vault.import("a.txt", "text/plain", b"x").unwrap();
+        let (html, _pass, _n) = build_encrypted_share(&vault, 5).unwrap();
+
+        assert!(html.contains("function isDataImage"), "validator present");
+        assert!(html.contains("isDataImage(img)"), "images[] sink validated");
+        assert!(
+            html.contains("isDataImage(dcm.png)"),
+            "dcm.png sink validated"
+        );
+        // The old permissive check must be gone from the img sinks.
+        assert!(
+            !html.contains("img.startsWith(\"data:image/\")"),
+            "unsafe startsWith concat removed"
+        );
     }
 
     #[test]

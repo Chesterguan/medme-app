@@ -152,7 +152,9 @@ pub fn scan_inbox(app: &AppHandle, state: &AppState) {
                     return;
                 }
             };
-            pipeline::ingest(&vault, &path)
+            // 与手动导入同一条隔离路径:catch_unwind 把解析栈里的 panic 变成 Err,
+            // 绝不让它穿过持有的 Vault 锁去毒化互斥量 / 打死监听线程。
+            crate::commands::ingest_guarded(&vault, &path)
         };
         match ingest_result {
             Ok(_) => {

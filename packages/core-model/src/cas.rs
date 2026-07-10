@@ -14,6 +14,20 @@ pub fn object_relpath(hash: &str) -> String {
     format!("objects/{}/{}/{}", &hash[0..2], &hash[2..4], hash)
 }
 
+/// A well-formed CAS object hash: exactly 64 lowercase hex chars (a sha-256 digest).
+///
+/// SECURITY: `object_relpath` slices `&hash[0..2]`/`&hash[2..4]` and joins the hash
+/// into a path. A hash from a *forged* log event (`FileImported.content_hash` /
+/// `OcrAdded.text_hash`) is attacker-controlled — one shorter than 4 bytes, with a
+/// multibyte char on the 0..2/2..4 boundary, or containing `..`/`/` would panic or
+/// escape `objects/`. Callers must gate untrusted hashes through this before building
+/// a path. `store_object` is exempt: it hashes its own bytes, so its hash is trusted.
+pub fn is_object_hash(s: &str) -> bool {
+    s.len() == 64
+        && s.bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
 fn hex(bytes: &[u8]) -> String {
     let mut s = String::with_capacity(bytes.len() * 2);
     for b in bytes {
@@ -66,7 +80,32 @@ impl Vault {
 
 #[cfg(test)]
 mod tests {
+    use super::{is_object_hash, object_relpath, sha256_hex};
     use crate::Vault;
+
+    #[test]
+    fn is_object_hash_accepts_only_64_lowercase_hex() {
+        // A real digest is accepted and round-trips through object_relpath without panic.
+        let h = sha256_hex(b"anything");
+        assert!(is_object_hash(&h));
+        assert!(object_relpath(&h).starts_with("objects/"));
+
+        // Malformed / attacker-controlled hashes are rejected (would panic or escape
+        // objects/ if fed to object_relpath).
+        for bad in [
+            "",
+            "abc",              // too short to slice [0..2]/[2..4]
+            "../../etc/passwd", // path traversal
+            "ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef0123456789", // uppercase
+            "zz23456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", // non-hex
+            "😀😀😀😀",         // multibyte on the slice boundary
+        ] {
+            assert!(!is_object_hash(bad), "must reject {bad:?}");
+        }
+        // 63 and 65 hex chars are both rejected (length must be exactly 64).
+        assert!(!is_object_hash(&"a".repeat(63)));
+        assert!(!is_object_hash(&"a".repeat(65)));
+    }
 
     #[test]
     fn store_is_dedup_and_immutable() {

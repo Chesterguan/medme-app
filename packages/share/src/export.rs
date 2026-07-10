@@ -96,9 +96,13 @@ fn render_preview(vault: &Vault, sf: &SourceFile) -> Result<Option<String>, Stri
     if sf.mime_type.starts_with("image/") {
         let bytes = std::fs::read(vault.root_join(&sf.storage_path)).map_err(|e| e.to_string())?;
         let b64 = B64.encode(&bytes);
+        // SECURITY: escape the mime_type before it goes into the src attribute (it is
+        // shape-validated at ingest, but escape here too — defense-in-depth so a value
+        // carrying a `"` can never break out of the attribute and inject markup).
         return Ok(Some(format!(
             "<img class=\"preview\" src=\"data:{};base64,{}\" alt=\"原件预览\">\n",
-            sf.mime_type, b64
+            escape_html(&sf.mime_type),
+            b64
         )));
     }
     if sf.mime_type == "application/dicom" {
@@ -197,6 +201,7 @@ pub fn build_timeline_html(vault: &Vault) -> Result<(String, i64), String> {
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'none'; form-action 'none'; base-uri 'none'">
 <title>MedMe 医疗时间线导出</title>
 <style>{CSS}</style>
 </head>
@@ -320,6 +325,32 @@ mod tests {
         // 关键切片 PNG 已内嵌,配“完整序列见分享”说明。
         assert!(html.contains("data:image/png;base64,"));
         assert!(html.contains("关键切片"));
+    }
+
+    #[test]
+    fn export_head_has_hardened_csp() {
+        // The export is a static, script-less document; a hardened CSP must be present
+        // so even a value that slipped past escaping cannot load remote resources or run
+        // script.
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Vault::open(dir.path()).unwrap();
+        let (html, _) = build_timeline_html(&vault).unwrap();
+        assert!(html.contains(
+            "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'none'; form-action 'none'; base-uri 'none'\">"
+        ));
+    }
+
+    /// The `data:{mime};base64,...` src is built with `escape_html(&sf.mime_type)`; a
+    /// mime carrying a `"` (attribute-breakout attempt) must be neutralized to `&quot;`
+    /// so it cannot start a new attribute or `<script>` tag.
+    #[test]
+    fn mime_type_cannot_break_out_of_img_src_attribute() {
+        let evil = "image/png\"><script>alert(1)</script>";
+        let escaped = escape_html(evil);
+        assert!(!escaped.contains('"'), "no raw quote survives");
+        assert!(!escaped.contains('<'), "no raw angle bracket survives");
+        assert!(escaped.contains("&quot;"));
+        assert!(escaped.contains("&lt;script&gt;"));
     }
 
     #[test]

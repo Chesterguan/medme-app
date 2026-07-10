@@ -309,6 +309,24 @@ pub fn generate_device_id() -> String {
     format!("{:x}", h.finalize())
 }
 
+/// Normalize a `mime_type` to a strict media-type shape (`type/subtype`, no spaces,
+/// quotes, `<`, `>`). A value that doesn't match — e.g. one smuggled in via a forged
+/// log event to attack the share/export `<img src>` sinks or to inject the logs —
+/// falls back to `application/octet-stream` rather than aborting the import.
+fn sanitize_mime_type(mime: &str) -> String {
+    use std::sync::OnceLock;
+    static RE: OnceLock<regex::Regex> = OnceLock::new();
+    let re = RE.get_or_init(|| {
+        regex::Regex::new(r"^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*$")
+            .expect("mime shape regex")
+    });
+    if re.is_match(mime) {
+        mime.to_string()
+    } else {
+        "application/octet-stream".to_string()
+    }
+}
+
 fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<ApplyOutcome, MedmeError> {
     match event {
         Event::FileImported {
@@ -318,7 +336,21 @@ fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<ApplyOu
             byte_size,
             imported_at,
         } => {
+            // SECURITY: `content_hash` from a forged log event is attacker-controlled
+            // and gets sliced into a CAS path by `object_relpath`. Quarantine (skip) a
+            // malformed hash rather than panic / escape `objects/` — one bad event must
+            // never abort the whole replay.
+            if !cas::is_object_hash(content_hash) {
+                eprintln!("[materialize] skip FileImported: malformed content_hash");
+                return Ok(ApplyOutcome::Applied);
+            }
             let relpath = cas::object_relpath(content_hash);
+            // Defense-in-depth behind the share/export XSS fix: normal imports go
+            // through the `mime_for` whitelist, but a forged event can put anything in
+            // `mime_type` (a value crafted to break out of `<img src>` or to injection
+            // the logs). Normalize to a strict media-type shape, else fall back to
+            // `application/octet-stream` — never abort the import.
+            let mime_type = sanitize_mime_type(mime_type);
             // Idempotent on the natural key UNIQUE(content_hash): the same file
             // imported on two devices collapses to one row instead of aborting.
             tx.execute(
@@ -346,11 +378,21 @@ fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<ApplyOu
             page_count,
             created_at,
         } => {
-            let source_file_id: i64 = tx.query_row(
-                "SELECT id FROM source_file WHERE content_hash = ?1",
-                [source_file_hash],
-                |r| r.get(0),
-            )?;
+            // A forged event — or a legitimately not-yet-synced FileImported — may
+            // reference a source_file that isn't in the DB. Defer instead of letting
+            // `QueryReturnedNoRows` abort the whole materialize / `Vault::open` (the
+            // same treatment the missing-CAS-blob path below already uses).
+            let source_file_id: i64 = match tx
+                .query_row(
+                    "SELECT id FROM source_file WHERE content_hash = ?1",
+                    [source_file_hash],
+                    |r| r.get(0),
+                )
+                .optional()?
+            {
+                Some(id) => id,
+                None => return Ok(ApplyOutcome::Deferred),
+            };
             // Idempotent on the natural key UNIQUE(source_file_id).
             tx.execute(
                 "INSERT INTO document
@@ -371,12 +413,21 @@ fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<ApplyOu
             confidence,
             created_at,
         } => {
-            let document_id: i64 = tx.query_row(
-                "SELECT d.id FROM document d JOIN source_file sf ON d.source_file_id = sf.id
-                 WHERE sf.content_hash = ?1",
-                [&document_ref.source_file_hash],
-                |r| r.get(0),
-            )?;
+            // Defer (not abort) when the referenced document isn't materialized yet —
+            // a forged ref or a not-yet-synced DocumentAdded — mirroring the missing
+            // source_file / missing CAS-blob handling.
+            let document_id: i64 = match tx
+                .query_row(
+                    "SELECT d.id FROM document d JOIN source_file sf ON d.source_file_id = sf.id
+                     WHERE sf.content_hash = ?1",
+                    [&document_ref.source_file_hash],
+                    |r| r.get(0),
+                )
+                .optional()?
+            {
+                Some(id) => id,
+                None => return Ok(ApplyOutcome::Deferred),
+            };
             // Idempotency guard on UNIQUE(document_id, page_no): if the OCR row
             // already exists (re-applied event / same page from two devices),
             // skip the CAS read AND the FTS insert entirely — cheap re-apply,
@@ -389,6 +440,13 @@ fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<ApplyOu
                 )
                 .optional()?;
             if already.is_some() {
+                return Ok(ApplyOutcome::Applied);
+            }
+            // SECURITY: `text_hash` from a forged event is sliced into a CAS path.
+            // Quarantine a malformed hash (skip this OCR row) rather than panic /
+            // escape `objects/`; the rest of the replay continues.
+            if !cas::is_object_hash(text_hash) {
+                eprintln!("[materialize] skip OcrAdded: malformed text_hash");
                 return Ok(ApplyOutcome::Applied);
             }
             let relpath = cas::object_relpath(text_hash);
@@ -953,6 +1011,195 @@ mod tests {
             2,
             "deferred page recovered — not stranded by the higher-seq event"
         );
+    }
+
+    // ---- hardening: forged / dangling references + malformed hashes ---------
+
+    /// A forged (or not-yet-synced) event that references a hash never present in
+    /// the DB must DEFER, not abort `materialize` / `Vault::open` with
+    /// `QueryReturnedNoRows`.
+    #[test]
+    fn event_with_unknown_reference_defers_not_errors() {
+        use crate::event::{Event, LogEntry};
+        let dir = tempfile::tempdir().unwrap();
+        let v = Vault::open(dir.path()).unwrap();
+        let dev = v.device_id.clone();
+        let unknown = cas::sha256_hex(b"never-imported");
+        v.log
+            .append(
+                &LogEntry::new(
+                    1,
+                    "2024-01-01T00:00:00Z".into(),
+                    dev,
+                    Event::DocumentAdded {
+                        source_file_hash: unknown,
+                        doc_type: "lab_report".into(),
+                        doc_date: None,
+                        doc_date_end: None,
+                        title: Some("forged".into()),
+                        language: None,
+                        page_count: 1,
+                        created_at: "2024-01-01T00:00:00Z".into(),
+                    },
+                )
+                .unwrap(),
+            )
+            .unwrap();
+
+        // Must NOT error — the dangling reference is deferred.
+        v.materialize().unwrap();
+        assert_eq!(
+            v.debug_count("document"),
+            0,
+            "forged doc deferred, not applied"
+        );
+
+        // Reopening (which materializes again) must still succeed.
+        drop(v);
+        let v2 = Vault::open(dir.path()).unwrap();
+        assert_eq!(v2.debug_count("document"), 0);
+    }
+
+    /// A forged `FileImported` / `OcrAdded` whose hash is malformed (path-traversal
+    /// string, too short to slice `[0..2]`/`[2..4]`) must be QUARANTINED — no panic,
+    /// no `objects/` escape — and the rest of the replay must still apply.
+    #[test]
+    fn malformed_hash_is_quarantined_and_replay_continues() {
+        use crate::event::{DocRef, Event, LogEntry};
+        let dir = tempfile::tempdir().unwrap();
+        let v = Vault::open(dir.path()).unwrap();
+        let dev = v.device_id.clone();
+        let append = |seq: i64, ev: Event| {
+            v.log
+                .append(
+                    &LogEntry::new(seq, "2024-01-01T00:00:00Z".into(), dev.clone(), ev).unwrap(),
+                )
+                .unwrap();
+        };
+
+        // Two malformed content_hashes that would panic (byte-slice / multibyte
+        // boundary) or escape objects/ if sliced into a path.
+        for (seq, bad) in [(1i64, "../../etc/passwd"), (2, "abc")] {
+            append(
+                seq,
+                Event::FileImported {
+                    content_hash: bad.into(),
+                    original_name: "evil".into(),
+                    mime_type: "text/plain".into(),
+                    byte_size: 1,
+                    imported_at: "2024-01-01T00:00:00Z".into(),
+                },
+            );
+        }
+        // A VALID import after the bad ones must still land.
+        let good = cas::sha256_hex(b"good bytes");
+        v.store_object(b"good bytes").unwrap();
+        append(
+            3,
+            Event::FileImported {
+                content_hash: good.clone(),
+                original_name: "good.txt".into(),
+                mime_type: "text/plain".into(),
+                byte_size: 9,
+                imported_at: "2024-01-01T00:00:00Z".into(),
+            },
+        );
+        // A malformed text_hash in an OcrAdded (referencing the valid file) must also
+        // be skipped without panicking.
+        append(
+            4,
+            Event::OcrAdded {
+                document_ref: DocRef {
+                    source_file_hash: good.clone(),
+                },
+                page_no: 1,
+                backend: "native".into(),
+                model_version: "m".into(),
+                text_hash: "../../etc/passwd".into(),
+                confidence: None,
+                created_at: "2024-01-01T00:00:00Z".into(),
+            },
+        );
+
+        // No panic; only the valid file applied, malformed hashes quarantined.
+        v.materialize().unwrap();
+        assert_eq!(
+            v.debug_count("source_file"),
+            1,
+            "only the valid import applied; malformed hashes skipped"
+        );
+        assert_eq!(
+            v.debug_count("ocr_result"),
+            0,
+            "OCR with bad text_hash skipped"
+        );
+    }
+
+    /// A forged `FileImported.mime_type` that isn't a strict media-type shape (here a
+    /// value crafted to break out of the share/export `<img src>` attribute) must be
+    /// normalized to `application/octet-stream`, not stored verbatim.
+    #[test]
+    fn forged_mime_type_is_normalized_to_octet_stream() {
+        use crate::event::{Event, LogEntry};
+        let dir = tempfile::tempdir().unwrap();
+        let v = Vault::open(dir.path()).unwrap();
+        let dev = v.device_id.clone();
+        let h = cas::sha256_hex(b"bytes");
+        v.store_object(b"bytes").unwrap();
+        let evil = "image/png\"><script>alert(1)</script>";
+        v.log
+            .append(
+                &LogEntry::new(
+                    1,
+                    "2024-01-01T00:00:00Z".into(),
+                    dev,
+                    Event::FileImported {
+                        content_hash: h.clone(),
+                        original_name: "x".into(),
+                        mime_type: evil.into(),
+                        byte_size: 5,
+                        imported_at: "2024-01-01T00:00:00Z".into(),
+                    },
+                )
+                .unwrap(),
+            )
+            .unwrap();
+
+        v.materialize().unwrap();
+        let stored: String = v
+            .conn()
+            .query_row(
+                "SELECT mime_type FROM source_file WHERE content_hash = ?1",
+                [&h],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            stored, "application/octet-stream",
+            "dangerous mime normalized"
+        );
+    }
+
+    #[test]
+    fn sanitize_mime_type_keeps_valid_and_rejects_dangerous() {
+        assert_eq!(sanitize_mime_type("image/png"), "image/png");
+        assert_eq!(sanitize_mime_type("application/dicom"), "application/dicom");
+        assert_eq!(sanitize_mime_type("text/plain"), "text/plain");
+        // Space, quote, angle bracket, missing subtype → normalized.
+        for bad in [
+            "image/png\"",
+            "image/png <b>",
+            "image/ png",
+            "notamime",
+            "",
+            "a/b/c",
+        ] {
+            assert_eq!(
+                sanitize_mime_type(bad),
+                "application/octet-stream",
+                "must reject {bad:?}"
+            );
+        }
     }
 
     #[test]
