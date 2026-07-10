@@ -42,6 +42,8 @@ export const api = {  listTimelineGrouped: () => invoke<TimelineGroup[]>("list_t
   openPath: (path: string) => invoke<void>("open_path", { path }),
   openUrl: (url: string) => invoke<void>("open_url", { url }),
   getVaultPath: () => invoke<string>("get_vault_path"),
+  // 更换保险箱位置:把现有病历搬到 newDir(指向云同步文件夹即可多设备同步),返回新路径。
+  setVaultPath: (newDir: string) => invoke<string>("set_vault_path", { newDir }),
   getAuditLog: () => invoke<AuditEntry[]>("get_audit_log"),
   writeTextFile: (path: string, contents: string) =>
     invoke<void>("write_text_file", { path, contents }),

@@ -6,6 +6,7 @@ pub mod imaging;
 pub mod log;
 pub mod materialize;
 pub mod query;
+pub mod relocate;
 pub mod schema;
 pub mod tokenize;
 pub mod types;

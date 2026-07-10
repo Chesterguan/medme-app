@@ -512,11 +512,55 @@ pub fn open_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
 }
 
 /// 数据保险箱(vault)根目录路径 —— 设置页展示,供用户把它放进 iCloud/坚果云
-/// 等云同步目录,实现无需服务器的多设备同步。只读展示,运行时不支持迁移。
+/// 等云同步目录,实现无需服务器的多设备同步。见 set_vault_path 可运行时更换位置。
 #[tauri::command]
 pub fn get_vault_path(state: State<AppState>) -> Result<String, String> {
     let v = lock(&state)?;
     Ok(v.root().to_string_lossy().to_string())
+}
+
+/// 更换数据保险箱位置 —— 把现有病历搬到 `new_dir`(用户从原生「选择文件夹」对话框选的),
+/// 从而可把保险箱指向 iCloud 云盘 / 坚果云等同步目录实现多设备同步。
+///
+/// - 目标目录**没有**保险箱 → 把 objects/、log/、medme.db、VERSION 整体搬过去。
+/// - 目标目录**已有**保险箱(另一台设备已在共享文件夹里建过) → 采纳并合并:把本机的
+///   日志分段 + CAS 对象拷贝进去(按设备命名的分段不冲突、内容寻址对象按路径去重),
+///   目标的派生库随后由日志重放重建 —— 复用 core-model 的 relocate_to + rebuild_from_log,
+///   不自己造事件去重。
+///
+/// 搬迁 → 持久化新位置 → 换掉 AppState 里的 Vault 并重建派生库,返回新路径。
+#[tauri::command]
+pub fn set_vault_path(
+    app: tauri::AppHandle,
+    state: State<AppState>,
+    new_dir: String,
+) -> Result<String, String> {
+    // SECURITY: new_dir 来自原生「选择文件夹」对话框,但仍做基本校验 —— 要求绝对路径、
+    // 不含 `..`,已存在则必须是目录,避免恶意 invoke 把数据搬到意外/相对位置。
+    let target = std::path::PathBuf::from(&new_dir);
+    if !target.is_absolute() {
+        return Err("拒绝:新位置必须是绝对路径".to_string());
+    }
+    if target
+        .components()
+        .any(|c| matches!(c, std::path::Component::ParentDir))
+    {
+        return Err("拒绝:新位置不得包含 `..`".to_string());
+    }
+    if target.exists() && !target.is_dir() {
+        return Err("拒绝:新位置已存在且不是目录".to_string());
+    }
+
+    let mut guard = lock(&state)?;
+    // 1) 把现有保险箱搬迁/采纳到目标(源在目标写完前绝不部分删除,见 relocate_to)。
+    guard.relocate_to(&target).map_err(|e| e.to_string())?;
+    // 2) 持久化新位置,下次启动直接打开这里。
+    crate::vault_loc::write_vault_location(&app, &target).map_err(|e| e.to_string())?;
+    // 3) 换掉内存里的 Vault 到新根,并从合并后的日志重建派生库(采纳路径靠它把另一台
+    //    设备的事件投影进来)。旧 Vault 在赋值时被 drop,连接随之关闭。
+    *guard = Vault::open(&target).map_err(|e| e.to_string())?;
+    guard.rebuild_from_log().map_err(|e| e.to_string())?;
+    Ok(guard.root().to_string_lossy().to_string())
 }
 
 /// 隐藏的「审计/管理员」视图数据源:所有导入/导出/分享事件,最新在前,含

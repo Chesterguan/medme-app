@@ -1,6 +1,7 @@
 mod commands;
 mod dto;
 mod inbox;
+mod vault_loc;
 
 use commands::AppState;
 use core_model::Vault;
@@ -13,9 +14,13 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let dir = app.path().app_data_dir().expect("app data dir");
-            std::fs::create_dir_all(&dir).ok();
-            let vault = Vault::open(&dir.join("vault")).expect("open vault");
+            // Open the vault at the user-chosen location (persisted in
+            // <app_data_dir>/vault_location), defaulting to <app_data_dir>/vault.
+            // Pointing this at a cloud-synced folder is what enables multi-device
+            // sync — see vault_loc.rs and commands::set_vault_path.
+            let vault_dir = vault_loc::read_vault_location(app.handle());
+            std::fs::create_dir_all(&vault_dir).ok();
+            let vault = Vault::open(&vault_dir).expect("open vault");
             app.manage(AppState {
                 vault: Mutex::new(vault),
                 inbox_watcher: Mutex::new(None),
@@ -56,6 +61,7 @@ pub fn run() {
             commands::open_path,
             commands::open_url,
             commands::get_vault_path,
+            commands::set_vault_path,
             commands::get_audit_log,
             commands::write_text_file,
         ])

@@ -2,23 +2,50 @@ import { useEffect, useState } from "react";
 import {
   Settings as SettingsIcon,
   FolderOpen,
+  FolderSync,
   Inbox,
   UploadCloud,
   Info,
   CloudCog,
   Lock,
 } from "lucide-react";
+import { open } from "@tauri-apps/plugin-dialog";
 import { api } from "../api";
 
 export default function SettingsView({ onNav }: { onNav: (id: string) => void }) {
   const [vaultPath, setVaultPath] = useState<string | null>(null);
   const [inboxPath, setInboxPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [relocating, setRelocating] = useState(false);
 
   useEffect(() => {
     api.getVaultPath().then(setVaultPath).catch((e) => setError(String(e)));
     api.getInboxPath().then(setInboxPath).catch((e) => setError(String(e)));
   }, []);
+
+  // 更换保险箱位置:从原生「选择文件夹」对话框选一个目录(选云同步文件夹即可多设备同步),
+  // 后端会把现有病历整体搬过去(或在共享文件夹里与另一台设备合并),再返回新路径。
+  async function changeLocation() {
+    setError(null);
+    const picked = await open({
+      directory: true,
+      multiple: false,
+      title: "选择数据保险箱新位置",
+    }).catch((e) => {
+      setError(String(e));
+      return null;
+    });
+    if (!picked || Array.isArray(picked)) return;
+    setRelocating(true);
+    try {
+      const newPath = await api.setVaultPath(picked);
+      setVaultPath(newPath);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setRelocating(false);
+    }
+  }
 
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50 p-6 md:p-10">
@@ -46,24 +73,40 @@ export default function SettingsView({ onNav }: { onNav: (id: string) => void })
           </div>
           <div className="flex items-center justify-between gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5">
             <span className="text-xs font-mono text-slate-600 truncate">
-              {vaultPath ?? "加载中…"}
+              {relocating ? "正在搬迁病历…" : vaultPath ?? "加载中…"}
             </span>
-            <button
-              type="button"
-              disabled={!vaultPath}
-              onClick={() =>
-                vaultPath && api.openPath(vaultPath).catch((e) => setError(String(e)))
-              }
-              className="shrink-0 flex items-center gap-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 rounded-lg px-3 py-1.5 transition-colors cursor-pointer"
-            >
-              <FolderOpen className="w-3.5 h-3.5" /> 打开文件夹
-            </button>
+            <div className="shrink-0 flex items-center gap-2">
+              <button
+                type="button"
+                disabled={relocating}
+                onClick={changeLocation}
+                className="flex items-center gap-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 rounded-lg px-3 py-1.5 transition-colors cursor-pointer"
+              >
+                <FolderSync className="w-3.5 h-3.5" /> 更换位置…
+              </button>
+              <button
+                type="button"
+                disabled={!vaultPath || relocating}
+                onClick={() =>
+                  vaultPath && api.openPath(vaultPath).catch((e) => setError(String(e)))
+                }
+                className="flex items-center gap-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 rounded-lg px-3 py-1.5 transition-colors cursor-pointer"
+              >
+                <FolderOpen className="w-3.5 h-3.5" /> 打开文件夹
+              </button>
+            </div>
           </div>
           <div className="mt-3 flex items-start gap-2 text-sm text-slate-500 leading-relaxed">
             <CloudCog className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
             <span>
               把这个文件夹放进云同步目录,多设备就自动同步(去中心化,无需服务器):
               <b className="text-slate-700">设备全是苹果 → iCloud 云盘;有安卓 / Windows → 坚果云</b>。
+            </span>
+          </div>
+          <div className="mt-2 flex items-start gap-2 text-xs text-slate-400 leading-relaxed">
+            <FolderSync className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <span>
+              选一个云同步文件夹(iCloud 云盘 / 坚果云)即可多设备同步;换位置会把现有病历一起搬过去。
             </span>
           </div>
         </div>

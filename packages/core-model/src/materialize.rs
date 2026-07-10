@@ -1003,4 +1003,78 @@ mod tests {
         assert_eq!(before, after);
         assert_eq!(after.0, 5);
     }
+
+    // ---- vault relocate / adopt for shared-folder sync (docs/011) -----------
+
+    /// Relocate (MOVE) into a fresh, empty directory: every document and its
+    /// full-text search must still be present after reopening the vault at the
+    /// new location, and the source must no longer hold the moved data.
+    #[test]
+    fn relocate_to_empty_dir_preserves_all_data() {
+        let src = tempfile::tempdir().unwrap();
+        seed_doc(src.path(), "alpha.txt", "AlphaRelocateNeedle");
+
+        let holder = tempfile::tempdir().unwrap();
+        let new_root = holder.path().join("cloud-vault"); // does not exist → MOVE
+        {
+            let v = Vault::open(src.path()).unwrap();
+            v.relocate_to(&new_root).unwrap();
+        }
+
+        // Source's vault data was moved out (no more objects/log at the source).
+        assert!(
+            !src.path().join("objects").exists(),
+            "objects moved out of source"
+        );
+        assert!(!src.path().join("log").exists(), "log moved out of source");
+
+        // Reopen at the new location: document + search intact.
+        let v = Vault::open(&new_root).unwrap();
+        assert_eq!(v.debug_count("document"), 1, "document survived the move");
+        assert_eq!(v.debug_count("source_file"), 1);
+        assert_eq!(
+            v.search("AlphaRelocateNeedle", 10).unwrap().len(),
+            1,
+            "search index rebuilt intact at the new location"
+        );
+    }
+
+    /// Adopt into a directory that ALREADY holds a *second device's* vault
+    /// (segment + objects): after copying this device's segment/objects in and
+    /// `Vault::open(new_root)` + `rebuild_from_log()`, BOTH devices' documents
+    /// are present — the merge reuses the multi-device log replay, not any
+    /// bespoke event dedup.
+    #[test]
+    fn adopt_into_shared_folder_merges_both_devices() {
+        // Device A (this device). Give its segment a deterministic, distinct
+        // name so it can never collide with device B's random device-id name.
+        let a = tempfile::tempdir().unwrap();
+        seed_doc(a.path(), "alpha.txt", "AlphaAdoptNeedle");
+        let a_seg = only_segment(&a.path().join("log"));
+        std::fs::rename(&a_seg, a.path().join("log/deviceA-000001.jsonl")).unwrap();
+
+        // A shared cloud folder already populated by device B (a full vault).
+        let shared = tempfile::tempdir().unwrap();
+        let shared_root = shared.path().join("cloud");
+        seed_doc(&shared_root, "beta.txt", "BetaAdoptNeedle");
+
+        // Device A adopts into the shared folder (copy segments + objects in).
+        {
+            let v = Vault::open(a.path()).unwrap();
+            v.relocate_to(&shared_root).unwrap();
+        }
+        // Adopt must not touch the source.
+        assert!(
+            a.path().join("objects").exists(),
+            "adopt leaves source intact"
+        );
+
+        // Reopen the shared folder and rebuild from the merged log.
+        let v = Vault::open(&shared_root).unwrap();
+        v.rebuild_from_log().unwrap();
+        assert_eq!(v.debug_count("document"), 2, "both devices' docs present");
+        assert_eq!(v.debug_count("source_file"), 2);
+        assert_eq!(v.search("AlphaAdoptNeedle", 10).unwrap().len(), 1);
+        assert_eq!(v.search("BetaAdoptNeedle", 10).unwrap().len(), 1);
+    }
 }
