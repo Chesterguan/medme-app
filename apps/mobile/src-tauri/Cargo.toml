@@ -29,12 +29,12 @@ parser = { path = "../../../packages/parser" }
 # cmake for the Android NDK, and mobile does no DICOM pixel viewing. iOS keeps
 # them (re-enabled in the target block below) so iOS behavior is unchanged.
 dicom = { path = "../../../packages/dicom", default-features = false }
-# OCR: default-features off here so the Android build does NOT compile/link
-# oar-ocr + ONNX Runtime (~hundreds of MB unstripped) — it doesn't work on
-# Android anyway (auto-downloads models into a home dir the sandbox lacks);
-# Android OCR will eventually use Google ML Kit. iOS keeps it (re-enabled in
-# the target block below): iOS still uses `recognize_pdf` for scanned/
-# image-only PDFs (only images route to Apple Vision).
+# OCR: default-features off here (no `engine`, no `auto-download`) so the plain
+# host build stays lean. The per-OS target blocks below re-enable the engine for
+# the real devices: iOS and Android both compile/link oar-ocr + ONNX Runtime.
+# ONNX Runtime is fetched as a *static* prebuilt at build time (per target,
+# incl. aarch64-linux-android) and linked into libmobile_lib.so — nothing is
+# downloaded at run time.
 ocr = { path = "../../../packages/ocr", default-features = false }
 medme-share = { path = "../../../packages/share" }
 chrono.workspace = true
@@ -47,6 +47,19 @@ anyhow.workspace = true
 [target.'cfg(target_os = "ios")'.dependencies]
 dicom = { path = "../../../packages/dicom", features = ["codecs"] }
 ocr = { path = "../../../packages/ocr", features = ["engine"] }
+
+# Android: enable the OCR `engine` but NOT `auto-download`. oar-ocr + ONNX
+# Runtime are linked in (runtime fetched statically at build time), while the
+# PP-OCRv5 *model* files are shipped in the APK (gen/android/.../assets/oar/)
+# and extracted to app storage at startup — the Android sandbox has no writable
+# home for auto-download. `default-features = false` keeps `auto-download` off
+# (it's in `ocr`'s default set). Images/scanned-PDFs then OCR through the same
+# `pipeline::ingest` path desktop uses. DICOM pixel codecs stay OFF (they can't
+# cross-compile via cmake for the NDK, and mobile does no pixel viewing).
+[target.'cfg(target_os = "android")'.dependencies]
+ocr = { path = "../../../packages/ocr", default-features = false, features = [
+    "engine",
+] }
 
 [dev-dependencies]
 tempfile = { workspace = true }

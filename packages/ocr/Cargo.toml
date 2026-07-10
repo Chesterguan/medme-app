@@ -4,7 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-oar-ocr = { version = "0.7.4", features = ["auto-download"], optional = true }
+# `download-binaries` + `simd` are oar-ocr's own defaults (we spell them out so
+# `default-features = false` here doesn't drop them). `download-binaries` is what
+# makes `ort`/ONNX Runtime a *static, self-contained* native lib fetched at BUILD
+# time (per target, including `aarch64-linux-android`) and linked into the final
+# binary -- no runtime download of the runtime. `auto-download` (fetching the OCR
+# *model* files into ~/.oar at run time) is split into its own feature below so
+# the Android build can keep the engine but ship models itself.
+oar-ocr = { version = "0.7.4", default-features = false, features = [
+    "download-binaries",
+    "simd",
+], optional = true }
 image = "0.25"
 imageproc = "0.27"
 anyhow.workspace = true
@@ -16,16 +26,25 @@ lopdf.workspace = true
 # `engine` pulls in `oar-ocr` (PP-OCRv5 via ONNX Runtime / `ort`), which
 # statically bundles the ONNX Runtime library -- hundreds of MB unstripped,
 # still tens of MB stripped. On by default so desktop/CLI and this crate's own
-# preprocess tests keep full local-OCR support unchanged. The mobile *Android*
-# build disables it (default-features = false, see pipeline's and cli's
-# Cargo.toml): oar-ocr doesn't work there anyway (it auto-downloads models
-# into a home directory the Android sandbox doesn't have), and Android OCR
-# will eventually use Google ML Kit instead. iOS re-enables it (mobile's
-# Cargo.toml, iOS target block) because iOS still uses `recognize_pdf` for
-# scanned/image-only PDFs (only image files route to Apple Vision, see
+# preprocess tests keep full local-OCR support unchanged. Two orthogonal knobs:
+#
+#   * `engine`        -- links oar-ocr + ONNX Runtime (the actual recognizer).
+#                        `ort`'s prebuilt runtime is fetched *at build time* per
+#                        target (incl. aarch64-linux-android) and linked
+#                        statically -- no runtime download of the runtime.
+#   * `auto-download` -- fetches the PP-OCRv5 *model* files into $OAR_HOME
+#                        (~/.oar) the first time OCR runs. Needs a writable home.
+#
+# The mobile **Android** build turns on `engine` but leaves `auto-download` OFF
+# (mobile's Cargo.toml, android target block): the Android sandbox has no
+# writable home for the model download, so the app ships the three model files
+# in its APK and points the engine at them via `set_model_dir`. iOS keeps both
+# (mobile's iOS target block) because iOS still uses `recognize_pdf` for scanned/
+# image-only PDFs (only image files route to Apple Vision, see
 # `ingest_image_via_vision`). Without `engine`, `recognize`/`recognize_pdf`
 # still compile and return an error ("OCR not available"); callers already
 # treat OCR failure as non-fatal (pipeline falls back to the near-empty text
 # layer / stores the file with no extracted text).
-default = ["engine"]
+default = ["engine", "auto-download"]
 engine = ["dep:oar-ocr"]
+auto-download = ["oar-ocr?/auto-download"]

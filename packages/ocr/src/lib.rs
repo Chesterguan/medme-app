@@ -16,10 +16,35 @@ use oar_ocr::oarocr::{OAROCRBuilder, OAROCR};
 #[cfg(feature = "engine")]
 use oar_ocr::utils::dynamic_to_rgb;
 #[cfg(feature = "engine")]
+use std::path::PathBuf;
+#[cfg(feature = "engine")]
 use std::sync::OnceLock;
 
 #[cfg(feature = "engine")]
 static PIPELINE: OnceLock<OAROCR> = OnceLock::new();
+
+/// Optional override for where the three PP-OCRv5 model files live. When unset
+/// (desktop/CLI default), the builder is handed the bare file names, which the
+/// `auto-download` feature resolves out of `$OAR_HOME` (`~/.oar`), fetching them
+/// from ModelScope on first use. When set (Android, where `auto-download` is off
+/// and there is no writable home), the app extracts the models shipped in its
+/// APK to app storage and points the engine at that directory via
+/// [`set_model_dir`], so the builder gets absolute, on-disk paths instead.
+#[cfg(feature = "engine")]
+static MODEL_DIR: OnceLock<PathBuf> = OnceLock::new();
+
+/// Point the OCR engine at a directory holding the three PP-OCRv5 model files
+/// (`pp-ocrv5_mobile_det.onnx`, `pp-ocrv5_mobile_rec.onnx`, `ppocrv5_dict.txt`).
+///
+/// Used on Android, where the models are bundled in the APK and extracted to
+/// app-private storage at startup rather than auto-downloaded. Must be called
+/// before the first `recognize`/`recognize_pdf` call (the pipeline is built
+/// lazily on first use and cached). Idempotent: the first call wins; later
+/// calls are ignored.
+#[cfg(feature = "engine")]
+pub fn set_model_dir(dir: PathBuf) {
+    let _ = MODEL_DIR.set(dir);
+}
 
 /// Result of an OCR recognition call: the recognized text plus a confidence
 /// score (mean of the recognized text lines' per-line confidences, `0..1`;
@@ -46,13 +71,25 @@ fn pipeline() -> Result<&'static OAROCR> {
     if let Some(p) = PIPELINE.get() {
         return Ok(p);
     }
-    let built = OAROCRBuilder::new(
-        "pp-ocrv5_mobile_det.onnx",
-        "pp-ocrv5_mobile_rec.onnx",
-        "ppocrv5_dict.txt",
-    )
-    .build()
-    .map_err(|e| anyhow::anyhow!("failed to build OAROCR pipeline: {e}"))?;
+    // With a MODEL_DIR set (Android), hand the builder absolute paths to the
+    // extracted models; `auto-download` is off there, so bare names wouldn't
+    // resolve. Without it (desktop/CLI), the bare names go through
+    // `auto-download`'s `$OAR_HOME` resolution unchanged.
+    let (det, rec, dict) = match MODEL_DIR.get() {
+        Some(dir) => (
+            dir.join("pp-ocrv5_mobile_det.onnx"),
+            dir.join("pp-ocrv5_mobile_rec.onnx"),
+            dir.join("ppocrv5_dict.txt"),
+        ),
+        None => (
+            PathBuf::from("pp-ocrv5_mobile_det.onnx"),
+            PathBuf::from("pp-ocrv5_mobile_rec.onnx"),
+            PathBuf::from("ppocrv5_dict.txt"),
+        ),
+    };
+    let built = OAROCRBuilder::new(det, rec, dict)
+        .build()
+        .map_err(|e| anyhow::anyhow!("failed to build OAROCR pipeline: {e}"))?;
     Ok(PIPELINE.get_or_init(|| built))
 }
 

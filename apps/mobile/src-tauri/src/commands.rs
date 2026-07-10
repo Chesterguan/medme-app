@@ -19,7 +19,9 @@ pub struct AppState {
 // usable rather than bricking the app past one bad operation — the Vault's truth is
 // the append-only log + CAS, so a recovered guard is safe.
 fn lock<'a>(s: &'a State<'a, AppState>) -> Result<std::sync::MutexGuard<'a, Vault>, String> {
-    Ok(s.vault.lock().unwrap_or_else(|poisoned| poisoned.into_inner()))
+    Ok(s.vault
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()))
 }
 
 /// 影像 study 文档在时间线上显示切片数;非影像文档 slice_count 为 None。
@@ -56,7 +58,12 @@ pub fn load_archive(state: State<AppState>) -> Result<Vec<TimelineGroup>, String
     }
     for d in v.standalone_documents().map_err(|e| e.to_string())? {
         let sort = d.doc_date.map(|x| x.to_rfc3339());
-        groups.push((sort, TimelineGroup::Document { doc: doc_summary(&v, &d) }));
+        groups.push((
+            sort,
+            TimelineGroup::Document {
+                doc: doc_summary(&v, &d),
+            },
+        ));
     }
     groups.sort_by(|a, b| match (&a.0, &b.0) {
         (Some(x), Some(y)) => y.cmp(x),
@@ -450,13 +457,15 @@ pub fn load_demo_data(app: tauri::AppHandle, state: State<AppState>) -> Result<u
     for path in &files {
         // Panic firewall (same rationale as ingest_one): a panic in the parser/dicom/ocr
         // stack must not unwind past the held Vault guard and poison the mutex.
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            pipeline::ingest(&v, path)
-        }));
+        let result =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pipeline::ingest(&v, path)));
         match result {
             Ok(Ok(_)) => count += 1,
             Ok(Err(e)) => eprintln!("[demo-data] ingest failed for {}: {e}", path.display()),
-            Err(_) => eprintln!("[demo-data] ingest panicked (isolated) for {}", path.display()),
+            Err(_) => eprintln!(
+                "[demo-data] ingest panicked (isolated) for {}",
+                path.display()
+            ),
         }
     }
     v.rebuild_encounters().map_err(|e| e.to_string())?;
