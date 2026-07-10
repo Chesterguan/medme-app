@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["packages/core-model", "packages/parser", "packages/pipeline", "packages/ocr", "packages/dicom", "packages/share", "apps/cli", "apps/desktop/src-tauri", "apps/mobile/src-tauri"]
+members = ["packages/core-model", "packages/parser", "packages/terminology", "packages/pipeline", "packages/ocr", "packages/dicom", "packages/share", "apps/cli", "apps/desktop/src-tauri", "apps/mobile/src-tauri"]
 
 [workspace.dependencies]
 rusqlite = { version = "0.32", features = ["bundled"] }
