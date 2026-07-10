@@ -498,17 +498,34 @@ fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<ApplyOu
             instance_number,
             created_at: _,
         } => {
-            let document_id: i64 = tx.query_row(
-                "SELECT d.id FROM document d JOIN source_file sf ON d.source_file_id = sf.id
-                 WHERE sf.content_hash = ?1",
-                [&document_ref.source_file_hash],
-                |r| r.get(0),
-            )?;
-            let source_file_id: i64 = tx.query_row(
-                "SELECT id FROM source_file WHERE content_hash = ?1",
-                [source_file_hash],
-                |r| r.get(0),
-            )?;
+            // Defer (not abort) when either referenced row isn't materialized yet —
+            // a forged ImagingInstanceAdded ref or a not-yet-synced document /
+            // source_file — mirroring the DocumentAdded / OcrAdded branches. A bare
+            // `?` here would turn one dangling event into a whole-replay failure
+            // (Vault::open error), the exact DoS the surrounding hardening prevents.
+            let document_id: i64 = match tx
+                .query_row(
+                    "SELECT d.id FROM document d JOIN source_file sf ON d.source_file_id = sf.id
+                     WHERE sf.content_hash = ?1",
+                    [&document_ref.source_file_hash],
+                    |r| r.get(0),
+                )
+                .optional()?
+            {
+                Some(id) => id,
+                None => return Ok(ApplyOutcome::Deferred),
+            };
+            let source_file_id: i64 = match tx
+                .query_row(
+                    "SELECT id FROM source_file WHERE content_hash = ?1",
+                    [source_file_hash],
+                    |r| r.get(0),
+                )
+                .optional()?
+            {
+                Some(id) => id,
+                None => return Ok(ApplyOutcome::Deferred),
+            };
             // Idempotent on the natural key (document_id, source_file_id): one
             // slice attached once per study, even if it arrives from two devices.
             tx.execute(
@@ -1058,6 +1075,53 @@ mod tests {
         drop(v);
         let v2 = Vault::open(dir.path()).unwrap();
         assert_eq!(v2.debug_count("document"), 0);
+    }
+
+    /// A forged (or not-yet-synced) `ImagingInstanceAdded` whose `document_ref` /
+    /// `source_file_hash` isn't in the DB must DEFER — not abort `materialize` /
+    /// `Vault::open` with `QueryReturnedNoRows`. Regression guard for the branch
+    /// that previously used bare `query_row(...)?` while its siblings deferred.
+    #[test]
+    fn forged_imaging_instance_defers_not_errors() {
+        use crate::event::{DocRef, Event, LogEntry};
+        let dir = tempfile::tempdir().unwrap();
+        let v = Vault::open(dir.path()).unwrap();
+        let dev = v.device_id.clone();
+        let unknown = cas::sha256_hex(b"imaging-never-imported");
+        v.log
+            .append(
+                &LogEntry::new(
+                    1,
+                    "2024-01-01T00:00:00Z".into(),
+                    dev,
+                    Event::ImagingInstanceAdded {
+                        document_ref: DocRef {
+                            source_file_hash: unknown.clone(),
+                        },
+                        source_file_hash: unknown,
+                        study_uid: "1.2.3".into(),
+                        series_uid: None,
+                        series_number: None,
+                        instance_number: None,
+                        created_at: "2024-01-01T00:00:00Z".into(),
+                    },
+                )
+                .unwrap(),
+            )
+            .unwrap();
+
+        // Must NOT error — the dangling refs are deferred, not aborted.
+        v.materialize().unwrap();
+        assert_eq!(
+            v.debug_count("imaging_instance"),
+            0,
+            "forged imaging instance deferred, not applied"
+        );
+
+        // Reopening (materializes again) must still succeed — no whole-replay abort.
+        drop(v);
+        let v2 = Vault::open(dir.path()).unwrap();
+        assert_eq!(v2.debug_count("imaging_instance"), 0);
     }
 
     /// A forged `FileImported` / `OcrAdded` whose hash is malformed (path-traversal
