@@ -641,8 +641,8 @@ mod tests {
         );
     }
 
-    /// 超过体积上限的文件被拒绝:用 `set_len` 造一个稀疏文件(metadata 报大小
-    /// > 上限,但磁盘上几乎不占空间、内存里一个字节都没读),确认 ingest 在
+    /// 超过体积上限的文件被拒绝:用 `set_len` 造一个稀疏文件(metadata 报的大小
+    /// 超过上限,但磁盘上几乎不占空间、内存里一个字节都没读),确认 ingest 在
     /// `fs::read` 之前就凭 metadata 返回「文件过大」错误,而非 OOM。
     #[test]
     fn ingest_rejects_oversized_file_before_reading() {
