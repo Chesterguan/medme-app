@@ -294,7 +294,10 @@ impl Vault {
     }
 }
 
-fn generate_device_id() -> String {
+/// Generate a fresh, random device id (sha256 of nanos + pid). Used both by
+/// `ensure_device_id` (db-stored id) and by apps that persist a machine-local
+/// id OUTSIDE the vault for [`Vault::open_with_device_id`].
+pub fn generate_device_id() -> String {
     use sha2::{Digest, Sha256};
     let mut h = Sha256::new();
     let nanos = std::time::SystemTime::now()
@@ -1076,5 +1079,109 @@ mod tests {
         assert_eq!(v.debug_count("source_file"), 2);
         assert_eq!(v.search("AlphaAdoptNeedle", 10).unwrap().len(), 1);
         assert_eq!(v.search("BetaAdoptNeedle", 10).unwrap().len(), 1);
+    }
+
+    // ---- machine-local device_id: shared-folder sync must not collide -------
+
+    /// Two machines share ONE vault folder (cloud drive). Each opens it with its
+    /// OWN machine-local id via `open_with_device_id` and writes a doc. Because
+    /// the id is per-machine (not read from the shared db), each machine appends
+    /// to its OWN `log/<device_id>-*.jsonl` segment — no shared-segment collision
+    /// — and after a rebuild BOTH documents are present + searchable.
+    #[test]
+    fn open_with_device_id_gives_each_machine_its_own_segment() {
+        let dir = tempfile::tempdir().unwrap();
+
+        // Machine A opens the shared folder with its own id and writes a doc.
+        {
+            let v = Vault::open_with_device_id(dir.path(), "machineA").unwrap();
+            assert_eq!(
+                v.device_id, "machineA",
+                "forced machine-local id, not db id"
+            );
+            let imp = v
+                .import("a.txt", "text/plain", b"AlphaMachineNeedle")
+                .unwrap();
+            let doc = v
+                .add_document(NewDocument {
+                    source_file_id: imp.source_file.id,
+                    doc_type: DocType::LabReport,
+                    doc_date: Some(chrono::Utc::now()),
+                    doc_date_end: None,
+                    title: Some("alpha".into()),
+                    language: None,
+                    page_count: 1,
+                })
+                .unwrap();
+            v.add_ocr(NewOcr {
+                document_id: doc.id,
+                page_no: 1,
+                backend: OcrBackendKind::Native,
+                model_version: "text-layer".into(),
+                text: "AlphaMachineNeedle".into(),
+                confidence: None,
+            })
+            .unwrap();
+        } // drop: close A's sqlite connection before machine B opens the folder
+
+        // Machine B opens the SAME folder with a DIFFERENT machine-local id.
+        // Under the bug (db-stored id) it would inherit "machineA"; here it must
+        // keep "machineB" and write to its own segment.
+        {
+            let v = Vault::open_with_device_id(dir.path(), "machineB").unwrap();
+            assert_eq!(v.device_id, "machineB", "second machine keeps its own id");
+            let imp = v
+                .import("b.txt", "text/plain", b"BetaMachineNeedle")
+                .unwrap();
+            let doc = v
+                .add_document(NewDocument {
+                    source_file_id: imp.source_file.id,
+                    doc_type: DocType::LabReport,
+                    doc_date: Some(chrono::Utc::now()),
+                    doc_date_end: None,
+                    title: Some("beta".into()),
+                    language: None,
+                    page_count: 1,
+                })
+                .unwrap();
+            v.add_ocr(NewOcr {
+                document_id: doc.id,
+                page_no: 1,
+                backend: OcrBackendKind::Native,
+                model_version: "text-layer".into(),
+                text: "BetaMachineNeedle".into(),
+                confidence: None,
+            })
+            .unwrap();
+        }
+
+        // The log dir now holds TWO distinct per-machine segments, not one shared.
+        let segments: Vec<String> = std::fs::read_dir(dir.path().join("log"))
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.ends_with(".jsonl"))
+            .collect();
+        assert!(
+            segments.iter().any(|n| n.starts_with("machineA-")),
+            "machineA segment present, got {segments:?}"
+        );
+        assert!(
+            segments.iter().any(|n| n.starts_with("machineB-")),
+            "machineB segment present (not merged into A's), got {segments:?}"
+        );
+        assert_eq!(
+            segments.len(),
+            2,
+            "exactly two distinct per-machine segments, got {segments:?}"
+        );
+
+        // Rebuilding purely from the merged log + CAS yields BOTH documents.
+        let v = Vault::open_with_device_id(dir.path(), "machineB").unwrap();
+        v.rebuild_from_log().unwrap();
+        assert_eq!(v.debug_count("document"), 2, "both machines' docs present");
+        assert_eq!(v.debug_count("source_file"), 2);
+        assert_eq!(v.search("AlphaMachineNeedle", 10).unwrap().len(), 1);
+        assert_eq!(v.search("BetaMachineNeedle", 10).unwrap().len(), 1);
     }
 }

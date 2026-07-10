@@ -7,8 +7,30 @@ mod vision;
 
 use commands::AppState;
 use core_model::Vault;
+use std::path::Path;
 use std::sync::Mutex;
 use tauri::Manager;
+
+/// This machine's persistent device id, stored in `<app_data_dir>/device_id`
+/// (OUTSIDE the vault, which may live in a shared/synced folder). Created with a
+/// fresh random id on first launch. Because it is per-DEVICE, two devices
+/// sharing one vault folder each stamp their own log segment
+/// (`log/<device_id>-*.jsonl`) → conflict-free sync. See
+/// `Vault::open_with_device_id`.
+fn machine_device_id(app_data_dir: &Path) -> String {
+    let file = app_data_dir.join("device_id");
+    if let Ok(s) = std::fs::read_to_string(&file) {
+        let trimmed = s.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+    let id = core_model::generate_device_id();
+    if let Err(e) = std::fs::write(&file, &id) {
+        eprintln!("[device_id] failed to persist device id to {file:?}: {e}");
+    }
+    id
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -23,7 +45,13 @@ pub fn run() {
             let docs = app.path().document_dir().expect("iOS documents dir");
             std::fs::create_dir_all(&docs).ok();
             let vault_dir = docs.join("vault");
-            let vault = Vault::open(&vault_dir).expect("open vault");
+            // Machine-local device id lives in app_data_dir (NOT the vault
+            // Documents folder), so a shared/synced vault never leaks one
+            // device's id to another — each keeps its own log segment.
+            let data_dir = app.path().app_data_dir().expect("app data dir");
+            std::fs::create_dir_all(&data_dir).ok();
+            let device_id = machine_device_id(&data_dir);
+            let vault = Vault::open_with_device_id(&vault_dir, &device_id).expect("open vault");
             app.manage(AppState {
                 vault: Mutex::new(vault),
                 vault_dir,

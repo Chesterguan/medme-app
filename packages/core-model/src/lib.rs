@@ -14,6 +14,7 @@ pub mod types;
 pub use audit::AuditEntry;
 pub use error::MedmeError;
 pub use event::{DocRef, Event};
+pub use materialize::generate_device_id;
 pub use query::{extract_provider, SearchHit, TimelineEntry};
 pub use types::{
     DocType, Document, Encounter, EncounterKind, ImagingInstance, Import, NewDocument,
@@ -36,7 +37,36 @@ pub struct Vault {
 }
 
 impl Vault {
+    /// Open the vault at `root`, taking its `device_id` from the vault db
+    /// (`ensure_device_id`: read the stored id, or generate + persist one on
+    /// first open). Correct for single-machine use.
+    ///
+    /// For a vault folder SHARED across machines (multi-device cloud sync), use
+    /// [`Vault::open_with_device_id`] instead: the db-stored id lives inside the
+    /// shared folder, so every machine opening it here would inherit the SAME
+    /// id and write to the SAME per-device log segment — defeating the
+    /// conflict-free per-device segmentation.
     pub fn open(root: &Path) -> Result<Vault, MedmeError> {
+        Self::open_inner(root, None)
+    }
+
+    /// Like [`Vault::open`], but forces `device_id` to the given machine-local
+    /// id instead of reading/generating it from the vault db. This is what makes
+    /// shared-folder multi-device sync conflict-free: each machine passes its
+    /// OWN persistent id (stored OUTSIDE the shared vault), so new log entries
+    /// are stamped with it and this machine's log segment is namespaced
+    /// `log/<device_id>-*.jsonl` — never colliding with another machine's
+    /// segment. Existing segments (written under whatever id) are untouched and
+    /// still read back by `read_all`.
+    pub fn open_with_device_id(root: &Path, device_id: &str) -> Result<Vault, MedmeError> {
+        Self::open_inner(root, Some(device_id))
+    }
+
+    /// Shared open logic for [`Vault::open`] and [`Vault::open_with_device_id`].
+    /// The ONLY difference is the source of `device_id`: an explicit
+    /// machine-local id when `device_id` is `Some`, otherwise the
+    /// vault-db-stored id via `ensure_device_id`.
+    fn open_inner(root: &Path, device_id: Option<&str>) -> Result<Vault, MedmeError> {
         std::fs::create_dir_all(root.join("objects"))?;
         std::fs::write(root.join("VERSION"), "1")?;
         let conn = Connection::open(root.join("medme.db"))?;
@@ -53,7 +83,10 @@ impl Vault {
             next_seq: AtomicI64::new(1),
             device_id: String::new(),
         };
-        vault.device_id = vault.ensure_device_id()?;
+        vault.device_id = match device_id {
+            Some(id) => id.to_string(),
+            None => vault.ensure_device_id()?,
+        };
 
         let log_is_empty = vault.log.is_empty()?;
         let has_existing_rows: i64 =
