@@ -107,6 +107,9 @@ export default function App() {
   // 两个隐藏 file input:相机(capture=environment 直接调起后置相机)与相册(无 capture)。
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const libraryInputRef = useRef<HTMLInputElement>(null);
+  // 文件选择器:PDF / TXT / 图片。后端 ingest 按文件名后缀走同一套 pipeline
+  // (PDF/TXT 早已支持,之前只是 UI 用 accept="image/*" 把它们挡在门外)。
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -507,13 +510,21 @@ export default function App() {
         onChange={onPicked}
       />
       <input ref={libraryInputRef} type="file" accept="image/*" hidden onChange={onPicked} />
+      {/* 文件选择:PDF / 图片 / TXT(iOS 走 Files、安卓走文档选择器)。 */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,application/pdf,.pdf,text/plain,.txt"
+        hidden
+        onChange={onPicked}
+      />
 
       {/* 采集来源选择:拍照(调起相机)/ 从相册选。 */}
       {chooser && (
         <div className="scrim" onClick={() => !busy && setChooser(false)}>
           <div className="dialog" onClick={(e) => e.stopPropagation()}>
             <h3>添加记录</h3>
-            <p>拍摄病历、化验单、报告,或从相册选择已有照片存入健康档案。</p>
+            <p>拍摄病历、化验单、报告,或从相册 / 文件选择已有照片、PDF、TXT 存入健康档案。</p>
             <div className="acts">
               <button
                 className="primary"
@@ -534,6 +545,16 @@ export default function App() {
                 disabled={!!busy}
               >
                 从相册选
+              </button>
+              <button
+                className="cancel"
+                onClick={() => {
+                  setChooser(false);
+                  fileInputRef.current?.click();
+                }}
+                disabled={!!busy}
+              >
+                选择文件(PDF / 图片 / TXT)
               </button>
             </div>
             <button className="full" onClick={() => setChooser(false)} disabled={!!busy}>
