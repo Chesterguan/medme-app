@@ -225,6 +225,10 @@ pub fn mime_for(path: &Path) -> &'static str {
         "png" => "image/png",
         "jpg" | "jpeg" => "image/jpeg",
         "tif" | "tiff" => "image/tiff",
+        // iPhone photos default to HEIC/HEIF. macOS Apple Vision OCR decodes it
+        // (via ImageIO); on platforms whose OCR engine can't, ingest degrades
+        // gracefully (stores the file with no extracted text).
+        "heic" | "heif" => "image/heic",
         "dcm" => "application/dicom",
         _ => "application/octet-stream",
     }

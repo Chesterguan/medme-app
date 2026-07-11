@@ -162,9 +162,12 @@ fn ingest_dispatch(
 /// 图片 MIME 判定(仅 iOS 用于路由到 Vision)。
 #[cfg(target_os = "ios")]
 fn is_image(path: &std::path::Path) -> bool {
+    // incl. image/heic — iPhone photos default to HEIC; the Vision bridge
+    // (OcrVision.swift via CGImageSource) decodes it, the Rust oar-ocr path
+    // can't, so HEIC must route to Vision here.
     matches!(
         pipeline::mime_for(path),
-        "image/jpeg" | "image/png" | "image/tiff"
+        "image/jpeg" | "image/png" | "image/tiff" | "image/heic"
     )
 }
 
