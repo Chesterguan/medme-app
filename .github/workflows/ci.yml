@@ -23,7 +23,7 @@ jobs:
     name: Rust (core crates + CLI)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       # CMake + a C/C++ toolchain are required to build the vendored
       # JPEG2000 (OpenJPEG) / JPEG-LS (CharLS) codecs used by the dicom crate.
@@ -33,12 +33,12 @@ jobs:
           sudo apt-get install -y cmake build-essential
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
         with:
           components: rustfmt, clippy
 
       - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
 
       # apps/mobile (medme-mobile) is owned/formatted by the mobile track and
       # excluded here so this check never depends on that crate's state.
@@ -66,15 +66,15 @@ jobs:
     name: Desktop frontend (typecheck + build)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
           version: 10
 
       - name: Install Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 20
           cache: pnpm
@@ -98,8 +98,8 @@ jobs:
     name: Security audit (cargo-audit)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: taiki-e/install-action@cargo-audit
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+      - uses: taiki-e/install-action@17dfa9a7aa66ae804b5cbd9f505a33815221f967 # cargo-audit
       - name: cargo audit (fail on vulnerabilities)
         run: cargo audit
