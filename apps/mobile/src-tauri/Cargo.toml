@@ -68,6 +68,8 @@ ocr = { path = "../../../packages/ocr", features = ["engine"] }
 # `pipeline::ingest` path desktop uses. DICOM pixel codecs stay OFF (they can't
 # cross-compile via cmake for the NDK, and mobile does no pixel viewing).
 [target.'cfg(target_os = "android")'.dependencies]
+jni = "0.22.4"
+ndk-context = "0.1.1"
 ocr = { path = "../../../packages/ocr", default-features = false, features = [
     "engine",
 ] }

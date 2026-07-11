@@ -95,9 +95,10 @@ pub fn load_archive(state: State<AppState>) -> Result<Vec<TimelineGroup>, String
 /// 跑一次 ingest 并映射为前端 `ImportOutcome`。抽取失败(扫描图等)不致命
 /// —— 原文件已进 CAS,返回 status="failed" 让前端提示「未能识别」而非报错崩溃。
 ///
-/// iOS 与桌面的分岔点在 `ingest_dispatch`:iOS 上的**图片**走 Apple Vision(见
-/// `vision` 模块 / `ingest_image_via_vision`),其余一切(以及桌面/host 构建)沿用
-/// 未改动的 `pipeline::ingest`。
+/// 各端的分岔点在 `ingest_dispatch`:iOS 上的**图片**走 Apple Vision(见
+/// `vision` 模块 / `ingest_image_via_vision`),安卓上的图片走 ML Kit(见 `mlkit`
+/// 模块 / `ingest_image_via_mlkit`),其余一切(以及桌面/host 构建)沿用未改动的
+/// `pipeline::ingest`。
 fn ingest_one(app: &tauri::AppHandle, v: &Vault, path: &std::path::Path) -> ImportOutcome {
     // Panic firewall: a panic inside the parser/dicom/ocr/vision stack (defense-in-depth
     // over their internal guards) is caught here and turned into a `failed` outcome,
@@ -143,28 +144,35 @@ fn ingest_one(app: &tauri::AppHandle, v: &Vault, path: &std::path::Path) -> Impo
     }
 }
 
-/// ingest 分岔:iOS 图片 → Apple Vision;其余 → 共享 `pipeline::ingest`(桌面行为不变)。
+/// ingest 分岔:iOS 图片 → Apple Vision;安卓图片 → ML Kit;其余 → 共享
+/// `pipeline::ingest`(桌面行为不变)。
 fn ingest_dispatch(
     app: &tauri::AppHandle,
     v: &Vault,
     path: &std::path::Path,
 ) -> anyhow::Result<pipeline::IngestOutcome> {
-    let _ = app; // 非 iOS 上未用
+    let _ = app; // 非 iOS/安卓上未用
     #[cfg(target_os = "ios")]
     {
         if is_image(path) {
             return ingest_image_via_vision(v, path);
         }
     }
+    #[cfg(target_os = "android")]
+    {
+        if is_image(path) {
+            return ingest_image_via_mlkit(v, path);
+        }
+    }
     pipeline::ingest(v, path)
 }
 
-/// 图片 MIME 判定(仅 iOS 用于路由到 Vision)。
-#[cfg(target_os = "ios")]
+/// 图片 MIME 判定(iOS 路由到 Vision、安卓路由到 ML Kit)。
+#[cfg(any(target_os = "ios", target_os = "android"))]
 fn is_image(path: &std::path::Path) -> bool {
-    // incl. image/heic — iPhone photos default to HEIC; the Vision bridge
-    // (OcrVision.swift via CGImageSource) decodes it, the Rust oar-ocr path
-    // can't, so HEIC must route to Vision here.
+    // incl. image/heic — iPhone photos default to HEIC; the native OCR bridges
+    // (iOS Vision via CGImageSource / Android ML Kit via BitmapFactory) decode
+    // it, the Rust oar-ocr path can't, so HEIC must route to the native OCR.
     matches!(
         pipeline::mime_for(path),
         "image/jpeg" | "image/png" | "image/tiff" | "image/heic"
@@ -251,6 +259,101 @@ fn ingest_image_via_vision(
     } else {
         // Vision 未识别出文字:退回文件名元数据(与 pipeline 的 StoredNoText 同构),
         // 不建 ocr_result;原件已永存,时间线仍可见、可出示。
+        let (doc_date, doc_date_end) = parser::guess_date_range(&name);
+        let doc_type = parser::classify(&name);
+        v.add_document(NewDocument {
+            source_file_id: sid,
+            doc_type: doc_type.clone(),
+            doc_date,
+            doc_date_end,
+            title: Some(name.clone()),
+            language: None,
+            page_count: 1,
+        })?;
+        Ok(IngestOutcome {
+            source_file_id: sid,
+            name,
+            status: IngestStatus::StoredNoText,
+            doc_type: Some(doc_type),
+        })
+    }
+}
+
+/// 安卓图片 OCR:ML Kit Text Recognition v2(设备端、离线、捆绑中文模型)替代对
+/// 中文病历识别很差的 PP-OCRv5 mobile 模型,经 JNI 调 Kotlin `MlkitOcr`。结构与
+/// `ingest_image_via_vision` 一致(原始字节入 CAS → 识别出文字建 document+ocr_result
+/// 后端 `MlKit`,空则退回文件名元数据),只换 OCR 后端。有意与 iOS 版重复,避免重构
+/// 已验证的 iOS 路径带来风险。桌面/pipeline/ocr 不受影响。
+#[cfg(target_os = "android")]
+fn ingest_image_via_mlkit(
+    v: &Vault,
+    path: &std::path::Path,
+) -> anyhow::Result<pipeline::IngestOutcome> {
+    use core_model::{NewDocument, NewOcr, OcrBackendKind};
+    use pipeline::{IngestOutcome, IngestStatus};
+
+    let len = std::fs::metadata(path)?.len();
+    if len > pipeline::MAX_INGEST_BYTES {
+        anyhow::bail!(
+            "文件过大:{len} 字节,超过上限 {} 字节(200MB),已拒绝导入 / file too large",
+            pipeline::MAX_INGEST_BYTES
+        );
+    }
+    let bytes = std::fs::read(path)?;
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("unknown")
+        .to_string();
+
+    let imp = v.import(&name, pipeline::mime_for(path), &bytes)?;
+    let sid = imp.source_file.id;
+    if imp.deduped && v.has_document(sid)? {
+        return Ok(IngestOutcome {
+            source_file_id: sid,
+            name,
+            status: IngestStatus::Deduped,
+            doc_type: None,
+        });
+    }
+
+    // 设备端 ML Kit OCR(离线,JNI → Kotlin MlkitOcr)。
+    let recognized = crate::mlkit::recognize(&bytes)?;
+    let text = recognized.trim().to_string();
+
+    if !text.is_empty() {
+        let doc_type = parser::classify(&text);
+        let (doc_date, doc_date_end) = parser::guess_date_range(&text);
+        let doc = v.add_document(NewDocument {
+            source_file_id: sid,
+            doc_type: doc_type.clone(),
+            doc_date,
+            doc_date_end,
+            title: Some(name.clone()),
+            language: parser::detect_language(&text),
+            page_count: 1,
+        })?;
+        v.add_ocr(NewOcr {
+            document_id: doc.id,
+            page_no: 1,
+            backend: OcrBackendKind::MlKit,
+            model_version: "mlkit".into(),
+            text: recognized,
+            // ML Kit exposes no confidence; report a fixed moderate value.
+            confidence: Some(0.85),
+        })?;
+        let status = if imp.deduped {
+            IngestStatus::Backfilled
+        } else {
+            IngestStatus::New
+        };
+        Ok(IngestOutcome {
+            source_file_id: sid,
+            name,
+            status,
+            doc_type: Some(doc_type),
+        })
+    } else {
         let (doc_date, doc_date_end) = parser::guess_date_range(&name);
         let doc_type = parser::classify(&name);
         v.add_document(NewDocument {

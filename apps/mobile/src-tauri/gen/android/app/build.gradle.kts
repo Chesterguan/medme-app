@@ -63,6 +63,11 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.lifecycle:lifecycle-process:2.10.0")
+    // On-device Chinese OCR (ML Kit Text Recognition v2). The `-chinese`
+    // artifact BUNDLES the Chinese model in the APK → offline, no Google Play
+    // download (works on Chinese phones without Play Services). Called from Rust
+    // via JNI (see MlkitOcr.kt + src/mlkit.rs).
+    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.4")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.0")

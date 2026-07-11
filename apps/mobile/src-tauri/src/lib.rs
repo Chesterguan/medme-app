@@ -5,6 +5,10 @@ mod dto;
 /// macOS host build and desktop/Android, which keep the plain local vault.
 #[cfg(target_os = "ios")]
 mod icloud;
+/// Android ML Kit OCR bridge (JNI → Kotlin `MlkitOcr`). iOS/desktop compile it
+/// out. See the module + `MlkitOcr.kt` (#41).
+#[cfg(target_os = "android")]
+mod mlkit;
 /// Apple Vision OCR bridge — iOS only (see module docs). Compiled out on the
 /// macOS host build and desktop, which keep the oar-ocr pipeline path.
 #[cfg(target_os = "ios")]
