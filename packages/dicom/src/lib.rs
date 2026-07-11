@@ -149,6 +149,18 @@ fn check_decode_bounds(obj: &FileDicomObject<InMemDicomObject>) -> anyhow::Resul
     Ok(())
 }
 
+/// Parses just the DICOM header and runs the pre-decode size guard
+/// ([`check_decode_bounds`]) — WITHOUT decoding any pixels or invoking the C/C++
+/// codecs. This is the cheap, pure-Rust check the desktop app runs in its MAIN
+/// process to reject decode/decompression bombs BEFORE handing the bytes to the
+/// isolated decode subprocess (advisory GHSA-24px). Returns `Ok(())` when the
+/// declared decoded size is within [`MAX_DECODE_BYTES`].
+pub fn check_bounds(dcm_bytes: &[u8]) -> anyhow::Result<()> {
+    let obj = dicom_object::from_reader(Cursor::new(dcm_bytes))
+        .context("failed to parse DICOM object")?;
+    check_decode_bounds(&obj)
+}
+
 /// Decodes the first frame's pixel data and renders it as an 8-bit,
 /// windowed (VOI LUT applied when present) grayscale PNG.
 ///
@@ -477,6 +489,20 @@ mod tests {
         let bytes = sample("CT_small.dcm");
         assert!(render_png(&bytes).is_ok());
         assert!(decode_frame(&bytes, 0).is_ok());
+    }
+
+    #[test]
+    fn check_bounds_matches_the_decode_guards() {
+        // The pure-Rust pre-spawn guard the desktop main process runs: passes a
+        // sane instance, rejects oversized declared dimensions — same verdict as
+        // the in-decode `check_decode_bounds`, but without touching pixels/codecs.
+        assert!(check_bounds(&sample("CT_small.dcm")).is_ok());
+        let err = check_bounds(&oversized_dcm(60000, 60000))
+            .expect_err("oversized dims must be rejected pre-decode");
+        assert!(
+            err.to_string().contains("decode cap"),
+            "expected the size-cap guard to fire, got: {err:#}"
+        );
     }
 
     #[test]
