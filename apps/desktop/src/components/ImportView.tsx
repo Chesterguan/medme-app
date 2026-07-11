@@ -241,7 +241,7 @@ export default function ImportView({ onImported }: { onImported: () => void }) {
             {busy ? "正在导入…" : dragging ? "松开以导入" : "把病历文件拖到这里"}
           </div>
           <div className="text-xs font-mono text-slate-400 mt-2">
-            PDF · 图片(PNG / JPG / TIFF)· TXT · 原始文件永久保存,自动去重
+            PDF · 图片(PNG / JPG / TIFF / HEIC)· TXT · DICOM · 原始文件永久保存,自动去重
           </div>
           <div className="mt-5">
             <button

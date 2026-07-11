@@ -285,8 +285,14 @@ pub async fn import_via_dialog(
         .file()
         .set_title("选择要导入的病历文件")
         .add_filter(
+            // HEIC/HEIF included: iPhone photos default to HEIC, and macOS Apple
+            // Vision OCR decodes it (via ImageIO). Without it the picker greyed
+            // out the user's own photos even though drag-drop accepted them —
+            // a dead end on the primary import affordance (#60).
             "病历文件",
-            &["pdf", "png", "jpg", "jpeg", "tif", "tiff", "txt", "dcm"],
+            &[
+                "pdf", "png", "jpg", "jpeg", "tif", "tiff", "heic", "heif", "txt", "dcm",
+            ],
         )
         .blocking_pick_files();
     let Some(files) = picked else {
