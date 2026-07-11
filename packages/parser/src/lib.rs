@@ -22,7 +22,7 @@ pub fn extract(path: &Path) -> anyhow::Result<Extracted> {
     let (text, page_count) = match ext.as_str() {
         "txt" => (std::fs::read_to_string(path)?, 1),
         "pdf" => {
-            // pdf-extract 0.7 PANICS (internal unwrap/index/`unimplemented!`) on
+            // pdf-extract can PANIC (internal unwrap/index/`unimplemented!`) on
             // malformed/truncated PDFs rather than returning Err, and that panic
             // would unwind past the caller's non-fatal fallback and crash the
             // process. Catch it here and convert to a normal Err so the existing
@@ -324,7 +324,7 @@ mod tests {
     /// Builds a structurally-valid single-page PDF (parseable by lopdf) whose
     /// content stream is `content`. When `include_font` is false the page's
     /// Resources have no `/Font`, so a text-show operator referencing `/F1`
-    /// drives pdf-extract 0.7 into an internal panic during text extraction.
+    /// drives pdf-extract into an internal panic during text extraction.
     fn build_pdf(content: &[u8], include_font: bool) -> Vec<u8> {
         let font_res: &[u8] = if include_font {
             b"/Font << /F1 5 0 R >>"
@@ -388,7 +388,7 @@ mod tests {
     #[test]
     fn malformed_pdf_returns_err_not_panic() {
         // This structurally-valid PDF shows text with a font missing from the
-        // page's Resources, which makes pdf-extract 0.7 PANIC during text
+        // page's Resources, which makes pdf-extract PANIC during text
         // extraction (not return Err). Without the catch_unwind firewall in
         // `extract`, that panic unwinds past the caller's non-fatal fallback and
         // aborts this test process; with it, `extract` returns a normal Err.
