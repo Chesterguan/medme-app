@@ -55,4 +55,5 @@ objc2-foundation = "0.3.2"
 objc2-vision = "0.3.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
+pollster = "1.0.1"
 windows = { version = "0.62.2", features = ["Media_Ocr", "Graphics_Imaging", "Storage_Streams", "Foundation", "Globalization", "Foundation_Collections"] }
