@@ -94,14 +94,20 @@ pub struct ImportOutcome {
 pub struct ExportSummary {
     pub file_count: i64,
     pub byte_size: i64,
+    /// 后端原生保存对话框选定并写入的绝对路径(供导出后「打开文件」按钮使用)。
+    /// 路径由后端从原生对话框获得,绝不由 webview 传入(见 GHSA-gmg4)。
+    pub path: String,
 }
 
-/// 加密分享生成结果:口令(分组显示)、记录数、文件字节数。
+/// 加密分享生成结果:口令(分组显示)、记录数、文件字节数、写入路径。
 #[derive(Serialize)]
 pub struct ShareResult {
     pub passphrase: String,
     pub record_count: i64,
     pub byte_size: i64,
+    /// 后端原生保存对话框选定并写入的绝对路径(供分享后「打开文件」按钮使用)。
+    /// 路径由后端从原生对话框获得,绝不由 webview 传入(见 GHSA-gmg4)。
+    pub path: String,
 }
 
 #[derive(Serialize)]

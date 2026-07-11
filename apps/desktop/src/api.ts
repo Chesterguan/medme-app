@@ -32,10 +32,12 @@ export const api = {  listTimelineGrouped: () => invoke<TimelineGroup[]>("list_t
     invoke<ImagingInstance[]>("get_imaging_instances", { documentId }),
   exportVault: (destPath: string) =>
     invoke<ExportSummary>("export_vault", { destPath }),
-  exportTimelineHtml: (destPath: string) =>
-    invoke<ExportSummary>("export_timeline_html", { destPath }),
-  createShare: (destPath: string, expiresDays?: number) =>
-    invoke<ShareResult>("create_share", { destPath, expiresDays }),
+  // 安全:保存位置由 Rust 侧原生「保存」对话框选定并直接写入——路径绝不经由 webview
+  // 传入(见 GHSA-gmg4)。写入后端返回含写入路径的结果;用户取消对话框返回 null。
+  exportTimelineHtml: () =>
+    invoke<ExportSummary | null>("export_timeline_html"),
+  createShare: (expiresDays?: number) =>
+    invoke<ShareResult | null>("create_share", { expiresDays }),
   getPatientProfile: () => invoke<PatientProfile>("get_patient_profile"),
   getInboxPath: () => invoke<string>("get_inbox_path"),
   // 收件箱文件夹由 Rust 侧原生「选择文件夹」对话框选择,返回新路径(取消则返回原路径)。

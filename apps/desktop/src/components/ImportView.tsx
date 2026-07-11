@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { listen } from "@tauri-apps/api/event";
-import { save } from "@tauri-apps/plugin-dialog";
 import { api } from "../api";
 import type { ImportOutcome } from "../types";
 
@@ -68,27 +67,24 @@ export default function ImportView({ onImported }: { onImported: () => void }) {
     | null
   >(null);
 
-  // 端到端加密分享:选保存路径 → 生成自包含加密 HTML(含浏览器内查看器)→
-  // 返回口令(需另行单独告知医生)。数据零服务器,浏览器本地解密。
+  // 端到端加密分享:后端(Rust)弹原生「保存」对话框选保存路径 → 生成自包含加密 HTML
+  // (含浏览器内查看器)→ 返回口令(需另行单独告知医生)与写入路径。数据零服务器,
+  // 浏览器本地解密。安全:保存路径由后端从原生对话框获得,不再经 webview 传入。
   const doShare = async () => {
-    let path: string | null;
-    try {
-      path = await save({
-        defaultPath: "MedMe加密分享.html",
-        filters: [{ name: "HTML", extensions: ["html"] }],
-      });
-    } catch (e) {
-      setShareResult({ kind: "err", text: `选择保存位置失败:${String(e)}` });
-      return;
-    }
-    if (!path) return;
     const days = Number.isFinite(shareDays) && shareDays > 0 ? Math.floor(shareDays) : 5;
     setSharing(true);
     setShareResult(null);
     setCopied(false);
     try {
-      const r = await api.createShare(path, days);
-      setShareResult({ kind: "ok", passphrase: r.passphrase, count: r.record_count, days, path });
+      const r = await api.createShare(days);
+      if (!r) return; // 用户取消了保存对话框
+      setShareResult({
+        kind: "ok",
+        passphrase: r.passphrase,
+        count: r.record_count,
+        days,
+        path: r.path,
+      });
     } catch (e) {
       setShareResult({ kind: "err", text: `生成失败:${String(e)}` });
     } finally {
@@ -110,27 +106,18 @@ export default function ImportView({ onImported }: { onImported: () => void }) {
     api.getInboxPath().then(setInboxPath).catch(() => {});
   }, []);
 
-  // 导出 v1:选保存路径 → 生成自包含 HTML → 浏览器可「打印 / 另存为 PDF」交给医生。
+  // 导出 v1:后端(Rust)弹原生「保存」对话框选保存路径 → 生成自包含 HTML → 浏览器可
+  // 「打印 / 另存为 PDF」交给医生。安全:保存路径由后端从原生对话框获得,不再经 webview 传入。
   const doExport = async () => {
-    let path: string | null;
-    try {
-      path = await save({
-        defaultPath: "MedMe导出.html",
-        filters: [{ name: "HTML", extensions: ["html"] }],
-      });
-    } catch (e) {
-      setExportMsg({ kind: "err", text: `选择保存位置失败:${String(e)}` });
-      return;
-    }
-    if (!path) return;
     setExporting(true);
     setExportMsg(null);
     try {
-      const summary = await api.exportTimelineHtml(path);
+      const summary = await api.exportTimelineHtml();
+      if (!summary) return; // 用户取消了保存对话框
       setExportMsg({
         kind: "ok",
         text: `已导出 ${summary.file_count} 份记录,可在浏览器打开后「打印 / 另存为 PDF」交给医生。`,
-        path,
+        path: summary.path,
       });
     } catch (e) {
       setExportMsg({ kind: "err", text: `导出失败:${String(e)}` });

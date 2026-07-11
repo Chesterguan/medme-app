@@ -41,11 +41,15 @@ export interface ImagingInstance {
 export interface ExportSummary {
   file_count: number;
   byte_size: number;
+  // 后端原生保存对话框选定并写入的绝对路径(供导出后「打开文件」按钮使用)。
+  path: string;
 }
 export interface ShareResult {
   passphrase: string;
   record_count: number;
   byte_size: number;
+  // 后端原生保存对话框选定并写入的绝对路径(供分享后「打开文件」按钮使用)。
+  path: string;
 }
 export interface PatientProfile {
   name: string | null;

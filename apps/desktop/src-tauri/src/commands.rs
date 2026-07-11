@@ -67,13 +67,15 @@ pub(crate) fn ingest_guarded(
     }
 }
 
-/// SECURITY: validate a JS-supplied save destination before we write app-generated
-/// content to it. The frontend always sources these paths from the native save
-/// dialog (AuditView / ImportView `save({...})`), but a malicious `invoke` could
-/// pass ANY path. Requiring an absolute path with an expected extension and no `..`
-/// components removes the arbitrary-file clobber primitive (can't overwrite
-/// `~/.zshrc`, `~/.ssh/id_rsa`, binaries, launch agents, …) while still allowing the
-/// dialog-driven `.csv` / `.html` save flows the app actually uses.
+/// SECURITY: defense-in-depth validation of a save destination before we write
+/// app-generated content to it. Since GHSA-gmg4 the export/share destinations come
+/// from a native save dialog opened FROM RUST (`blocking_save_file` in
+/// `export_timeline_html` / `create_share`), so the webview no longer supplies the
+/// path at all — but we keep this check so any future/non-native caller still can't
+/// smuggle a surprising path past us. Requiring an absolute path with an expected
+/// extension and no `..` components removes the arbitrary-file clobber primitive
+/// (can't overwrite `~/.zshrc`, `~/.ssh/id_rsa`, binaries, launch agents, …) while
+/// still allowing the `.html` save flows the app actually uses.
 fn validate_dest_path(path: &str, allowed_ext: &[&str]) -> Result<std::path::PathBuf, String> {
     let p = std::path::PathBuf::from(path);
     if !p.is_absolute() {
@@ -435,20 +437,42 @@ pub fn export_vault(_state: State<AppState>, _dest_path: String) -> Result<Expor
     Ok(ExportSummary {
         file_count: 0,
         byte_size: 0,
+        path: String::new(),
     })
 }
 
-/// 导出 v1:把整条时间线渲染成自包含 HTML 写到 `dest_path`(见
+/// 导出 v1:把整条时间线渲染成自包含 HTML 写到用户在原生保存对话框选定的位置(见
 /// `medme_share::export::build_timeline_html`)。可在任意浏览器打开、原生渲染中文,
-/// 并通过浏览器「打印 / 另存为 PDF」交给医生。
+/// 并通过浏览器「打印 / 另存为 PDF」交给医生。用户取消对话框返回 `None`(无操作)。
+///
+/// SECURITY (GHSA-gmg4): the save destination now comes from a native save dialog
+/// opened FROM RUST (`blocking_save_file`), not a webview-supplied string, so a
+/// compromised webview can no longer name an arbitrary `.html` path to clobber with
+/// app-generated content. The chosen path is returned so the "打开文件" button can hand
+/// it back to `open_path` (recorded in `openable_paths`). UX is unchanged: the user
+/// still clicks "导出" and sees the same native save dialog.
+///
+/// `blocking_save_file` must not run on the main thread; async commands run off the
+/// main thread on the async runtime, so this is safe (same as `import_via_dialog`).
 #[tauri::command]
-pub fn export_timeline_html(
-    state: State<AppState>,
-    dest_path: String,
-) -> Result<ExportSummary, String> {
-    // SECURITY: constrain the JS-supplied save target to an absolute `.html` path
-    // (see validate_dest_path) so a malicious invoke can't clobber arbitrary files.
-    let dest = validate_dest_path(&dest_path, &["html", "htm"])?;
+pub async fn export_timeline_html(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<Option<ExportSummary>, String> {
+    let Some(file) = app
+        .dialog()
+        .file()
+        .set_title("导出病历时间线")
+        .set_file_name("MedMe导出.html")
+        .add_filter("HTML", &["html"])
+        .blocking_save_file()
+    else {
+        return Ok(None); // 用户取消对话框
+    };
+    let picked = file.into_path().map_err(|e| e.to_string())?;
+    // Defense-in-depth: a native save pick is already absolute, but keep the extension /
+    // no-`..` checks so any future non-native caller can't smuggle a surprising path past us.
+    let dest = validate_dest_path(&picked.to_string_lossy(), &["html", "htm"])?;
     let v = lock(&state)?;
     let (html, record_count) = medme_share::export::build_timeline_html(&v)?;
     let byte_size = html.len() as i64;
@@ -459,24 +483,43 @@ pub fn export_timeline_html(
     // 审计追踪:导出落盘成功后记入不可变事件日志(见 core-model::audit)。
     v.record_export("timeline_html", &sha256, record_count)
         .map_err(|e| e.to_string())?;
-    Ok(ExportSummary {
+    Ok(Some(ExportSummary {
         file_count: record_count,
         byte_size,
-    })
+        path: dest.to_string_lossy().to_string(),
+    }))
 }
 
-/// 端到端加密分享:把全部病历打包成一份自包含加密 HTML 写到 `dest_path`
-/// (见 `medme_share::share::build_encrypted_share`),返回口令(需另行单独告知医生)、
-/// 记录数与文件字节数。默认有效期 5 天。
+/// 端到端加密分享:把全部病历打包成一份自包含加密 HTML 写到用户在原生保存对话框选定的
+/// 位置(见 `medme_share::share::build_encrypted_share`),返回口令(需另行单独告知医生)、
+/// 记录数、文件字节数与写入路径。默认有效期 5 天。用户取消对话框返回 `None`(无操作)。
+///
+/// SECURITY (GHSA-gmg4): the save destination now comes from a native save dialog
+/// opened FROM RUST (`blocking_save_file`), not a webview-supplied string, so a
+/// compromised webview can no longer name an arbitrary `.html` path to clobber. The
+/// chosen path is returned so the "打开文件" button can hand it back to `open_path`
+/// (recorded in `openable_paths`). Async so `blocking_save_file` runs off the main
+/// thread (same as `import_via_dialog`). UX is unchanged.
 #[tauri::command]
-pub fn create_share(
-    state: State<AppState>,
-    dest_path: String,
+pub async fn create_share(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
     expires_days: Option<u32>,
-) -> Result<ShareResult, String> {
-    // SECURITY: constrain the JS-supplied save target to an absolute `.html` path
-    // (see validate_dest_path) so a malicious invoke can't clobber arbitrary files.
-    let dest = validate_dest_path(&dest_path, &["html", "htm"])?;
+) -> Result<Option<ShareResult>, String> {
+    let Some(file) = app
+        .dialog()
+        .file()
+        .set_title("生成加密分享文件")
+        .set_file_name("MedMe加密分享.html")
+        .add_filter("HTML", &["html"])
+        .blocking_save_file()
+    else {
+        return Ok(None); // 用户取消对话框
+    };
+    let picked = file.into_path().map_err(|e| e.to_string())?;
+    // Defense-in-depth: a native save pick is already absolute, but keep the extension /
+    // no-`..` checks so any future non-native caller can't smuggle a surprising path past us.
+    let dest = validate_dest_path(&picked.to_string_lossy(), &["html", "htm"])?;
     let v = lock(&state)?;
     let days = expires_days.unwrap_or(5);
     let (html, passphrase, record_count) = medme_share::share::build_encrypted_share(&v, days)?;
@@ -489,11 +532,12 @@ pub fn create_share(
     // 审计追踪:分享文件落盘成功后记入不可变事件日志(见 core-model::audit)。
     v.record_share(&sha256, record_count, &expires)
         .map_err(|e| e.to_string())?;
-    Ok(ShareResult {
+    Ok(Some(ShareResult {
         passphrase,
         record_count,
         byte_size,
-    })
+        path: dest.to_string_lossy().to_string(),
+    }))
 }
 
 #[tauri::command]
