@@ -24,10 +24,20 @@ serde_json = "1"
 core-model = { path = "../../../packages/core-model" }
 pipeline = { path = "../../../packages/pipeline" }
 parser = { path = "../../../packages/parser" }
-# DICOM: default-features off here so the Android build does NOT compile the
-# vendored C/C++ pixel codecs (OpenJPEG/CharLS) — they can't cross-compile via
-# cmake for the Android NDK, and mobile does no DICOM pixel viewing. iOS keeps
-# them (re-enabled in the target block below) so iOS behavior is unchanged.
+# DICOM: default-features off for ALL mobile targets (iOS + Android) so the
+# vendored C/C++ pixel codecs (OpenJPEG for JPEG 2000, CharLS for JPEG-LS) are
+# never compiled or linked into a mobile build. Rationale:
+#   * Mobile never *views* DICOM pixels (capture + records + share only), so
+#     dropping the codecs is zero functional loss — the DICOM path degrades to
+#     metadata-only / "unsupported preview" via `dicom`'s existing pure-Rust
+#     fallback (`parse_meta` + `render_png`/`decode_frame` still compile, only
+#     J2K/JPEG-LS transfer syntaxes become unsupported at runtime).
+#   * Security (advisory GHSA-24px): those C/C++ decoders are a memory-corruption
+#     RCE surface. Not linking them removes the surface from mobile entirely.
+#   * Android additionally can't cross-compile them (cmake-rs + CMake 4.x vs the
+#     NDK); iOS could, but has no reason to carry the surface — and it also
+#     shrinks the iOS binary.
+# There is intentionally NO per-target re-enable of `codecs` below.
 dicom = { path = "../../../packages/dicom", default-features = false }
 # OCR: default-features off here (no `engine`, no `auto-download`) so the plain
 # host build stays lean. The per-OS target blocks below re-enable the engine for
@@ -40,12 +50,13 @@ medme-share = { path = "../../../packages/share" }
 chrono.workspace = true
 anyhow.workspace = true
 
-# iOS keeps the full DICOM pixel codecs (unchanged from before this split):
-# Apple targets cross-compile the C/C++ libs fine. Only Android drops them.
-# Same for OCR: iOS keeps oar-ocr/ONNX Runtime for scanned-PDF OCR; Android
-# drops it (doesn't work there, and it's the bulk of the debug .so's size).
+# iOS: OCR keeps oar-ocr/ONNX Runtime for scanned-PDF OCR (Apple targets
+# cross-compile it fine; Android drops it, doing OCR via shipped model files).
+# NOTE: iOS deliberately does NOT re-enable the DICOM `codecs` feature anymore
+# (it used to). Mobile never views DICOM pixels, so the vendored C/C++ JPEG2000
+# /JPEG-LS decoders — a memory-corruption RCE surface (GHSA-24px) — are no
+# longer linked into the iOS binary. See the base `dicom` dep above.
 [target.'cfg(target_os = "ios")'.dependencies]
-dicom = { path = "../../../packages/dicom", features = ["codecs"] }
 ocr = { path = "../../../packages/ocr", features = ["engine"] }
 
 # Android: enable the OCR `engine` but NOT `auto-download`. oar-ocr + ONNX

@@ -26,12 +26,15 @@ pub struct AppState {
 }
 
 // SECURITY/robustness: recover a poisoned lock instead of failing every command.
-// The ingest/dicom command entry points now run their library calls under
-// `catch_unwind` (see `ingest_guarded` / `render_dicom` / `decode_dicom_frame`), so a
-// bad file can't poison this mutex in the first place. But if some *other* path ever
-// panics while holding the guard, `into_inner()` keeps the Vault usable rather than
-// bricking the whole app past one bad operation — the Vault's own truth is the
-// append-only log + CAS, not transient in-memory state, so a recovered guard is safe.
+// The risky command entry points isolate their library calls so a bad file can't
+// poison this mutex in the first place: ingest runs under `catch_unwind` (see
+// `ingest_guarded`), and DICOM pixel decoding runs in a separate child process
+// (see `render_dicom` / `decode_dicom_frame` → `dicom_subprocess`), which also
+// contains C/C++ codec memory corruption that `catch_unwind` could not. But if
+// some *other* path ever panics while holding the guard, `into_inner()` keeps the
+// Vault usable rather than bricking the whole app past one bad operation — the
+// Vault's own truth is the append-only log + CAS, not transient in-memory state,
+// so a recovered guard is safe.
 fn lock<'a>(s: &'a State<'a, AppState>) -> Result<std::sync::MutexGuard<'a, Vault>, String> {
     Ok(s.vault
         .lock()
@@ -319,15 +322,14 @@ pub fn render_dicom(state: State<AppState>, id: i64) -> Result<tauri::ipc::Respo
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("source_file {id} not found"))?;
     let bytes = std::fs::read(v.root_join(&sf.storage_path)).map_err(|e| e.to_string())?;
-    // 面板级 panic 防火墙:畸形/敌意 DICOM 可能让解码器 panic —— 用 catch_unwind
-    // 隔离,转成命令的正常 Err(前端已能处理),既不 unwind 命令线程也不污染 Vault
-    // 锁。dicom 库本身已有内部守护,这里是边界处的纵深防御。
-    let png = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        dicom::render_png(&bytes)
-    })) {
-        Ok(r) => r.map_err(|e| e.to_string())?,
-        Err(_) => return Err("DICOM 渲染时发生内部错误(已隔离)".to_string()),
-    };
+    // SECURITY (advisory GHSA-24px): decode the pixels in a short-lived, isolated
+    // child process rather than in-process. The vendored C/C++ JPEG2000/JPEG-LS
+    // codecs are a memory-corruption RCE surface that `catch_unwind` cannot
+    // contain; the subprocess boundary confines any crash/exploit to the child,
+    // which can't touch the vault or this process. A non-zero exit / timeout /
+    // oversized output comes back as an `Err` and degrades like an unsupported
+    // transfer syntax (the frontend already handles that). See `dicom_subprocess`.
+    let png = crate::dicom_subprocess::render_png(&bytes)?;
     Ok(tauri::ipc::Response::new(png))
 }
 
@@ -348,14 +350,11 @@ pub fn decode_dicom_frame(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("source_file {source_file_id} not found"))?;
     let bytes = std::fs::read(v.root_join(&sf.storage_path)).map_err(|e| e.to_string())?;
-    // 面板级 panic 防火墙(同 render_dicom):压缩传输语法解码路径尤其可能 panic。
-    let frame = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        dicom::decode_frame(&bytes, frame_index)
-    })) {
-        Ok(r) => r.map_err(|e| e.to_string())?,
-        Err(_) => return Err("DICOM 解码时发生内部错误(已隔离)".to_string()),
-    };
-    let wire = frame.into_ipc_bytes().map_err(|e| e.to_string())?;
+    // SECURITY (advisory GHSA-24px): same isolation as `render_dicom` — the
+    // compressed-transfer-syntax decode path (JPEG2000/JPEG-LS via C/C++) runs in
+    // the isolated child process, which returns the IPC bytes (header + raw
+    // pixels) on success or degrades on crash/timeout. See `dicom_subprocess`.
+    let wire = crate::dicom_subprocess::decode_frame_ipc(&bytes, frame_index)?;
     Ok(tauri::ipc::Response::new(wire))
 }
 

@@ -36,3 +36,10 @@ chrono.workspace = true
 [dev-dependencies]
 tempfile = { workspace = true }
 
+# Custom-harness integration test for the isolated DICOM decode subprocess: the
+# test binary re-execs itself as the `--decode-dicom` child, which libtest's
+# default harness can't do (it would parse the flag as a test filter).
+[[test]]
+name = "dicom_subprocess_roundtrip"
+harness = false
+

@@ -1,4 +1,8 @@
 mod commands;
+/// Out-of-process DICOM pixel decode (advisory GHSA-24px). `pub` so `main.rs`
+/// can dispatch the hidden `--decode-dicom` child subcommand, and the
+/// integration test can drive the same round trip.
+pub mod dicom_subprocess;
 mod dto;
 mod inbox;
 mod vault_loc;
