@@ -15,6 +15,10 @@ use lopdf::{Document, Object};
 /// build (oar-ocr is the fallback). See the module for the rationale (#41).
 #[cfg(target_os = "macos")]
 mod vision_macos;
+/// Windows on-device OCR via Windows.Media.Ocr — primary on the Windows build
+/// (oar-ocr is the fallback). See the module (#41).
+#[cfg(target_os = "windows")]
+mod windows_ocr;
 #[cfg(feature = "engine")]
 use oar_ocr::oarocr::{OAROCRBuilder, OAROCR};
 #[cfg(feature = "engine")]
@@ -389,14 +393,45 @@ pub fn recognize(image_bytes: &[u8]) -> Result<OcrOutcome> {
     }
 }
 
-#[cfg(all(not(target_os = "macos"), feature = "engine"))]
+/// Windows: Windows.Media.Ocr is the primary recognizer (offline, on-device,
+/// #41); if it errors or finds no text, fall back to the oar-ocr / PP-OCRv5
+/// engine.
+#[cfg(target_os = "windows")]
+pub fn recognize(image_bytes: &[u8]) -> Result<OcrOutcome> {
+    match windows_ocr::recognize_bytes(image_bytes) {
+        Ok(outcome) if !outcome.text.trim().is_empty() => return Ok(outcome),
+        Ok(_) => {} // ran but found nothing — try the engine.
+        Err(e) => eprintln!("[ocr] Windows.Media.Ocr failed, falling back to engine: {e:#}"),
+    }
+    #[cfg(feature = "engine")]
+    {
+        recognize_engine(image_bytes)
+    }
+    #[cfg(not(feature = "engine"))]
+    {
+        Ok(OcrOutcome {
+            text: String::new(),
+            confidence: 0.0,
+        })
+    }
+}
+
+#[cfg(all(
+    not(target_os = "macos"),
+    not(target_os = "windows"),
+    feature = "engine"
+))]
 pub fn recognize(image_bytes: &[u8]) -> Result<OcrOutcome> {
     recognize_engine(image_bytes)
 }
 
-/// No-`engine`, non-macOS stub: nothing to recognize with. Callers treat OCR
+/// No-`engine`, non-native stub: nothing to recognize with. Callers treat OCR
 /// failure as non-fatal (store the file without extracted text).
-#[cfg(all(not(target_os = "macos"), not(feature = "engine")))]
+#[cfg(all(
+    not(target_os = "macos"),
+    not(target_os = "windows"),
+    not(feature = "engine")
+))]
 pub fn recognize(_image_bytes: &[u8]) -> Result<OcrOutcome> {
     anyhow::bail!("ocr::recognize: OCR engine not available on this platform")
 }
