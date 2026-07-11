@@ -101,12 +101,5 @@ jobs:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@cargo-audit
-      # --ignore RUSTSEC-2026-0187: lopdf stack-overflow DoS on a deeply-nested
-      # PDF, reached ONLY transitively via pdf-extract 0.7.12 (which pins lopdf
-      # 0.34; no released pdf-extract uses the fixed 0.42+, and forcing 0.43
-      # breaks pdf-extract's own API). Accepted risk for now: MedMe is a local
-      # tool, so exploiting it needs the user to import an attacker-crafted PDF,
-      # which only crashes the parse (truth is the append-only log+CAS → no data
-      # loss; no RCE, no exfil). Revisit when pdf-extract updates its lopdf dep.
       - name: cargo audit (fail on vulnerabilities)
-        run: cargo audit --ignore RUSTSEC-2026-0187
+        run: cargo audit
