@@ -87,6 +87,7 @@ pub fn run() {
             let vault = Vault::open_with_device_id(&vault_dir, &device_id).expect("open vault");
             app.manage(AppState {
                 vault: Mutex::new(vault),
+                device_id,
                 inbox_watcher: Mutex::new(None),
                 openable_paths: Mutex::new(HashSet::new()),
             });

@@ -23,6 +23,10 @@ fn doc_summary(v: &Vault, d: &Document) -> DocumentSummary {
 
 pub struct AppState {
     pub vault: Mutex<Vault>,
+    /// 本机持久设备 id(存于 `<app_data_dir>/device_id`,在保险箱之外)。换库位置
+    /// (`set_vault_path`)后必须用它重开(`open_with_device_id`),否则会读/生成一个
+    /// 新随机 id、破坏「每机一稳定 log 段」的无冲突多设备同步不变式(#57)。
+    pub device_id: String,
     /// 收件箱 notify 监听器,需要在 AppState 里存活,否则一超出作用域就会被 drop 从而
     /// 停止监听。setup() 里启动后写入;生命周期与 App 一致。
     pub inbox_watcher: Mutex<Option<notify::RecommendedWatcher>>,
@@ -771,7 +775,9 @@ pub async fn set_vault_path(
     crate::vault_loc::write_vault_location(&app, &target).map_err(|e| e.to_string())?;
     // 3) 换掉内存里的 Vault 到新根,并从合并后的日志重建派生库(采纳路径靠它把另一台
     //    设备的事件投影进来)。旧 Vault 在赋值时被 drop,连接随之关闭。
-    *guard = Vault::open(&target).map_err(|e| e.to_string())?;
+    //    用本机 device_id 重开(#57):Vault::open 会读/生成新随机 id,给本会话后续
+    //    写入换上一个临时 log 段,破坏每机一稳定段的不变式。
+    *guard = Vault::open_with_device_id(&target, &state.device_id).map_err(|e| e.to_string())?;
     guard.rebuild_from_log().map_err(|e| e.to_string())?;
     Ok(guard.root().to_string_lossy().to_string())
 }
