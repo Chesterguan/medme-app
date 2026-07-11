@@ -452,7 +452,7 @@ export default function App() {
                   <span>
                     {icloud?.enabled
                       ? "已在所有苹果设备间自动同步。点此关闭:数据搬回本机,iCloud 里的副本保留。"
-                      : "开启后,你的病历在所有苹果设备间自动同步;数据端到端由 iCloud 保管。"}
+                      : "开启后,你的病历在所有苹果设备间自动同步。"}
                   </span>
                 </span>
                 <span className="chev">›</span>
@@ -466,6 +466,11 @@ export default function App() {
               <b>多设备自动同步:</b>iPhone / iPad 上用上面的<b>「iCloud 同步」</b>一键开启;
               <b>电脑端</b>把保险箱文件夹放进云盘也能同步——
               <b>全是苹果 → iCloud 云盘;有安卓 / Windows → 坚果云</b>。
+            </div>
+            <div className="info">
+              <b>关于云端安全:</b>无论用 iCloud 还是别的云盘,资料在云端<b>没有额外加密</b>,安全取决于你系统本身的保护。
+              建议开启 iPhone 的<b>「高级数据保护(ADP)」</b>:设置 › 点你的名字(Apple ID) › iCloud › 高级数据保护。
+              开启后连苹果也读不了你的资料。
             </div>
           </div>
 

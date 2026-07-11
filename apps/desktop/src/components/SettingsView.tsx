@@ -109,6 +109,13 @@ export default function SettingsView({ onNav }: { onNav: (id: string) => void })
               选一个云同步文件夹(iCloud 云盘 / 坚果云)即可多设备同步;换位置会把现有病历一起搬过去。
             </span>
           </div>
+          <div className="mt-2 flex items-start gap-2 text-xs text-slate-400 leading-relaxed">
+            <Lock className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <span>
+              放到云盘后,资料在云端<b className="text-slate-600">没有额外加密</b>,安全取决于你系统本身的保护。建议按下方「数据安全 · 加密」开启
+              <b className="text-slate-600"> FileVault + iCloud 高级数据保护</b>。
+            </span>
+          </div>
         </div>
 
         {/* 数据安全:引导用系统级端到端加密(零口令、老人无感);app 层口令加密留后续版本 */}
