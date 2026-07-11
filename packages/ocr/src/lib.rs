@@ -112,6 +112,16 @@ const MAX_IMAGE_ALLOC_BYTES: u64 = 512 * 1024 * 1024;
 #[cfg_attr(not(feature = "engine"), allow(dead_code))]
 const MAX_IMAGE_DIM: u32 = 20_000;
 
+/// Working-resolution ceiling for [`preprocess`]. `decode_image_bounded` accepts
+/// images up to [`MAX_IMAGE_DIM`] (20000px), but `preprocess`'s illumination
+/// flattening allocates several full-resolution `f32` buffers (grayscale + blur
+/// intermediates), so a ~19000px image — legal under the decode cap — balloons
+/// to multiple gigabytes transiently, worst on low-RAM mobile. OCR gains nothing
+/// from resolution beyond a normal scan, so we downscale (preserving aspect) to
+/// this bound before those amplifying passes. A typical A4 scan at 300dpi
+/// (~2500px) is already well under this and is left untouched.
+const OCR_MAX_WORKING_DIM: u32 = 4_000;
+
 /// Decode image bytes (png/jpg/tiff/...) into a [`DynamicImage`] under explicit
 /// allocation + dimension limits, so a small file declaring huge dimensions
 /// errors cleanly rather than driving a multi-gigabyte allocation. Behaves
@@ -130,6 +140,24 @@ fn decode_image_bounded(image_bytes: &[u8]) -> Result<DynamicImage> {
     reader.decode().context("ocr: decode image within limits")
 }
 
+/// Downscale `img` (preserving aspect ratio) so neither dimension exceeds
+/// [`OCR_MAX_WORKING_DIM`], returning it unchanged when it already fits. This
+/// caps the transient `f32` buffers `preprocess` allocates on very large
+/// inputs; OCR quality on normal-resolution scans is unaffected since they are
+/// already under the limit.
+fn downscale_to_working_dim(img: DynamicImage) -> DynamicImage {
+    let (w, h) = img.dimensions();
+    if w <= OCR_MAX_WORKING_DIM && h <= OCR_MAX_WORKING_DIM {
+        return img;
+    }
+    let scale = OCR_MAX_WORKING_DIM as f32 / w.max(h) as f32;
+    let nw = ((w as f32 * scale).round() as u32).max(1);
+    let nh = ((h as f32 * scale).round() as u32).max(1);
+    // `resize` preserves aspect and fits within the box; Triangle matches the
+    // filter already used for the skew-search downscale below.
+    img.resize(nw, nh, image::imageops::FilterType::Triangle)
+}
+
 /// Mild image preprocessing to bring messy phone photos of paper reports
 /// closer to scan quality before OCR: grayscale, de-shadow / illumination
 /// flattening, contrast stretch, and (only if a clear skew is detected) a
@@ -146,6 +174,11 @@ pub fn preprocess(img: DynamicImage) -> DynamicImage {
     if w < 16 || h < 16 {
         return img;
     }
+
+    // Bound the working resolution before the amplifying f32 passes below
+    // (`flatten_illumination` / `gaussian_blur_f32`). Normal-resolution scans
+    // are under the limit and pass through untouched. See [`OCR_MAX_WORKING_DIM`].
+    let img = downscale_to_working_dim(img);
 
     let gray = img.to_luma8();
     let flattened = flatten_illumination(&gray);
@@ -384,24 +417,70 @@ pub fn recognize(_image_bytes: &[u8]) -> Result<OcrOutcome> {
 ///
 /// Returns an error if the PDF can't be parsed, or if no page yields any
 /// non-empty OCR text. Confidence is the mean of all pages' line confidences.
-pub fn recognize_pdf(pdf_bytes: &[u8]) -> Result<OcrOutcome> {
-    let doc = Document::load_mem(pdf_bytes).context("recognize_pdf: parse PDF")?;
+/// Upper bound on how many embedded page images a single PDF will be OCR'd.
+/// Each image runs a full decode + [`preprocess`] + ONNX inference — seconds of
+/// CPU and hundreds of MB transiently — so a small crafted PDF declaring
+/// thousands of pages/images could pin CPU and memory for minutes (a DoS). We
+/// OCR at most this many and stop; anything beyond is reported as skipped rather
+/// than silently dropped. 50 comfortably covers real multi-page reports.
+const MAX_OCR_PAGE_IMAGES: usize = 50;
+
+/// OCR each image in `images` via `recognize_one`, but run the (expensive)
+/// recognizer on at most [`MAX_OCR_PAGE_IMAGES`] of them. Returns the collected
+/// per-page texts, their confidences, and the count of images that were NOT
+/// OCR'd because the cap was reached.
+///
+/// The iterator is consumed lazily one image at a time (each is dropped
+/// immediately once past the cap), so both the OCR work and the peak memory
+/// stay bounded regardless of how many images the document declares. Kept
+/// separate from [`recognize_pdf`] so the cap is unit-testable without a real
+/// multi-image PDF or the OCR engine.
+fn ocr_page_images<I, F>(images: I, mut recognize_one: F) -> (Vec<String>, Vec<f32>, usize)
+where
+    I: IntoIterator<Item = Vec<u8>>,
+    F: FnMut(&[u8]) -> Result<OcrOutcome>,
+{
     let mut page_texts = Vec::new();
     let mut page_confidences = Vec::new();
-    for (_page_num, page_id) in doc.get_pages() {
-        for image_bytes in extract_dct_images(&doc, page_id) {
-            match recognize(&image_bytes) {
-                Ok(outcome) if !outcome.text.trim().is_empty() => {
-                    page_confidences.push(outcome.confidence);
-                    page_texts.push(outcome.text);
-                }
-                Ok(_) => {}
-                Err(e) => {
-                    // One image failing OCR shouldn't sink the other pages.
-                    eprintln!("recognize_pdf: OCR failed for one page image: {e:#}");
-                }
+    let mut processed = 0usize;
+    let mut skipped = 0usize;
+    for image_bytes in images {
+        if processed >= MAX_OCR_PAGE_IMAGES {
+            // Past the cap: don't run OCR, just tally so we can report honestly.
+            skipped += 1;
+            continue;
+        }
+        processed += 1;
+        match recognize_one(&image_bytes) {
+            Ok(outcome) if !outcome.text.trim().is_empty() => {
+                page_confidences.push(outcome.confidence);
+                page_texts.push(outcome.text);
+            }
+            Ok(_) => {}
+            Err(e) => {
+                // One image failing OCR shouldn't sink the other pages.
+                eprintln!("recognize_pdf: OCR failed for one page image: {e:#}");
             }
         }
+    }
+    (page_texts, page_confidences, skipped)
+}
+
+pub fn recognize_pdf(pdf_bytes: &[u8]) -> Result<OcrOutcome> {
+    let doc = Document::load_mem(pdf_bytes).context("recognize_pdf: parse PDF")?;
+    // Lazily stream every page's DCTDecode images; the cap is enforced (and
+    // peak memory bounded) inside `ocr_page_images`.
+    let images = doc
+        .get_pages()
+        .into_values()
+        .flat_map(|page_id| extract_dct_images(&doc, page_id));
+    let (page_texts, page_confidences, skipped) = ocr_page_images(images, recognize);
+    if skipped > 0 {
+        // No silent truncation: make it visible that we stopped early on purpose.
+        eprintln!(
+            "recognize_pdf: OCR capped at {MAX_OCR_PAGE_IMAGES} page images to bound work; \
+             {skipped} additional embedded image(s) were NOT OCR'd"
+        );
     }
     if page_texts.is_empty() {
         anyhow::bail!("recognize_pdf: no OCR-able (DCTDecode) page images found in PDF");
@@ -678,6 +757,97 @@ mod tests {
         assert!(
             angle.abs() <= 1.0,
             "expected near-zero skew estimate for unrotated image, got {angle}"
+        );
+    }
+
+    #[test]
+    fn ocr_page_images_caps_expensive_work_and_reports_skips() {
+        // More images than the cap: the recognizer (the expensive part) must run
+        // at most MAX_OCR_PAGE_IMAGES times, and the remainder must be reported
+        // as skipped -- not silently dropped.
+        let extra = 7;
+        let total = MAX_OCR_PAGE_IMAGES + extra;
+        let images: Vec<Vec<u8>> = (0..total).map(|i| vec![i as u8]).collect();
+        let mut calls = 0usize;
+        let (texts, confs, skipped) = ocr_page_images(images, |_bytes| {
+            calls += 1;
+            Ok(OcrOutcome {
+                text: "line".to_string(),
+                confidence: 1.0,
+            })
+        });
+        assert_eq!(
+            calls, MAX_OCR_PAGE_IMAGES,
+            "OCR must run on at most the cap-many images"
+        );
+        assert_eq!(texts.len(), MAX_OCR_PAGE_IMAGES);
+        assert_eq!(confs.len(), MAX_OCR_PAGE_IMAGES);
+        assert_eq!(
+            skipped, extra,
+            "images beyond the cap must be reported as skipped"
+        );
+    }
+
+    #[test]
+    fn ocr_page_images_under_cap_processes_all_with_no_skips() {
+        // A normal document (few images) is unaffected: everything is OCR'd and
+        // nothing is reported as skipped.
+        let images: Vec<Vec<u8>> = (0..3).map(|_| vec![0u8]).collect();
+        let mut calls = 0usize;
+        let (texts, _confs, skipped) = ocr_page_images(images, |_bytes| {
+            calls += 1;
+            Ok(OcrOutcome {
+                text: "ok".to_string(),
+                confidence: 0.5,
+            })
+        });
+        assert_eq!(calls, 3);
+        assert_eq!(texts.len(), 3);
+        assert_eq!(skipped, 0);
+    }
+
+    #[test]
+    fn downscale_shrinks_oversized_image_preserving_aspect() {
+        // An 8000x4000 image (legal under the 20000px decode cap) is brought
+        // under the working limit before the amplifying f32 passes run.
+        let img = DynamicImage::ImageLuma8(GrayImage::from_pixel(8000, 4000, Luma([128])));
+        let out = downscale_to_working_dim(img);
+        let (w, h) = out.dimensions();
+        assert!(
+            w <= OCR_MAX_WORKING_DIM && h <= OCR_MAX_WORKING_DIM,
+            "expected both dims <= {OCR_MAX_WORKING_DIM}, got {w}x{h}"
+        );
+        assert_eq!(w, OCR_MAX_WORKING_DIM, "longest axis should hit the limit");
+        // 2:1 aspect ratio preserved.
+        assert!(
+            (w as f32 / h as f32 - 2.0).abs() < 0.05,
+            "aspect ratio should be preserved, got {w}x{h}"
+        );
+    }
+
+    #[test]
+    fn downscale_leaves_normal_scan_untouched() {
+        // A typical A4 scan at 300dpi (~2480x3508) is under the limit and must
+        // be returned with identical dimensions (behavior preserved).
+        let img = DynamicImage::ImageLuma8(GrayImage::from_pixel(2480, 3508, Luma([128])));
+        let out = downscale_to_working_dim(img);
+        assert_eq!(out.dimensions(), (2480, 3508));
+    }
+
+    #[test]
+    fn preprocess_downscales_oversized_input_below_working_dim() {
+        // End-to-end through preprocess: an oversized input comes out bounded to
+        // the working dimension (so the f32 buffers never see full resolution).
+        let big = DynamicImage::ImageLuma8(GrayImage::from_pixel(
+            OCR_MAX_WORKING_DIM + 2000,
+            120,
+            Luma([200]),
+        ));
+        let out = preprocess(big);
+        let (w, h) = out.dimensions();
+        assert!(
+            w <= OCR_MAX_WORKING_DIM && h <= OCR_MAX_WORKING_DIM,
+            "preprocess output should be bounded, got {w}x{h}"
         );
     }
 
