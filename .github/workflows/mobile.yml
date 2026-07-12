@@ -94,9 +94,15 @@ jobs:
   # ── iOS release:archive + 导出 IPA(可选上传 TestFlight)。需配签名 secrets(见文末) ──
   ios-release:
     if: github.event_name == 'workflow_dispatch' && (inputs.platform == 'ios' || inputs.platform == 'both')
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: 选最新 Xcode(App Store Connect 要求 iOS 26 SDK / Xcode 26+)
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          echo "使用 $XC"
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
