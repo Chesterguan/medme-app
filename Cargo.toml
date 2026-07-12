@@ -1,6 +1,10 @@
 [workspace]
 resolver = "2"
 members = ["packages/core-model", "packages/parser", "packages/terminology", "packages/pipeline", "packages/ocr", "packages/dicom", "packages/share", "apps/cli", "apps/desktop/src-tauri", "apps/mobile/src-tauri"]
+# Flutter 移动端(P1+)的 FRB rust crate 自成一体、由 cargokit 为 iOS/安卓单独构建,
+# 不进桌面 workspace(否则 host `cargo build --workspace` 会去编它)。它经 path 依赖
+# 复用 packages/* 数据核。
+exclude = ["apps/mobile_flutter/rust"]
 
 [workspace.dependencies]
 rusqlite = { version = "0.32", features = ["bundled"] }

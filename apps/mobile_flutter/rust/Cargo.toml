@@ -1,0 +1,16 @@
+[package]
+name = "rust_lib_mobile_flutter"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+flutter_rust_bridge = "=2.12.0"
+anyhow = "1"
+# 复用现有 Rust 数据核(与桌面同一保险箱格式 → 同步互通)。P2 会接入 pipeline/share。
+core-model = { path = "../../../packages/core-model" }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
