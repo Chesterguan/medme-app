@@ -51,6 +51,16 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   integration_test:
     sdk: flutter
+  patrol: ^4.6.1
+
+# Patrol 集成测试配置(用户跑 `patrol test`;bundle/package 与当前构建一致,
+# P7 改成 com.medme.mobile 复用 App Store 描述文件时同步改这里)。
+patrol:
+  app_name: MedMe 医我
+  android:
+    package_name: com.medme.mobile_flutter
+  ios:
+    bundle_id: com.medme.mobileFlutter
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

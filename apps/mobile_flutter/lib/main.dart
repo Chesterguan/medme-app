@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:mobile_flutter/src/rust/api/simple.dart';
 import 'package:mobile_flutter/src/rust/frb_generated.dart';
-
-// MedMe 品牌色(teal),与桌面/现有设计一致。
-const _teal = Color(0xFF1789C1);
+import 'package:mobile_flutter/theme.dart';
+import 'package:mobile_flutter/screens/import_export_screen.dart';
+import 'package:mobile_flutter/screens/archive_screen.dart';
+import 'package:mobile_flutter/screens/settings_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await RustLib.init();
+  // 保险箱在 P2 的 open_vault 落地后于此初始化(在真实沙盒/iCloud 目录打开);
+  // 骨架阶段先不调,避免依赖尚未合并的 FFI。
   runApp(const MedMeApp());
 }
 
@@ -18,62 +19,54 @@ class MedMeApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'MedMe 医我',
-      theme: ThemeData(colorSchemeSeed: _teal, useMaterial3: true),
+      theme: MedMe.theme(),
       debugShowCheckedModeBanner: false,
-      home: const SmokeScreen(),
+      home: const HomeShell(),
     );
   }
 }
 
-/// P1 冒烟屏:调 Rust 核 `vault_smoke`,在真实沙盒目录开保险箱并回显记录数,
-/// 证明 Flutter → FRB → 现有 Rust 数据核 → 回来 整条链路打通。
-class SmokeScreen extends StatefulWidget {
-  const SmokeScreen({super.key});
+/// 底部导航壳:三个一级 tab —— 导入导出 / 健康档案 / 设置。
+/// 「导入导出」按用户要求提升为一级 tab(不埋设置里),后续导出维度会变多。
+class HomeShell extends StatefulWidget {
+  const HomeShell({super.key});
   @override
-  State<SmokeScreen> createState() => _SmokeScreenState();
+  State<HomeShell> createState() => _HomeShellState();
 }
 
-class _SmokeScreenState extends State<SmokeScreen> {
-  String _status = '正在连通 Rust 数据核…';
+class _HomeShellState extends State<HomeShell> {
+  int _index = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    _runSmoke();
-  }
-
-  Future<void> _runSmoke() async {
-    try {
-      final docs = await getApplicationDocumentsDirectory();
-      final result = await vaultSmoke(dir: '${docs.path}/medme_vault');
-      setState(() => _status = result);
-    } catch (e) {
-      setState(() => _status = '失败:$e');
-    }
-  }
+  static const _screens = [
+    ImportExportScreen(),
+    ArchiveScreen(),
+    SettingsScreen(),
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: _teal,
-        foregroundColor: Colors.white,
-        title: const Text('MedMe 医我 · Flutter P1'),
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.health_and_safety, size: 64, color: _teal),
-              const SizedBox(height: 16),
-              Text(_status,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 16)),
-            ],
+      body: IndexedStack(index: _index, children: _screens),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (i) => setState(() => _index = i),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.swap_vert_outlined),
+            selectedIcon: Icon(Icons.swap_vert),
+            label: '导入导出',
           ),
-        ),
+          NavigationDestination(
+            icon: Icon(Icons.folder_outlined),
+            selectedIcon: Icon(Icons.folder),
+            label: '健康档案',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: '设置',
+          ),
+        ],
       ),
     );
   }
