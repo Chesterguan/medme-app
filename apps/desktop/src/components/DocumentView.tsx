@@ -256,7 +256,9 @@ export default function DocumentView({
                 <ReportContent text={ocr_text} docType={doc.doc_type} />
               ) : (
                 <div className="text-slate-400 text-sm leading-relaxed">
-                  此文件尚未识别出文字。原始文件已完整保存(见上方附件),可直接出示给医生。
+                  {hasOriginal
+                    ? "此文件尚未识别出文字。原始文件已完整保存(见上方附件),可直接出示给医生。"
+                    : `此文件尚未识别出文字,且此格式(${sf.mime_type})无法在应用内预览。原始文件已完整、原样保存在保险箱里,可导出后用对应软件打开。`}
                 </div>
               )}
             </div>

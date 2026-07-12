@@ -921,6 +921,8 @@ function DetailScreen({ id, onBack }: { id: number; onBack: () => void }) {
   const doc = detail?.document;
   const sf = detail?.source_file;
   const isImage = sf?.mime_type.startsWith("image/") ?? false;
+  const isPdf = sf?.mime_type === "application/pdf";
+  const isDicom = sf?.mime_type === "application/dicom";
   const typeLabel = doc ? DOC_LABEL[doc.doc_type] ?? doc.doc_type : "";
 
   // OCR 置信度:Apple Vision 识别照片时给出;换算成患者能看懂的三档,而非裸百分比。
@@ -936,6 +938,20 @@ function DetailScreen({ id, onBack }: { id: number; onBack: () => void }) {
       setViewer(true);
       return;
     }
+    // DICOM 影像与其他非图片/PDF 格式在手机端无法内联渲染(以前会塞进 iframe →
+    // 一片空白)。给出如实提示,而不是空白页(手机=轻量端,影像看片交给桌面)。
+    if (isDicom) {
+      alert(
+        "这是 DICOM 影像文件。手机端只展示检查信息与文字;要查看影像画面(窗宽窗位 / 序列滚动),请在桌面版或在线查看器中打开。",
+      );
+      return;
+    }
+    if (!isImage && !isPdf) {
+      alert(
+        `此格式(${sf.mime_type})无法在手机端预览。原始文件已完整保存在保险箱,可在桌面版导出后用对应软件打开。`,
+      );
+      return;
+    }
     try {
       const bytes = await api.readSourceBytes(sf.id);
       const blob = new Blob([bytes], { type: sf.mime_type || "application/octet-stream" });
@@ -944,7 +960,7 @@ function DetailScreen({ id, onBack }: { id: number; onBack: () => void }) {
     } catch (e) {
       alert(`打开原件失败:${e}`);
     }
-  }, [sf, isImage, imgUrl]);
+  }, [sf, isImage, isPdf, isDicom, imgUrl]);
 
   const closeViewer = useCallback(() => {
     setViewer(false);
