@@ -57,10 +57,26 @@ pub fn set_model_dir(dir: PathBuf) {
 /// Result of an OCR recognition call: the recognized text plus a confidence
 /// score (mean of the recognized text lines' per-line confidences, `0..1`;
 /// `0.0` when no lines were recognized).
+/// Which OCR engine actually produced an [`OcrOutcome`]. Lets callers (the
+/// ingest pipeline) record accurate provenance instead of hardcoding one
+/// engine — on macOS/Windows the primary recognizer is Apple Vision /
+/// Windows.Media.Ocr, not the ONNX fallback the metadata used to always claim.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OcrBackend {
+    /// Apple Vision (`VNRecognizeTextRequest`) — macOS on-device.
+    AppleVision,
+    /// Windows.Media.Ocr (WinRT) — Windows on-device.
+    WindowsOcr,
+    /// oar-ocr / PP-OCRv5 ONNX engine (Linux, and the macOS/Windows fallback).
+    Onnx,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct OcrOutcome {
     pub text: String,
     pub confidence: f32,
+    /// The engine that produced `text` (provenance for the vault's audit trail).
+    pub backend: OcrBackend,
 }
 
 /// Mean of `Some` confidences, or `0.0` if there are none. Pure float helper
@@ -358,6 +374,7 @@ fn recognize_engine(image_bytes: &[u8]) -> Result<OcrOutcome> {
     Ok(OcrOutcome {
         text: lines.join("\n"),
         confidence: mean_confidence(&confidences),
+        backend: OcrBackend::Onnx,
     })
 }
 
@@ -389,6 +406,7 @@ pub fn recognize(image_bytes: &[u8]) -> Result<OcrOutcome> {
         Ok(OcrOutcome {
             text: String::new(),
             confidence: 0.0,
+            backend: OcrBackend::AppleVision,
         })
     }
 }
@@ -412,6 +430,7 @@ pub fn recognize(image_bytes: &[u8]) -> Result<OcrOutcome> {
         Ok(OcrOutcome {
             text: String::new(),
             confidence: 0.0,
+            backend: OcrBackend::WindowsOcr,
         })
     }
 }
@@ -521,7 +540,29 @@ pub fn recognize_pdf(pdf_bytes: &[u8]) -> Result<OcrOutcome> {
     Ok(OcrOutcome {
         text: page_texts.join("\n"),
         confidence: mean_confidence(&page_confidences),
+        // Page images went through `recognize`, whose primary engine is
+        // platform-fixed; label with that platform's engine.
+        backend: pdf_ocr_backend(),
     })
+}
+
+/// The primary OCR engine `recognize` uses on this platform — used to label
+/// [`recognize_pdf`]'s aggregate outcome (its page images all go through
+/// `recognize`).
+#[inline]
+fn pdf_ocr_backend() -> OcrBackend {
+    #[cfg(target_os = "macos")]
+    {
+        OcrBackend::AppleVision
+    }
+    #[cfg(target_os = "windows")]
+    {
+        OcrBackend::WindowsOcr
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        OcrBackend::Onnx
+    }
 }
 
 /// Collect raw JPEG bytes for every `DCTDecode` image XObject directly
@@ -807,6 +848,7 @@ mod tests {
             Ok(OcrOutcome {
                 text: "line".to_string(),
                 confidence: 1.0,
+                backend: OcrBackend::Onnx,
             })
         });
         assert_eq!(
@@ -832,6 +874,7 @@ mod tests {
             Ok(OcrOutcome {
                 text: "ok".to_string(),
                 confidence: 0.5,
+                backend: OcrBackend::Onnx,
             })
         });
         assert_eq!(calls, 3);

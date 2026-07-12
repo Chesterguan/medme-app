@@ -76,6 +76,7 @@ pub fn recognize_bytes(image_bytes: &[u8]) -> Result<OcrOutcome> {
             } else {
                 0.0
             },
+            backend: crate::OcrBackend::AppleVision,
         })
     }
 }

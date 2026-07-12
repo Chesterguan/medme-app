@@ -237,6 +237,17 @@ fn store_no_text(vault: &Vault, sid: i64, name: &str) -> anyhow::Result<IngestOu
     })
 }
 
+/// 把 `ocr::recognize`/`recognize_pdf` 报告的实际引擎映射为 vault 里记录的
+/// (后端, 模型版本) —— 桌面上 mac/Win 的主引擎是 Apple Vision / Windows.Media.Ocr,
+/// 不再一律谎称 ONNX/ppocr-v5(#56 溯源准确性)。
+fn ocr_provenance(b: ocr::OcrBackend) -> (OcrBackendKind, &'static str) {
+    match b {
+        ocr::OcrBackend::AppleVision => (OcrBackendKind::AppleVision, "apple-vision"),
+        ocr::OcrBackend::WindowsOcr => (OcrBackendKind::WindowsOcr, "windows-media-ocr"),
+        ocr::OcrBackend::Onnx => (OcrBackendKind::Onnx, "ppocr-v5"),
+    }
+}
+
 pub fn mime_for(path: &Path) -> &'static str {
     match path
         .extension()
@@ -321,6 +332,7 @@ pub fn ingest(vault: &Vault, path: &Path) -> anyhow::Result<IngestOutcome> {
             // 扫描图 PDF(无文本层):尝试从页面图片 OCR 补文本,像图片一样处理。
             match ocr::recognize_pdf(&bytes) {
                 Ok(outcome) if !outcome.text.trim().is_empty() => {
+                    let (backend, model_version) = ocr_provenance(outcome.backend);
                     let text = outcome.text;
                     let doc_type = parser::classify(&text);
                     let (doc_date, doc_date_end) = parser::guess_date_range(&text);
@@ -336,8 +348,8 @@ pub fn ingest(vault: &Vault, path: &Path) -> anyhow::Result<IngestOutcome> {
                     vault.add_ocr(NewOcr {
                         document_id: doc.id,
                         page_no: 1,
-                        backend: OcrBackendKind::Onnx,
-                        model_version: "ppocr-v5-pdf".into(),
+                        backend,
+                        model_version: model_version.into(),
                         text,
                         confidence: Some(outcome.confidence),
                     })?;
@@ -366,6 +378,7 @@ pub fn ingest(vault: &Vault, path: &Path) -> anyhow::Result<IngestOutcome> {
             match ocr::recognize(&bytes) {
                 Ok(outcome) if !outcome.text.trim().is_empty() => {
                     // OCR 成功:像文本文档一样处理(分类/日期取自识别文本)
+                    let (backend, model_version) = ocr_provenance(outcome.backend);
                     let text = outcome.text;
                     let doc_type = parser::classify(&text);
                     let (doc_date, doc_date_end) = parser::guess_date_range(&text);
@@ -381,8 +394,8 @@ pub fn ingest(vault: &Vault, path: &Path) -> anyhow::Result<IngestOutcome> {
                     vault.add_ocr(NewOcr {
                         document_id: doc.id,
                         page_no: 1,
-                        backend: OcrBackendKind::Onnx,
-                        model_version: "ppocr-v5".into(),
+                        backend,
+                        model_version: model_version.into(),
                         text,
                         confidence: Some(outcome.confidence),
                     })?;

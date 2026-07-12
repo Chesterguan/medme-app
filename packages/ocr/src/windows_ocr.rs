@@ -66,5 +66,6 @@ pub fn recognize_bytes(image_bytes: &[u8]) -> Result<OcrOutcome> {
         // when text was found, 0.0 otherwise.
         confidence: if text.trim().is_empty() { 0.0 } else { 0.85 },
         text,
+        backend: crate::OcrBackend::WindowsOcr,
     })
 }

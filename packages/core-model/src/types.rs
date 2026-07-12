@@ -52,6 +52,9 @@ pub enum OcrBackendKind {
     /// Apple Vision (`VNRecognizeTextRequest`) — on-device, offline OCR used on
     /// iOS instead of the oar-ocr model download (impossible in the iOS sandbox).
     AppleVision,
+    /// Windows.Media.Ocr (WinRT) — on-device, offline OCR used on the Windows
+    /// desktop build as the primary recognizer (PP-OCRv5 ONNX is the fallback).
+    WindowsOcr,
     /// Google ML Kit Text Recognition v2 (Chinese, bundled model) — on-device,
     /// offline OCR used on Android instead of the weaker PP-OCRv5 mobile model.
     MlKit,
@@ -63,6 +66,7 @@ impl OcrBackendKind {
             OcrBackendKind::Onnx => "onnx",
             OcrBackendKind::Vlm => "vlm",
             OcrBackendKind::AppleVision => "apple_vision",
+            OcrBackendKind::WindowsOcr => "windows_ocr",
             OcrBackendKind::MlKit => "mlkit",
         }
     }
