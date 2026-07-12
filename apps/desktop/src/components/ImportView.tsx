@@ -21,7 +21,7 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
   new: { label: "新增并索引", cls: "text-emerald-700 bg-emerald-50" },
   backfilled: { label: "补充索引", cls: "text-emerald-700 bg-emerald-50" },
   deduped: { label: "已存在 · 去重", cls: "text-slate-600 bg-slate-100" },
-  stored_no_text: { label: "已保存 · 待 OCR", cls: "text-amber-700 bg-amber-50" },
+  stored_no_text: { label: "已保存 · 未识别到文字", cls: "text-amber-700 bg-amber-50" },
   instance_attached: { label: "已并入检查", cls: "text-sky-700 bg-sky-50" },
   failed: { label: "导入失败", cls: "text-rose-700 bg-rose-50" },
 };
