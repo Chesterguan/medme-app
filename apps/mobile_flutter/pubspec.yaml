@@ -40,11 +40,11 @@ dependencies:
   path_provider: ^2.1.6
   freezed_annotation: ^3.1.0
   image_picker: ^1.2.3
-  file_picker: ^3.0.4
+  file_picker: ^8.0.0
   google_mlkit_text_recognition: ^0.16.0
   photo_view: ^0.15.0
   pdfx: ^2.9.2
-  share_plus: ^13.2.0
+  share_plus: ^11.0.0
 
 dev_dependencies:
   flutter_test:
