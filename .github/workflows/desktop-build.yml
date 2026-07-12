@@ -53,9 +53,8 @@ jobs:
           # Rust link step non-deterministically.
           - os: macos-14 # nice-to-have
             bundles: dmg
-          # Linux: .deb + AppImage (skip rpm — needs rpmbuild, not on the runner).
-          - os: ubuntu-latest # nice-to-have
-            bundles: deb,appimage
+          # Linux (.deb/.AppImage) 已暂停 —— 见 #66。构建/分发暂时只保留
+          # Windows + macOS;Linux 专属代码分支保留,只是不再出包/分发。
 
     steps:
       - name: Checkout
@@ -66,19 +65,7 @@ jobs:
       # JPEG2000 (openjpeg-sys) / JPEG-LS (charls-sys) DICOM codecs; bindgen (used
       # by some -sys crates) needs libclang, hence LIBCLANG_PATH on Windows.
 
-      - name: Install Linux system deps
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            cmake build-essential \
-            libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libssl-dev \
-            libgtk-3-dev \
-            file wget
+      # (Linux system-deps step removed — Linux builds paused, #66.)
 
       - name: Install macOS system deps
         if: runner.os == 'macOS'
@@ -140,8 +127,6 @@ jobs:
             target/release/bundle/**/*.msi
             target/release/bundle/**/*.exe
             target/release/bundle/**/*.dmg
-            target/release/bundle/**/*.deb
-            target/release/bundle/**/*.AppImage
 
       # On a tag push, attach every OS's installers to a single GitHub Release.
       - name: Attach installers to GitHub Release
@@ -154,5 +139,3 @@ jobs:
             target/release/bundle/**/*.msi
             target/release/bundle/**/*.exe
             target/release/bundle/**/*.dmg
-            target/release/bundle/**/*.deb
-            target/release/bundle/**/*.AppImage
