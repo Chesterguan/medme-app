@@ -108,13 +108,31 @@ pub fn build_encrypted_share(
             .clone()
             .unwrap_or_else(|| sf.original_name.clone());
 
-        // 仅内嵌 image/* 原件为 data-URI;PDF 不内嵌(仅文字)。
+        // 内嵌 image/* 原件为 data-URI。
         let mut images: Vec<String> = Vec::new();
         if sf.mime_type.starts_with("image/") {
             let bytes = std::fs::read(v.root_join(&sf.storage_path)).map_err(|e| e.to_string())?;
             embedded_bytes += bytes.len();
             let b64 = B64.encode(&bytes);
             images.push(format!("data:{};base64,{}", sf.mime_type, b64));
+        }
+
+        // 内嵌 PDF 原件为 data-URI,让医生下载核对 OCR 原文(保真:原件是真相,见
+        // docs/012)。体积不再是投递约束 —— 临时分享走「联网取密文」而非塞进聊天的
+        // 文件;但仍尊重整份总上限,避免病态大文件撑爆分享。超限则跳过内嵌(仍保留
+        // 识别文字),不静默。
+        let mut pdf_data_uri = serde_json::Value::Null;
+        if sf.mime_type == "application/pdf" {
+            let bytes = std::fs::read(v.root_join(&sf.storage_path)).map_err(|e| e.to_string())?;
+            if embedded_bytes + bytes.len() <= SHARE_TOTAL_CAP {
+                embedded_bytes += bytes.len();
+                pdf_data_uri = serde_json::Value::String(format!(
+                    "data:application/pdf;base64,{}",
+                    B64.encode(&bytes)
+                ));
+            } else {
+                eprintln!("share: PDF 原件「{title}」因整份已达总上限未内嵌(仅保留识别文字)");
+            }
         }
 
         // ── 影像(DICOM):按体积分档内嵌(诊断档 / 关键切片降级)──
@@ -181,6 +199,7 @@ pub fn build_encrypted_share(
             "title": title,
             "text": rec.text,
             "images": images,
+            "pdf": pdf_data_uri,
             "dicom": dicom_json,
         }));
         record_count += 1;
@@ -335,6 +354,8 @@ const VIEWER_HEAD: &str = r####"<!doctype html>
   /* 影像检查:缩略卡 + 说明 */
   .imaging-card { margin: 10px 0; }
   .imaging-open { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; background: #0f172a; color: #fff; border: none; border-radius: 10px; padding: 10px 16px; font-size: 14px; font-weight: 600; }
+  .pdf-dl { display: inline-flex; align-items: center; gap: 6px; margin: 8px 0; text-decoration: none; background: #1789c1; color: #fff; border-radius: 10px; padding: 9px 14px; font-size: 13px; font-weight: 600; }
+  .pdf-dl:hover { background: #1560a8; }
   .imaging-open:hover { background: #1e293b; }
   .imaging-open .ico { font-size: 16px; }
   .imaging-meta { font-size: 12px; color: #64748b; margin-top: 6px; line-height: 1.6; }
@@ -423,6 +444,12 @@ function esc(s) {
 function isDataImage(s) {
   return typeof s === "string" &&
     /^data:image\/(png|jpe?g|tiff);base64,[A-Za-z0-9+\/=\s]+$/.test(s);
+}
+// PDF 原件下载锚点的 href 校验:只接受我们自己生成的 data:application/pdf base64
+// (base64 字母表不含 '<' / '"',放进 href 安全)。
+function isDataPdf(s) {
+  return typeof s === "string" &&
+    /^data:application\/pdf;base64,[A-Za-z0-9+\/=\s]+$/.test(s);
 }
 
 // ── 内容解析(移植 ReportContent.tsx)──
@@ -909,6 +936,9 @@ function render(payload) {
     for (const img of (r.images || [])) {
       if (isDataImage(img)) html += '<img class="img" src="' + img + '" alt="原件">';
     }
+    // PDF 原件:下载锚点(download 属性触发下载,不是导航,故不受严格 CSP 影响,
+    // 任意浏览器都能下)。医生下载后可比对识别文字与原件。
+    if (isDataPdf(r.pdf)) html += '<a class="pdf-dl" download="原件.pdf" href="' + r.pdf + '">⬇ 下载原件 PDF(核对识别文字)</a>';
     // 影像检查:诊断档(交互阅片)或降级档(关键切片 PNG + 说明)。
     const dcm = r.dicom;
     if (dcm && dcm.mode === "interactive") {
