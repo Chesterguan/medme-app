@@ -107,6 +107,7 @@ pub fn run() {
             };
             app.manage(AppState {
                 vault: Mutex::new(vault),
+                device_id,
                 inbox_watcher: Mutex::new(None),
                 openable_paths: Mutex::new(HashSet::new()),
             });
