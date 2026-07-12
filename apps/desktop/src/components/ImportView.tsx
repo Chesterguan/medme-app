@@ -201,7 +201,9 @@ export default function ImportView({ onImported }: { onImported: () => void }) {
             还没有自己的病历?加载内置的<b className="text-slate-800">张建国</b>示例数据集
             (含检验报告、门诊病历、处方、影像检查等),立即体验完整的生命时间线。
             <br />
-            <span className="text-xs text-slate-400">示例数据,可随时删除保险箱重来。</span>
+            <span className="text-xs text-slate-400">
+              示例数据,可随时到「设置 → 清空保险箱」删除重来。
+            </span>
           </div>
           <button
             type="button"

@@ -96,7 +96,7 @@ export default function App() {
             ) : tab === "about" ? (
               <AboutView onNav={nav} />
             ) : tab === "settings" ? (
-              <SettingsView onNav={nav} />
+              <SettingsView onNav={nav} onReset={afterImport} />
             ) : tab === "audit" ? (
               <AuditView onNav={nav} />
             ) : (

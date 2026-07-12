@@ -47,6 +47,9 @@ export const api = {  listTimelineGrouped: () => invoke<TimelineGroup[]>("list_t
   // 更换保险箱位置:Rust 侧弹原生「选择文件夹」对话框,把现有病历搬到所选目录
   //(指向云同步文件夹即可多设备同步),返回新路径(取消则返回原路径)。
   setVaultPath: () => invoke<string>("set_vault_path"),
+  // 清空保险箱 · 重置(格式化):删掉当前保险箱内容并重建一个空的,用于清掉示例数据
+  // 或让用户从头开始——尤其应在开启云盘同步前做,否则示例数据会被同步进云盘。
+  resetVault: () => invoke<void>("reset_vault"),
   getAuditLog: () => invoke<AuditEntry[]>("get_audit_log"),
   // 导出审计清单 CSV:内容由前端按审计条目生成,后端写入固定导出目录并返回写入路径。
   exportAuditCsv: (contents: string) =>

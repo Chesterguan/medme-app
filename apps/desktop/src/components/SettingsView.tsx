@@ -8,10 +8,20 @@ import {
   Info,
   CloudCog,
   Lock,
+  AlertTriangle,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import { api } from "../api";
 
-export default function SettingsView({ onNav }: { onNav: (id: string) => void }) {
+export default function SettingsView({
+  onNav,
+  onReset,
+}: {
+  onNav: (id: string) => void;
+  /** 清空保险箱成功后调用,让 App 层刷新时间线 + 病人 banner(见 App.tsx 的 afterImport)。 */
+  onReset: () => void;
+}) {
   const [vaultPath, setVaultPath] = useState<string | null>(null);
   const [inboxPath, setInboxPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +45,29 @@ export default function SettingsView({ onNav }: { onNav: (id: string) => void })
       setError(String(e));
     } finally {
       setRelocating(false);
+    }
+  }
+
+  // 清空保险箱 · 重置(格式化):让示例数据/已导入内容可逆(载入 → 试用 → 清空 → 正式使用),
+  // 尤其应在开启上方「云文件夹设置」之前做——否则示例数据会被同步进云盘。
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetMsg, setResetMsg] = useState<
+    { kind: "ok"; text: string } | { kind: "err"; text: string } | null
+  >(null);
+
+  async function doResetVault() {
+    setResetting(true);
+    setResetMsg(null);
+    try {
+      await api.resetVault();
+      onReset();
+      setConfirmReset(false);
+      setResetMsg({ kind: "ok", text: "保险箱已清空,可以开始正式使用了。" });
+    } catch (e) {
+      setResetMsg({ kind: "err", text: `清空失败:${String(e)}` });
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -179,6 +212,40 @@ export default function SettingsView({ onNav }: { onNav: (id: string) => void })
           </div>
         </div>
 
+        {/* 危险操作:清空保险箱 · 重置(格式化)——桌面此前没有这个入口,示例数据/试用内容
+            没法清掉;镜像 mobile 已有的同名功能(见 apps/mobile/src/App.tsx::resetVault)。 */}
+        <div className="bg-white rounded-2xl border border-rose-200 p-5 shadow-sm">
+          <div className="flex items-center gap-2 text-rose-700 font-medium mb-2">
+            <AlertTriangle className="w-5 h-5" /> 危险操作
+          </div>
+          <div className="text-sm text-slate-600 leading-relaxed mb-3">
+            <b className="text-rose-700">清空保险箱</b>会永久删除保险箱里的<b>全部记录</b>
+            (包括示例数据「张建国」和你已导入的所有病历),<b className="text-rose-700">此操作不可撤销</b>。
+            <br />
+            如果你之前用示例数据试用过 MedMe,请在正式使用前先清空一次——
+            <b className="text-rose-700">尤其要在开启上方「云文件夹设置」之前</b>,
+            否则示例数据会被同步进你的云盘。
+          </div>
+          <button
+            type="button"
+            onClick={() => setConfirmReset(true)}
+            className="flex items-center gap-2 text-sm font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-xl px-4 py-2.5 transition-colors cursor-pointer"
+          >
+            <Trash2 className="w-4 h-4" /> 清空保险箱 · 重置(格式化)
+          </button>
+          {resetMsg && (
+            <div
+              className={`mt-3 rounded-xl px-4 py-2.5 text-sm leading-relaxed break-all ${
+                resetMsg.kind === "ok"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-rose-50 text-rose-700"
+              }`}
+            >
+              {resetMsg.text}
+            </div>
+          )}
+        </div>
+
         {/* 关于 · 声明 */}
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center justify-between gap-3">
@@ -197,6 +264,50 @@ export default function SettingsView({ onNav }: { onNav: (id: string) => void })
 
         <div className="text-xs font-mono text-slate-400 text-center">版本 v1.0</div>
       </div>
+
+      {/* 清空确认:破坏性操作,二次确认(镜像 mobile 的 confirmReset 弹层) */}
+      {confirmReset && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          onClick={() => !resetting && setConfirmReset(false)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 text-rose-700 font-semibold text-lg mb-3">
+              <AlertTriangle className="w-5 h-5" /> 确定清空保险箱?
+            </div>
+            <div className="text-sm text-slate-600 leading-relaxed mb-5">
+              这会<b className="text-rose-700">永久删除</b>保险箱里的全部记录
+              (含示例数据和你已导入的病历),<b className="text-rose-700">此操作不可撤销</b>。
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmReset(false)}
+                disabled={resetting}
+                className="text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50 rounded-lg px-4 py-2 transition-colors cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={doResetVault}
+                disabled={resetting}
+                className="flex items-center gap-2 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-wait rounded-lg px-4 py-2 transition-colors cursor-pointer"
+              >
+                {resetting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+                {resetting ? "正在清空…" : "确定清空"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -851,6 +851,39 @@ pub async fn set_vault_path(
     Ok(guard.root().to_string_lossy().to_string())
 }
 
+/// 「清空保险箱 · 重置(格式化)」:抹掉保险箱当前内容并在原位置重建一个空保险箱,
+/// 镜像 mobile 的同名命令(见 apps/mobile/src-tauri/src/commands.rs::reset_vault)。
+/// 让「加载示例数据(张建国)→ 试用 → 清空 → 正式使用」可逆;也给了用户一个在开启
+/// 云盘同步前清掉示例数据的机会 —— 否则示例数据会被同步进云盘。
+///
+/// 与 mobile 不同:desktop 的保险箱目录可以被 `set_vault_path` 换到用户任选的、
+/// 名字任意的目录(例如某个 iCloud/坚果云同步目录),那个目录里除了保险箱本身还可能
+/// 放着用户自己的其它文件 —— `relocate_to` 的 `move_into` 就只搬 4 个具名条目
+/// (`objects`/`log`/`medme.db`/`VERSION`)进去,从不碰目标已有的其它内容(见
+/// core-model::relocate)。所以这里同样只删这 4 个具名条目,绝不对整个保险箱目录
+/// `remove_dir_all` —— 否则若保险箱目录是用户挪过去的、还装着别的文件的文件夹,
+/// 一次重置会把那些无关文件也一并删掉。
+#[tauri::command]
+pub fn reset_vault(app: tauri::AppHandle, state: State<AppState>) -> Result<(), String> {
+    let vault_dir = crate::vault_loc::read_vault_location(&app);
+    let mut guard = lock(&state)?;
+    for dir in ["objects", "log"] {
+        let p = vault_dir.join(dir);
+        if p.exists() {
+            std::fs::remove_dir_all(&p).map_err(|e| format!("清空保险箱失败:{e}"))?;
+        }
+    }
+    for file in ["medme.db", "VERSION"] {
+        let p = vault_dir.join(file);
+        if p.exists() {
+            std::fs::remove_file(&p).map_err(|e| format!("清空保险箱失败:{e}"))?;
+        }
+    }
+    *guard = Vault::open_with_device_id_resilient(&vault_dir, &state.device_id)
+        .map_err(|e| format!("重建保险箱失败:{e}"))?;
+    Ok(())
+}
+
 /// 隐藏的「审计/管理员」视图数据源:所有导入/导出/分享事件,最新在前,含
 /// 内容 sha256(见 core-model::audit —— 不可变事件日志,可核验、防篡改)。
 #[tauri::command]

@@ -147,6 +147,7 @@ pub fn run() {
             commands::open_url,
             commands::get_vault_path,
             commands::set_vault_path,
+            commands::reset_vault,
             commands::get_audit_log,
             commands::export_audit_csv,
         ])
