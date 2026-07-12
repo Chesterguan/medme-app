@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>MedMe 需要使用相机拍摄你的化验单、处方等病历,识别文字后保存到你自己的健康档案。照片只存在本机,不会上传。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>MedMe 需要访问相册,导入你已经拍好的病历照片。照片只存在本机,不会上传。</string>
 </dict>
 </plist>
