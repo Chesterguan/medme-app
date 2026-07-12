@@ -745,6 +745,10 @@ function ShareModal({ share, onClose }: { share: ShareResult; onClose: () => voi
           把<b>文件</b>发给医生,<b>口令另发</b>(用不同渠道,如口令走短信、文件走微信);
           医生打开文件、输入口令即可查看。数据端到端加密,<b>不经服务器</b>。
         </p>
+        <p className="share-tip share-tip-sub">
+          有效期 5 天,仅是给医生的复阅提醒,并非强制——文件本身不会到期失效,
+          持有文件与口令者始终可解密查看。
+        </p>
 
         <div className="share-pass">
           <span className="k">口令</span>
@@ -801,7 +805,7 @@ function ClinicalText({ text, docType }: { text: string; docType: string }) {
   if (!raw.trim()) {
     return (
       <div className="doc-body">
-        <span className="muted">此文件尚未识别出文字。原始文件已完整保存,可点「查看原件」出示给医生。</span>
+        <span className="muted">此文件未识别到文字(不会自动重试)。原始文件已完整保存,可点「查看原件」出示给医生。</span>
       </div>
     );
   }
