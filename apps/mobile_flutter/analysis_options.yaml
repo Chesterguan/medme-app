@@ -9,6 +9,15 @@
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  exclude:
+    # FRB 自带的 cargokit 构建工具是个 vendored 嵌套 Dart 包(从不单独 pub get),
+    # 它自身有一堆无关的 analyze 报错。排除它,让 `flutter analyze` 只看我们的 app 代码。
+    - rust_builder/cargokit/**
+    - "**/*.g.dart"
+    # FRB 生成的 Dart 绑定(机器生成,不受我们 lint 约束)
+    - lib/src/rust/**
+
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`
