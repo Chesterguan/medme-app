@@ -29,14 +29,11 @@ static DEMO_DATA: include_dir::Dir<'_> = include_dir::include_dir!("$CARGO_MANIF
 /// (镜像 Tauri 版用 `app_cache_dir()` 存一次性导入临时文件的做法)。
 struct VaultState {
     vault: Vault,
-    /// 真相(`objects/` + `log/`)所在目录:本机 `<docs_dir>/vault`,或(开了 iCloud
-    /// 同步且容器可用时)iCloud 容器 `<container>/Documents/vault`。
+    /// 真相(`objects/` + `log/`)所在目录。P2 阶段恒为本机沙盒
+    /// `<docs_dir>/vault`——iCloud 容器迁移留给 P5(见 `open_vault` doc)。
     truth_root: PathBuf,
     db_path: PathBuf,
     device_id: String,
-    /// App 沙盒 Documents 目录;本机保险箱固定为 `<docs_dir>/vault`(关闭 iCloud 时
-    /// 复制回这里,见 `disable_icloud_sync`)。
-    docs_dir: PathBuf,
     data_dir: PathBuf,
 }
 
@@ -95,30 +92,31 @@ fn doc_summary(v: &Vault, d: &core_model::Document) -> DocumentSummaryDto {
     s
 }
 
-/// 打开(或新建)保险箱。`icloud_enabled` 参数保留(签名稳定),但「是否用 iCloud
-/// 布局」以持久标记 `<data_dir>/icloud_enabled` 为准(由 `enable_icloud_sync` /
-/// `disable_icloud_sync` 写/删)——好在跨启动时记住用户选择,与旧 Tauri 版一致。
+/// 打开(或新建)保险箱。**P2:先不接 iCloud 真逻辑**——`icloud_enabled` 参数按
+/// 设计文档留着(签名与 `docs/020_Flutter_Mobile_Rewrite.md` 一致),但本阶段一律
+/// 打开本机沙盒保险箱 `<docs_dir>/vault`,与该参数取值无关。真正的「真相根据
+/// iCloud 开关搬进容器」逻辑(见 Tauri 版 `apps/mobile/src-tauri/src/icloud.rs`,
+/// iOS-only 且依赖 Tauri 路径 API,不能直接照搬)留给 P5。
 ///
-/// 开了 iCloud 且容器可用 → 真相在 iCloud 容器 `<container>/Documents/vault`、派生库
-/// 在沙盒;否则本机 `<docs_dir>/vault`。在解析出的 truth_root 打开失败(如 iCloud
-/// 不可用/未登录)则回退本机沙盒保险箱,绝不因 iCloud 问题而开库失败。
-///
-/// `docs_dir` = 沙盒 Documents(本机保险箱 truth 落点);`data_dir` = App data 目录
-/// (设备 id + iCloud 标记 + 一次性导入临时文件的落点)。两者由 Flutter 端解析后传入。
+/// `docs_dir` 对应 Tauri 版的 `app.path().document_dir()`(沙盒 Documents,
+/// 保险箱 truth 的默认落点);`data_dir` 对应 `app.path().app_data_dir()`
+/// (设备 id + 一次性导入临时文件的落点)。两者都由 Flutter 端解析平台路径后传入
+/// ——FRB crate 本身不含任何路径插件。
 pub fn open_vault(docs_dir: String, data_dir: String, icloud_enabled: bool) -> anyhow::Result<()> {
-    let _ = icloud_enabled; // 见 doc——以持久标记为准,参数仅保签名兼容。
+    let _ = icloud_enabled; // P2 占位,见上文 doc——iCloud 真迁移留给 P5。
     let docs_dir = PathBuf::from(docs_dir);
     let data_dir = PathBuf::from(data_dir);
     std::fs::create_dir_all(&docs_dir)?;
     std::fs::create_dir_all(&data_dir)?;
+
+    let truth_root = docs_dir.join("vault");
+    let db_path = truth_root.join("medme.db");
     let device_id = machine_device_id(&data_dir)?;
 
-    let local_vault = docs_dir.join("vault");
-    let local_db = local_vault.join("medme.db");
-    let (truth_root, db_path) = resolve_vault_paths(&docs_dir, &data_dir);
-
-    let (vault, truth_root, db_path) =
-        open_resilient_with_fallback(&truth_root, &db_path, &local_vault, &local_db, &device_id)?;
+    // 韧性打开:派生库损坏(半同步/写坏)不致命,从追加式日志重建而不是打开失败
+    // ——镜像 Tauri 版 `open_vault_with_fallback` 里用的同一个 `open_split_resilient`。
+    let vault = Vault::open_split_resilient(&truth_root, &db_path, &device_id)
+        .map_err(|e| anyhow::anyhow!(e.to_string()))?;
 
     let mut guard = vault_cell().lock().unwrap_or_else(|p| p.into_inner());
     *guard = Some(VaultState {
@@ -126,47 +124,9 @@ pub fn open_vault(docs_dir: String, data_dir: String, icloud_enabled: bool) -> a
         truth_root,
         db_path,
         device_id,
-        docs_dir,
         data_dir,
     });
     Ok(())
-}
-
-/// 解析保险箱真相/派生库路径。开了 iCloud 标记且容器可用 → 真相在容器
-/// `<container>/Documents/vault`(与旧 Tauri 版路径拼法一致)、派生库在沙盒
-/// `<data_dir>/medme.db`;否则本机 `<docs_dir>/vault`(派生库同目录)。
-/// 开了但容器不可用则回退本机(仅记日志,不致命)。
-fn resolve_vault_paths(docs_dir: &Path, data_dir: &Path) -> (PathBuf, PathBuf) {
-    let local_vault = docs_dir.join("vault");
-    let local_db = local_vault.join("medme.db");
-    if data_dir.join("icloud_enabled").exists() {
-        if let Some(container) = crate::icloud::container_path() {
-            let cv = container.join("Documents").join("vault");
-            let sandbox_db = data_dir.join("medme.db");
-            return (cv, sandbox_db);
-        }
-    }
-    (local_vault, local_db)
-}
-
-/// 在 `truth_root` 用 `open_split_resilient` 打开(派生库损坏可从日志重建);失败且
-/// truth_root 非本机时回退本机沙盒保险箱。返回实际使用的 `(vault, truth_root, db_path)`。
-fn open_resilient_with_fallback(
-    truth_root: &Path,
-    db_path: &Path,
-    local_vault: &Path,
-    local_db: &Path,
-    device_id: &str,
-) -> anyhow::Result<(Vault, PathBuf, PathBuf)> {
-    match Vault::open_split_resilient(truth_root, db_path, device_id) {
-        Ok(v) => Ok((v, truth_root.to_path_buf(), db_path.to_path_buf())),
-        Err(_) if truth_root != local_vault => {
-            let v = Vault::open_split_resilient(local_vault, local_db, device_id)
-                .map_err(|e| anyhow::anyhow!(e.to_string()))?;
-            Ok((v, local_vault.to_path_buf(), local_db.to_path_buf()))
-        }
-        Err(e) => Err(anyhow::anyhow!(e.to_string())),
-    }
 }
 
 /// 健康档案时间线:就诊组 + 独立文档,按日期倒序(无日期最后)。与桌面/Tauri
@@ -254,15 +214,7 @@ pub fn read_source_bytes(id: i64) -> anyhow::Result<Vec<u8>> {
             .source_file_by_id(id)
             .map_err(|e| anyhow::anyhow!(e.to_string()))?
             .ok_or_else(|| anyhow::anyhow!("找不到来源文件 {id}"))?;
-        let path = v.root_join(&sf.storage_path);
-        // iOS:从别的设备同步来的 CAS 对象可能被 iCloud 逐出(dataless 占位)以省空间。
-        // 触发下载 + 短暂有界等待,再按 sha256 校验(内容寻址,能证明拿到真字节);
-        // 非 iOS 直接读盘。始终读不到则命令报错(前端提示),不崩溃。与 Tauri 版一致。
-        #[cfg(target_os = "ios")]
-        let bytes = crate::icloud::read_object_ensuring_download(&path, &sf.content_hash)
-            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
-        #[cfg(not(target_os = "ios"))]
-        let bytes = std::fs::read(&path)?;
+        let bytes = std::fs::read(v.root_join(&sf.storage_path))?;
         Ok(bytes)
     })
 }
@@ -696,67 +648,8 @@ pub fn reset_vault() -> anyhow::Result<()> {
 /// 不能直接照搬进这个平台无关的 FFI 层,留给 P5 用 Flutter/iOS 原生桥重做
 /// (见 `docs/020_Flutter_Mobile_Rewrite.md` 的「同步(iCloud,iOS)」一节)。
 pub fn icloud_status() -> IcloudStatusDto {
-    // available:容器能否解析(真机登录了 iCloud 且授权就绪);
-    // enabled:本设备是否已写入同步标记。非 iOS 平台 available 恒为 false。
-    let available = crate::icloud::container_path().is_some();
-    let enabled = with_state(|s| Ok(s.data_dir.join("icloud_enabled").exists())).unwrap_or(false);
-    IcloudStatusDto { available, enabled }
-}
-
-/// 开启 iCloud 同步(仅 iOS 真机有效):把保险箱「真相」迁进 iCloud 容器
-/// `<container>/Documents/vault`,派生库留沙盒,写持久标记。迁移用 core-model
-/// `relocate_to`(搬 objects/log/db/VERSION;若容器里已有别的设备建好的 vault 则
-/// adopt+merge)——与旧 Tauri 版 `enable_icloud_sync` 同一套经过验证的安全操作。
-/// iCloud 不可用/未登录返回人性化错误且不改动当前保险箱。幂等。
-pub fn enable_icloud_sync() -> anyhow::Result<()> {
-    let container = crate::icloud::container_path().ok_or_else(|| {
-        anyhow::anyhow!("iCloud 当前不可用:请在系统「设置」里登录 iCloud 并开启 iCloud 云盘后重试")
-    })?;
-    let container_vault = container.join("Documents").join("vault");
-    with_state_mut(|state| {
-        if state.truth_root == container_vault {
-            std::fs::write(state.data_dir.join("icloud_enabled"), "1")?;
-            return Ok(());
-        }
-        let sandbox_db = state.data_dir.join("medme.db");
-        state
-            .vault
-            .relocate_to(&container_vault)
-            .map_err(|e| anyhow::anyhow!(format!("迁移保险箱到 iCloud 失败:{e}")))?;
-        // 数据库不进容器:删掉刚被搬进去的 medme.db,沙盒另开派生库。
-        let _ = std::fs::remove_file(container_vault.join("medme.db"));
-        let fresh = Vault::open_split(&container_vault, &sandbox_db, &state.device_id)
-            .map_err(|e| anyhow::anyhow!(format!("在 iCloud 容器打开保险箱失败:{e}")))?;
-        state.vault = fresh;
-        state.truth_root = container_vault;
-        state.db_path = sandbox_db;
-        std::fs::write(state.data_dir.join("icloud_enabled"), "1")?;
-        Ok(())
-    })
-}
-
-/// 关闭 iCloud 同步:把真相从容器**复制**回本机 `<docs_dir>/vault`(容器副本保留不动
-/// ——其它苹果设备若仍开着同步不受影响,也留云端备份;用 `copy_to` 只复制不删源),
-/// 本地重开派生库,清标记 + 清沙盒 iCloud 派生库。幂等,失败不改动当前保险箱。
-pub fn disable_icloud_sync() -> anyhow::Result<()> {
-    with_state_mut(|state| {
-        let local_vault = state.docs_dir.join("vault");
-        let local_db = local_vault.join("medme.db");
-        if state.truth_root == local_vault {
-            let _ = std::fs::remove_file(state.data_dir.join("icloud_enabled"));
-            return Ok(());
-        }
-        state
-            .vault
-            .copy_to(&local_vault)
-            .map_err(|e| anyhow::anyhow!(format!("把保险箱复制回本机失败:{e}")))?;
-        let fresh = Vault::open_split(&local_vault, &local_db, &state.device_id)
-            .map_err(|e| anyhow::anyhow!(format!("在本机打开保险箱失败:{e}")))?;
-        state.vault = fresh;
-        state.truth_root = local_vault;
-        state.db_path = local_db;
-        let _ = std::fs::remove_file(state.data_dir.join("icloud_enabled"));
-        let _ = std::fs::remove_file(state.data_dir.join("medme.db"));
-        Ok(())
-    })
+    IcloudStatusDto {
+        available: false,
+        enabled: false,
+    }
 }

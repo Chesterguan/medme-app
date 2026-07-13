@@ -7,19 +7,19 @@ import '../frb_generated.dart';
 import 'dto.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `collect_demo_files`, `doc_summary`, `ingest_one`, `machine_device_id`, `open_resilient_with_fallback`, `resolve_vault_paths`, `vault_cell`, `with_state_mut`, `with_state`
+// These functions are ignored because they are not marked as `pub`: `collect_demo_files`, `doc_summary`, `ingest_one`, `machine_device_id`, `vault_cell`, `with_state_mut`, `with_state`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `VaultState`
 
-/// 打开(或新建)保险箱。`icloud_enabled` 参数保留(签名稳定),但「是否用 iCloud
-/// 布局」以持久标记 `<data_dir>/icloud_enabled` 为准(由 `enable_icloud_sync` /
-/// `disable_icloud_sync` 写/删)——好在跨启动时记住用户选择,与旧 Tauri 版一致。
+/// 打开(或新建)保险箱。**P2:先不接 iCloud 真逻辑**——`icloud_enabled` 参数按
+/// 设计文档留着(签名与 `docs/020_Flutter_Mobile_Rewrite.md` 一致),但本阶段一律
+/// 打开本机沙盒保险箱 `<docs_dir>/vault`,与该参数取值无关。真正的「真相根据
+/// iCloud 开关搬进容器」逻辑(见 Tauri 版 `apps/mobile/src-tauri/src/icloud.rs`,
+/// iOS-only 且依赖 Tauri 路径 API,不能直接照搬)留给 P5。
 ///
-/// 开了 iCloud 且容器可用 → 真相在 iCloud 容器 `<container>/Documents/vault`、派生库
-/// 在沙盒;否则本机 `<docs_dir>/vault`。在解析出的 truth_root 打开失败(如 iCloud
-/// 不可用/未登录)则回退本机沙盒保险箱,绝不因 iCloud 问题而开库失败。
-///
-/// `docs_dir` = 沙盒 Documents(本机保险箱 truth 落点);`data_dir` = App data 目录
-/// (设备 id + iCloud 标记 + 一次性导入临时文件的落点)。两者由 Flutter 端解析后传入。
+/// `docs_dir` 对应 Tauri 版的 `app.path().document_dir()`(沙盒 Documents,
+/// 保险箱 truth 的默认落点);`data_dir` 对应 `app.path().app_data_dir()`
+/// (设备 id + 一次性导入临时文件的落点)。两者都由 Flutter 端解析平台路径后传入
+/// ——FRB crate 本身不含任何路径插件。
 Future<void> openVault({
   required String docsDir,
   required String dataDir,
@@ -142,17 +142,3 @@ Future<void> resetVault() => RustLib.instance.api.crateApiVaultResetVault();
 /// (见 `docs/020_Flutter_Mobile_Rewrite.md` 的「同步(iCloud,iOS)」一节)。
 Future<IcloudStatusDto> icloudStatus() =>
     RustLib.instance.api.crateApiVaultIcloudStatus();
-
-/// 开启 iCloud 同步(仅 iOS 真机有效):把保险箱「真相」迁进 iCloud 容器
-/// `<container>/Documents/vault`,派生库留沙盒,写持久标记。迁移用 core-model
-/// `relocate_to`(搬 objects/log/db/VERSION;若容器里已有别的设备建好的 vault 则
-/// adopt+merge)——与旧 Tauri 版 `enable_icloud_sync` 同一套经过验证的安全操作。
-/// iCloud 不可用/未登录返回人性化错误且不改动当前保险箱。幂等。
-Future<void> enableIcloudSync() =>
-    RustLib.instance.api.crateApiVaultEnableIcloudSync();
-
-/// 关闭 iCloud 同步:把真相从容器**复制**回本机 `<docs_dir>/vault`(容器副本保留不动
-/// ——其它苹果设备若仍开着同步不受影响,也留云端备份;用 `copy_to` 只复制不删源),
-/// 本地重开派生库,清标记 + 清沙盒 iCloud 派生库。幂等,失败不改动当前保险箱。
-Future<void> disableIcloudSync() =>
-    RustLib.instance.api.crateApiVaultDisableIcloudSync();
