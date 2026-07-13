@@ -7,27 +7,24 @@ import '../frb_generated.dart';
 import 'dto.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `collect_demo_files`, `doc_summary`, `ingest_one`, `machine_device_id`, `vault_cell`, `with_state_mut`, `with_state`
+// These functions are ignored because they are not marked as `pub`: `collect_demo_files`, `doc_summary`, `ingest_one`, `machine_device_id`, `open_resilient_with_fallback`, `resolve_vault_paths`, `vault_cell`, `with_state_mut`, `with_state`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `VaultState`
 
-/// 打开(或新建)保险箱。**P2:先不接 iCloud 真逻辑**——`icloud_enabled` 参数按
-/// 设计文档留着(签名与 `docs/020_Flutter_Mobile_Rewrite.md` 一致),但本阶段一律
-/// 打开本机沙盒保险箱 `<docs_dir>/vault`,与该参数取值无关。真正的「真相根据
-/// iCloud 开关搬进容器」逻辑(见 Tauri 版 `apps/mobile/src-tauri/src/icloud.rs`,
-/// iOS-only 且依赖 Tauri 路径 API,不能直接照搬)留给 P5。
+/// 打开(或新建)保险箱。iCloud 容器路径由 **Dart 侧经 MethodChannel 解析后传入**
+/// (`icloud_container_dir`,容器根目录;不可用/非 iOS 传 `None`)——避免 Rust 框架
+/// 反向链接 app target 的 Swift 符号(Flutter 插件框架不允许,会 archive linker 失败)。
 ///
-/// `docs_dir` 对应 Tauri 版的 `app.path().document_dir()`(沙盒 Documents,
-/// 保险箱 truth 的默认落点);`data_dir` 对应 `app.path().app_data_dir()`
-/// (设备 id + 一次性导入临时文件的落点)。两者都由 Flutter 端解析平台路径后传入
-/// ——FRB crate 本身不含任何路径插件。
+/// 是否用 iCloud 布局以持久标记 `<data_dir>/icloud_enabled` 为准(enable/disable 写/删)。
+/// 开了标记且传入了容器 → 真相在 `<container>/Documents/vault`、派生库在沙盒;否则本机
+/// `<docs_dir>/vault`。在解析出的 truth_root 打开失败则回退本机,绝不因 iCloud 问题崩。
 Future<void> openVault({
   required String docsDir,
   required String dataDir,
-  required bool icloudEnabled,
+  String? icloudContainerDir,
 }) => RustLib.instance.api.crateApiVaultOpenVault(
   docsDir: docsDir,
   dataDir: dataDir,
-  icloudEnabled: icloudEnabled,
+  icloudContainerDir: icloudContainerDir,
 );
 
 /// 健康档案时间线:就诊组 + 独立文档,按日期倒序(无日期最后)。与桌面/Tauri
@@ -140,5 +137,21 @@ Future<void> resetVault() => RustLib.instance.api.crateApiVaultResetVault();
 /// 是 iOS-only 且依赖 Tauri 路径 API(见 Tauri 版 `apps/mobile/src-tauri/src/icloud.rs`),
 /// 不能直接照搬进这个平台无关的 FFI 层,留给 P5 用 Flutter/iOS 原生桥重做
 /// (见 `docs/020_Flutter_Mobile_Rewrite.md` 的「同步(iCloud,iOS)」一节)。
+/// iCloud 同步是否已在本设备开启(读持久标记)。`available`(容器是否可解析)由
+/// Dart 侧经 MethodChannel 判断——Rust 拿不到容器,恒返回 false,Dart 覆盖。
 Future<IcloudStatusDto> icloudStatus() =>
     RustLib.instance.api.crateApiVaultIcloudStatus();
+
+/// 开启 iCloud 同步:把保险箱真相迁进 iCloud 容器 `<container_dir>/Documents/vault`,
+/// 派生库留沙盒,写持久标记。容器路径由 Dart 经 MethodChannel 解析后传入。迁移用
+/// core-model `relocate_to`(搬 objects/log/db/VERSION;容器里已有别设备的 vault 则
+/// adopt+merge)——与已验证的 Tauri #38 同一套安全操作。幂等。
+Future<void> enableIcloudSync({required String containerDir}) => RustLib
+    .instance
+    .api
+    .crateApiVaultEnableIcloudSync(containerDir: containerDir);
+
+/// 关闭 iCloud 同步:把真相从容器**复制**回本机 `<docs_dir>/vault`(容器副本保留),
+/// 本地重开派生库,清标记 + 沙盒 iCloud 派生库。用 `copy_to` 只复制不删源。幂等。
+Future<void> disableIcloudSync() =>
+    RustLib.instance.api.crateApiVaultDisableIcloudSync();

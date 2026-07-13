@@ -3,6 +3,7 @@ import 'package:mobile_flutter/src/rust/api/dto.dart';
 import 'package:mobile_flutter/src/rust/api/vault.dart';
 import 'package:mobile_flutter/theme.dart';
 import 'package:mobile_flutter/vault_events.dart';
+import 'package:mobile_flutter/icloud_bridge.dart';
 
 /// 与 `pubspec.yaml` 的 `version:` 字段保持一致。P3 范围内没有为读版本号新增
 /// `package_info_plus` 依赖(约束里明确不加新依赖),手工同步即可——这颗
@@ -22,6 +23,8 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   IcloudStatusDto? _icloud;
   PatientProfileDto? _profile;
+  // iCloud 容器是否可用(登录了 iCloud):Rust 拿不到,由原生 channel 判断。
+  bool _icloudAvailable = false;
 
   /// 载入示例 / 清空时置真,禁用所有操作按钮,防止重复点击(尤其清空——
   /// 用户反馈过「载入示例后清空点了没反应」,这里确保按钮忙时不可再点,
@@ -45,10 +48,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _refresh() async {
     try {
       final results = await Future.wait([icloudStatus(), patientProfile()]);
+      final available = await IcloudBridge.available(); // 原生判断容器是否可用
       if (!mounted) return;
       setState(() {
         _icloud = results[0] as IcloudStatusDto;
         _profile = results[1] as PatientProfileDto;
+        _icloudAvailable = available;
       });
     } catch (_) {
       // 状态读取失败不影响本屏其它功能(载入示例/清空仍可用),静默忽略即可。
@@ -143,14 +148,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ),
-          _SectionLabel('iCloud 同步'),
+          _SectionLabel('iCloud 同步(实验性)'),
           _SettingsGroup(
             children: [
               _SettingsRow(
-                icon: Icons.cloud_off_outlined,
+                icon: (_icloud?.enabled ?? false)
+                    ? Icons.cloud_done_outlined
+                    : Icons.cloud_outlined,
                 title: 'iCloud 同步',
-                subtitle: _icloudSubtitle(_icloud),
-                trailing: Switch(value: false, onChanged: null),
+                subtitle: _icloudSubtitle(),
+                trailing: Switch(
+                  value: _icloud?.enabled ?? false,
+                  onChanged: (_busy || !_icloudAvailable)
+                      ? null
+                      : _toggleIcloud,
+                ),
               ),
             ],
           ),
@@ -174,11 +186,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  String _icloudSubtitle(IcloudStatusDto? status) {
-    if (status == null) return '正在查询…';
-    if (!status.available) return '此设备暂不可用,后续版本会支持一键开启同步';
-    if (!status.enabled) return '暂未开启,即将在后续版本支持';
-    return '已开启,自动同步到你的苹果设备';
+  String _icloudSubtitle() {
+    if (_icloud == null) return '正在查询…';
+    if (!_icloudAvailable) {
+      return '请先在系统「设置」登录 iCloud 并开启 iCloud 云盘,再回来开启同步';
+    }
+    if (!_icloud!.enabled) return '开启后病历会同步到你其它苹果设备(实验性,建议先备份)';
+    return '已开启,病历会自动同步到你的苹果设备';
+  }
+
+  Future<void> _toggleIcloud(bool want) async {
+    if (want) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('开启 iCloud 同步?'),
+          content: const Text(
+            '会把你的病历(真相数据)搬进本 App 的 iCloud 空间,在你登录同一 Apple ID 的'
+            '苹果设备间自动同步;数据库仍留在本机。\n\n这是实验性功能,建议先用「导出」备份一份。',
+            style: TextStyle(fontSize: 13.5, height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('开启'),
+            ),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      if (want) {
+        final container = await IcloudBridge.containerPath();
+        if (container == null) {
+          throw 'iCloud 当前不可用,请确认已登录 iCloud 并开启 iCloud 云盘';
+        }
+        await enableIcloudSync(containerDir: container);
+      } else {
+        await disableIcloudSync();
+      }
+      bumpVaultRevision(); // 保险箱已重开,通知档案屏刷新
+      await _refresh();
+      _showSnack(want ? '已开启 iCloud 同步' : '已关闭(本机保留一份副本)');
+    } catch (e) {
+      _showSnack('操作失败:$e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 }
 
