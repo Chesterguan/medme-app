@@ -5,6 +5,7 @@ import 'package:mobile_flutter/src/rust/api/vault.dart';
 import 'package:mobile_flutter/theme.dart';
 import 'package:mobile_flutter/screens/document_detail.dart';
 import 'package:mobile_flutter/vault_events.dart';
+import 'package:mobile_flutter/import_flow.dart';
 
 /// 底部导航一级 tab「健康档案」—— 生命时间线:就诊组 + 独立文档,按日期倒序,
 /// 点开看详情。与旧 Tauri 移动端 App.tsx 的 archive tab(phead + tl)同一观感,
@@ -164,7 +165,20 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('健康档案')),
+      appBar: AppBar(
+        title: const Text('健康档案'),
+        actions: [
+          // 右上角「导入」:弹三选一(拍照/相册/选文件),导入后本屏经 vaultRevision 自动刷新。
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: TextButton.icon(
+              onPressed: () => showImportSheet(context),
+              icon: const Icon(Icons.add, size: 20),
+              label: const Text('导入'),
+            ),
+          ),
+        ],
+      ),
       body: FutureBuilder<(PatientProfileDto, List<TimelineGroupDto>)>(
         future: _future,
         builder: (context, snap) {

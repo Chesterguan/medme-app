@@ -77,7 +77,10 @@ class _ParaBlock extends _Block {
 Widget _blockView(_Block b) {
   return switch (b) {
     _LabTableBlock(:final rows) => _LabTableView(rows: rows),
-    _TableBlock(:final header, :final rows) => _GenericTableView(header: header, rows: rows),
+    _TableBlock(:final header, :final rows) => _GenericTableView(
+      header: header,
+      rows: rows,
+    ),
     _SectionBlock(:final text) => _SectionView(text: text),
     _ParaBlock(:final text) => _ParaView(text: text),
   };
@@ -111,7 +114,9 @@ List<_Block> _parseBlocks(String text) {
       final header = _isTableHeader(trimmed) ? _splitCells(trimmed) : null;
       if (header != null) i++;
       final rows = <List<String>>[];
-      while (i < lines.length && lines[i].trim().isNotEmpty && _isDataRow(lines[i])) {
+      while (i < lines.length &&
+          lines[i].trim().isNotEmpty &&
+          _isDataRow(lines[i])) {
         rows.add(_splitCells(lines[i]));
         i++;
       }
@@ -134,7 +139,11 @@ List<_Block> _parseBlocks(String text) {
 }
 
 List<String> _splitCells(String line) {
-  return line.trim().split(RegExp(r'\s{2,}|\t')).where((c) => c.isNotEmpty).toList();
+  return line
+      .trim()
+      .split(RegExp(r'\s{2,}|\t'))
+      .where((c) => c.isNotEmpty)
+      .toList();
 }
 
 bool _isTableHeader(String line) {
@@ -149,8 +158,10 @@ bool _isDataRow(String line) {
 
 LabFlag? _rowStatus(List<String> cells) {
   final j = cells.join(' ');
-  if (cells.contains('↑') || RegExp(r'↑|偏高|升高').hasMatch(j)) return LabFlag.high;
-  if (cells.contains('↓') || RegExp(r'↓|偏低|降低|减低').hasMatch(j)) return LabFlag.low;
+  if (cells.contains('↑') || RegExp(r'↑|偏高|升高').hasMatch(j))
+    return LabFlag.high;
+  if (cells.contains('↓') || RegExp(r'↓|偏低|降低|减低').hasMatch(j))
+    return LabFlag.low;
   if (j.contains('正常')) return LabFlag.normal;
   return null;
 }
@@ -181,7 +192,10 @@ class _ParaView extends StatelessWidget {
           children: [
             TextSpan(
               text: '${m.group(1)}${m.group(2)}',
-              style: const TextStyle(fontWeight: FontWeight.w600, color: MedMe.ink),
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: MedMe.ink,
+              ),
             ),
             TextSpan(text: m.group(3)),
           ],
@@ -202,7 +216,11 @@ class _SectionView extends StatelessWidget {
       padding: const EdgeInsets.only(top: 4),
       child: Text(
         text,
-        style: const TextStyle(fontWeight: FontWeight.w700, color: MedMe.ink, fontSize: 15),
+        style: const TextStyle(
+          fontWeight: FontWeight.w700,
+          color: MedMe.ink,
+          fontSize: 15,
+        ),
       ),
     );
   }
@@ -235,7 +253,11 @@ TableRow _headerRow(List<String> headers) {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Text(
             h,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: MedMe.faint),
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: MedMe.faint,
+            ),
           ),
         ),
     ],
@@ -247,7 +269,11 @@ Widget _cell(String text, Color color, {bool mono = false}) {
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
     child: Text(
       text,
-      style: TextStyle(fontSize: 13, color: color, fontFamily: mono ? 'monospace' : null),
+      style: TextStyle(
+        fontSize: 13,
+        color: color,
+        fontFamily: mono ? 'monospace' : null,
+      ),
     ),
   );
 }
@@ -301,16 +327,20 @@ class _GenericTableView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cols = [header?.length ?? 0, for (final r in rows) r.length].reduce(
-      (a, b) => a > b ? a : b,
-    );
+    final cols = [
+      header?.length ?? 0,
+      for (final r in rows) r.length,
+    ].reduce((a, b) => a > b ? a : b);
 
     return _TableFrame(
       child: Table(
         defaultVerticalAlignment: TableCellVerticalAlignment.middle,
         children: [
           if (header != null)
-            _headerRow([for (var c = 0; c < cols; c++) c < header!.length ? header![c] : '']),
+            _headerRow([
+              for (var c = 0; c < cols; c++)
+                c < header!.length ? header![c] : '',
+            ]),
           for (var i = 0; i < rows.length; i++) _dataRow(i, rows[i], cols),
         ],
       ),
@@ -322,7 +352,8 @@ class _GenericTableView extends StatelessWidget {
     return TableRow(
       decoration: _zebra(index),
       children: [
-        for (var c = 0; c < cols; c++) _cell(c < r.length ? r[c] : '', color, mono: true),
+        for (var c = 0; c < cols; c++)
+          _cell(c < r.length ? r[c] : '', color, mono: true),
       ],
     );
   }
@@ -340,7 +371,11 @@ class _MedsResult {
   final List<String> intro;
   final List<_Med> meds;
   final List<String> footer;
-  const _MedsResult({required this.intro, required this.meds, required this.footer});
+  const _MedsResult({
+    required this.intro,
+    required this.meds,
+    required this.footer,
+  });
 }
 
 final RegExp _numberedRe = RegExp(r'^(\d+)\s*[.、)]\s*(.+)');
@@ -400,7 +435,9 @@ _MedsResult? _parseMeds(String text) {
     }
   }
   pushCur();
-  return meds.isNotEmpty ? _MedsResult(intro: intro, meds: meds, footer: footer) : null;
+  return meds.isNotEmpty
+      ? _MedsResult(intro: intro, meds: meds, footer: footer)
+      : null;
 }
 
 class _MedsView extends StatelessWidget {
@@ -480,14 +517,22 @@ class _MedCard extends StatelessWidget {
               children: [
                 Text(
                   med.name,
-                  style: const TextStyle(fontWeight: FontWeight.w500, color: MedMe.ink, fontSize: 15),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    color: MedMe.ink,
+                    fontSize: 15,
+                  ),
                 ),
                 for (final u in med.usage)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
                       u,
-                      style: const TextStyle(fontSize: 13, color: MedMe.faint, height: 1.5),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: MedMe.faint,
+                        height: 1.5,
+                      ),
                     ),
                   ),
               ],

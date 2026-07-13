@@ -137,7 +137,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _SettingsRow(
                 icon: Icons.delete_outline,
                 title: '清空所有数据 · 重置保险箱',
-                subtitle: '删除全部记录,回到初始空状态',
+                // 灰字说明与点击后的确认弹窗内容重复,去掉省空间(用户反馈)。
                 danger: true,
                 onTap: _busy ? null : _confirmAndResetVault,
               ),
@@ -296,7 +296,7 @@ class _SettingsRow extends StatelessWidget {
   const _SettingsRow({
     required this.icon,
     required this.title,
-    required this.subtitle,
+    this.subtitle,
     this.onTap,
     this.trailing,
     this.danger = false,
@@ -304,7 +304,7 @@ class _SettingsRow extends StatelessWidget {
 
   final IconData icon;
   final String title;
-  final String subtitle;
+  final String? subtitle;
   final VoidCallback? onTap;
   final Widget? trailing;
   final bool danger;
@@ -318,7 +318,9 @@ class _SettingsRow extends StatelessWidget {
         title,
         style: TextStyle(fontWeight: FontWeight.w600, color: color),
       ),
-      subtitle: Text(subtitle, style: const TextStyle(color: MedMe.faint)),
+      subtitle: subtitle == null
+          ? null
+          : Text(subtitle!, style: const TextStyle(color: MedMe.faint)),
       trailing:
           trailing ??
           (onTap != null

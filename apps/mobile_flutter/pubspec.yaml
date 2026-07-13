@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.2.0+4
+version: 1.2.0+5
 
 environment:
   sdk: ^3.12.2
@@ -64,6 +64,7 @@ dev_dependencies:
   # TimelineGroupDto,对应 lib/src/rust/api/dto.freezed.dart)。
   freezed: ^3.2.5
   build_runner: ^2.15.1
+  flutter_launcher_icons: ^0.14.4
 
 # Patrol 集成测试配置(用户跑 `patrol test`;bundle/package 与当前构建一致,
 # P7 改成 com.medme.mobile 复用 App Store 描述文件时同步改这里)。
@@ -84,6 +85,9 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/icon/app_icon.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:
@@ -115,3 +119,12 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# 应用图标生成(dev 工具,只构建期用):用 MedMe 品牌魏碑「医」字标生成 iOS/安卓图标。
+# 改图后重跑 `dart run flutter_launcher_icons`。
+flutter_launcher_icons:
+  image_path: "assets/icon/app_icon.png"
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  min_sdk_android: 21

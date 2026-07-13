@@ -58,7 +58,11 @@ LabFlag? _labFlag(String range) {
 /// 把一行拆成结构化的化验行;不像化验行(找不到独立数值,或数值前/后缺内容)
 /// 则返回 null。
 LabRow? parseLabRow(String line) {
-  final tokens = line.trim().split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
+  final tokens = line
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((t) => t.isNotEmpty)
+      .toList();
   if (tokens.length < 2) return null;
 
   final valueIdx = tokens.indexWhere((t) => _numRe.hasMatch(t));
@@ -73,12 +77,20 @@ LabRow? parseLabRow(String line) {
   // 判断值后第一个 token 是参考范围的开头(比较符/数字/连字符),还是单位。
   final nextTok = after[0];
   final looksLikeRangeStart =
-      _rangeStartRe.hasMatch(nextTok) || _numRe.hasMatch(nextTok) || nextTok == '-';
+      _rangeStartRe.hasMatch(nextTok) ||
+      _numRe.hasMatch(nextTok) ||
+      nextTok == '-';
   final unit = looksLikeRangeStart ? '' : nextTok;
   final rangeTokens = looksLikeRangeStart ? after : after.sublist(1);
   final range = rangeTokens.join(' ');
 
-  return LabRow(name: name, value: value, unit: unit, range: range, flag: _labFlag(range));
+  return LabRow(
+    name: name,
+    value: value,
+    unit: unit,
+    range: range,
+    flag: _labFlag(range),
+  );
 }
 
 /// 化验表表头行(如"项目缩写 项目名称 结果 单位 参考范围 提示")—— 只用于识别

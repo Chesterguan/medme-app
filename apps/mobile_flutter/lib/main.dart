@@ -3,8 +3,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:mobile_flutter/src/rust/frb_generated.dart';
 import 'package:mobile_flutter/src/rust/api/vault.dart';
 import 'package:mobile_flutter/theme.dart';
-import 'package:mobile_flutter/screens/import_export_screen.dart';
 import 'package:mobile_flutter/screens/archive_screen.dart';
+import 'package:mobile_flutter/screens/export_screen.dart';
 import 'package:mobile_flutter/screens/settings_screen.dart';
 
 Future<void> main() async {
@@ -54,14 +54,21 @@ class _VaultBootstrapState extends State<VaultBootstrap> {
       future: _open,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const Scaffold(
+          return Scaffold(
             body: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.health_and_safety, size: 56, color: MedMe.teal),
-                  SizedBox(height: 16),
-                  CircularProgressIndicator(color: MedMe.teal),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: Image.asset(
+                      'assets/icon/app_icon.png',
+                      width: 84,
+                      height: 84,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const CircularProgressIndicator(color: MedMe.teal),
                 ],
               ),
             ),
@@ -98,11 +105,9 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
-  static const _screens = [
-    ImportExportScreen(),
-    ArchiveScreen(),
-    SettingsScreen(),
-  ];
+  // 健康档案(看 + 右上角导入)· 导出分享 · 设置。导入并进「健康档案」,
+  // 导出/分享独立成 tab —— 手机端「轻」定位:采集 + 看 + 分享,搜索/趋势在桌面/查看器。
+  static const _screens = [ArchiveScreen(), ExportScreen(), SettingsScreen()];
 
   @override
   Widget build(BuildContext context) {
@@ -113,14 +118,14 @@ class _HomeShellState extends State<HomeShell> {
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.swap_vert_outlined),
-            selectedIcon: Icon(Icons.swap_vert),
-            label: '导入导出',
-          ),
-          NavigationDestination(
             icon: Icon(Icons.folder_outlined),
             selectedIcon: Icon(Icons.folder),
             label: '健康档案',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.ios_share_outlined),
+            selectedIcon: Icon(Icons.ios_share),
+            label: '导出分享',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),
