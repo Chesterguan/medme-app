@@ -104,13 +104,20 @@ Future<ImportOutcomeDto> ingestImageWithText({
 Future<ShareResultDto> createShare({required PlatformInt64 expiresDays}) =>
     RustLib.instance.api.crateApiVaultCreateShare(expiresDays: expiresDays);
 
-/// 导出时间线:复用 `medme_share::export::build_timeline_html`,把整条时间线
+/// 导出时间线:复用 `medme_share::export::build_timeline_html_ranged`,把时间线
 /// 渲染成未加密、可打印的自包含 HTML 写进保险箱 `shares/` 目录(与加密分享共用
-/// 同一目录——都是本机生成、交给系统分享 sheet 的临时导出件)。**日期区间筛选
-/// 留给 P6**——本阶段全量导出,与当前 `medme_share::export::build_timeline_html`
-/// 的签名(无日期参数)一致。
-Future<ExportResultDto> exportTimelineHtml() =>
-    RustLib.instance.api.crateApiVaultExportTimelineHtml();
+/// 同一目录——都是本机生成、交给系统分享 sheet 的临时导出件)。
+///
+/// `from_date` / `to_date` 为可选的 `YYYY-MM-DD`(前端日期选择器传入);任一为空
+/// 表示该侧不限,两者都为空即全量导出。`from` 取当天 00:00、`to` 取当天 23:59:59
+/// (含端点)。无 `doc_date` 的记录仅在完全不筛选时纳入(见共享 crate 的说明)。
+Future<ExportResultDto> exportTimelineHtml({
+  String? fromDate,
+  String? toDate,
+}) => RustLib.instance.api.crateApiVaultExportTimelineHtml(
+  fromDate: fromDate,
+  toDate: toDate,
+);
 
 /// 一键「载入示例数据」:把编译进本 crate 的张建国示例病历(见 `DEMO_DATA`)
 /// 批量导入保险箱,让测试者无需手动选文件就能看到 健康档案。按路径排序保证

@@ -103,11 +103,14 @@ fn wire__crate__api__vault__export_timeline_html_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_from_date = <Option<String>>::sse_decode(&mut deserializer);
+            let api_to_date = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
-                        let output_ok = crate::api::vault::export_timeline_html()?;
+                        let output_ok =
+                            crate::api::vault::export_timeline_html(api_from_date, api_to_date)?;
                         Ok(output_ok)
                     })(),
                 )
