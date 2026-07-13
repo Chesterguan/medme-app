@@ -144,8 +144,12 @@ fn resolve_vault_paths(
     let local_db = local_vault.join("medme.db");
     if data_dir.join("icloud_enabled").exists() {
         if let Some(c) = container {
-            let cv = Path::new(c).join("Documents").join("vault");
-            return (cv, data_dir.join("medme.db"));
+            // `container` 是 Dart 拼好的「该成员的 iCloud 目录基」(含 Documents 及
+            // 多成员子文件夹),这里只补 `vault`;派生库放**该成员的本机基目录**下
+            // (每成员独立、且不进 iCloud——多成员共用 data_dir/medme.db 会撞库)。
+            let _ = data_dir;
+            let cv = Path::new(c).join("vault");
+            return (cv, docs_dir.join("medme.db"));
         }
     }
     (local_vault, local_db)
@@ -715,13 +719,16 @@ pub fn icloud_status() -> IcloudStatusDto {
 /// core-model `relocate_to`(搬 objects/log/db/VERSION;容器里已有别设备的 vault 则
 /// adopt+merge)——与已验证的 Tauri #38 同一套安全操作。幂等。
 pub fn enable_icloud_sync(container_dir: String) -> anyhow::Result<()> {
-    let container_vault = Path::new(&container_dir).join("Documents").join("vault");
+    // `container_dir` 是 Dart 拼好的「该成员 iCloud 目录基」(含 Documents 及多成员
+    // 子文件夹),这里只补 `vault`。
+    let container_vault = Path::new(&container_dir).join("vault");
     with_state_mut(|state| {
         if state.truth_root == container_vault {
             std::fs::write(state.data_dir.join("icloud_enabled"), "1")?;
             return Ok(());
         }
-        let sandbox_db = state.data_dir.join("medme.db");
+        // 派生库放该成员本机基目录(每成员独立,不进 iCloud),避免多成员撞库。
+        let sandbox_db = state.docs_dir.join("medme.db");
         state
             .vault
             .relocate_to(&container_vault)
