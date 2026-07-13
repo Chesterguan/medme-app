@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'package:mobile_flutter/ocr_bridge.dart';
 import 'package:mobile_flutter/screens/import_helpers.dart';
 import 'package:mobile_flutter/src/rust/api/dto.dart';
 import 'package:mobile_flutter/src/rust/api/vault.dart';
@@ -126,7 +126,6 @@ Future<void> _runImport(BuildContext context, List<PendingImport> items) async {
     ),
   );
 
-  TextRecognizer? recognizer;
   final rows = <ImportResultRow>[];
   // 本次新建文档 id → 报告里识别到的患者姓名(识别不到为 null),进「待确认」队列;
   // 姓名与当前成员不符者会被标红,识别到的姓名还用来自动命名默认档案。
@@ -137,16 +136,14 @@ Future<void> _runImport(BuildContext context, List<PendingImport> items) async {
     try {
       final ImportOutcomeDto outcome;
       if (item.isImage) {
-        recognizer ??= TextRecognizer(script: TextRecognitionScript.chinese);
-        final recognized = await recognizer.processImage(
-          InputImage.fromFilePath(item.path),
-        );
+        // 各平台原生最强 OCR:iOS Apple Vision / 安卓 ML Kit(见 ocr_bridge.dart)。
+        final ocr = await recognizeImageText(item.path);
         final bytes = await File(item.path).readAsBytes();
         outcome = await ingestImageWithText(
           name: item.name,
           bytes: bytes,
-          ocrText: recognized.text,
-          confidence: averageMlkitConfidence(recognized),
+          ocrText: ocr.text,
+          confidence: ocr.confidence,
         );
       } else {
         final bytes = await File(item.path).readAsBytes();
@@ -158,7 +155,6 @@ Future<void> _runImport(BuildContext context, List<PendingImport> items) async {
       rows.add(rowFromError(item.name, e));
     }
   }
-  await recognizer?.close();
 
   // 本次新建的文档显式加入「待确认」队列(健康档案顶部据此置顶让用户核对)。
   if (newDocs.isNotEmpty) {

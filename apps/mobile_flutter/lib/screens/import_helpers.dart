@@ -1,4 +1,3 @@
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:mobile_flutter/src/rust/api/dto.dart';
 
 /// 「导入导出」屏的纯逻辑小工具:与 Widget 树无关,方便单独看清楚。
@@ -101,20 +100,3 @@ ImportResultRow rowFromError(String name, Object error) => ImportResultRow(
   statusLabel: '导入失败:$error',
   kind: ImportRowKind.failed,
 );
-
-/// 一张图片识别结果的平均置信度:遍历 blocks→lines→elements,取所有有值的
-/// `element.confidence` 求平均。iOS 端 ML Kit 不提供置信度(全为 null),
-/// 这时回退到一个合理默认值,让「导入」流程照常继续、不因缺置信度而中断。
-double averageMlkitConfidence(RecognizedText recognized) {
-  final values = <double>[];
-  for (final block in recognized.blocks) {
-    for (final line in block.lines) {
-      for (final element in line.elements) {
-        final c = element.confidence;
-        if (c != null) values.add(c);
-      }
-    }
-  }
-  if (values.isEmpty) return 0.9; // iOS 无置信度回退值
-  return values.reduce((a, b) => a + b) / values.length;
-}
