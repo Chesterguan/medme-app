@@ -859,12 +859,14 @@ impl SseDecode for crate::api::dto::ImportOutcomeDto {
         let mut var_status = <String>::sse_decode(deserializer);
         let mut var_docType = <Option<String>>::sse_decode(deserializer);
         let mut var_documentId = <Option<i64>>::sse_decode(deserializer);
+        let mut var_detectedName = <Option<String>>::sse_decode(deserializer);
         return crate::api::dto::ImportOutcomeDto {
             name: var_name,
             source_file_id: var_sourceFileId,
             status: var_status,
             doc_type: var_docType,
             document_id: var_documentId,
+            detected_name: var_detectedName,
         };
     }
 }
@@ -1220,6 +1222,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::dto::ImportOutcomeDto {
             self.status.into_into_dart().into_dart(),
             self.doc_type.into_into_dart().into_dart(),
             self.document_id.into_into_dart().into_dart(),
+            self.detected_name.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -1442,6 +1445,7 @@ impl SseEncode for crate::api::dto::ImportOutcomeDto {
         <String>::sse_encode(self.status, serializer);
         <Option<String>>::sse_encode(self.doc_type, serializer);
         <Option<i64>>::sse_encode(self.document_id, serializer);
+        <Option<String>>::sse_encode(self.detected_name, serializer);
     }
 }
 

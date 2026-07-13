@@ -852,14 +852,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ImportOutcomeDto dco_decode_import_outcome_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 5)
-      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
     return ImportOutcomeDto(
       name: dco_decode_String(arr[0]),
       sourceFileId: dco_decode_i_64(arr[1]),
       status: dco_decode_String(arr[2]),
       docType: dco_decode_opt_String(arr[3]),
       documentId: dco_decode_opt_box_autoadd_i_64(arr[4]),
+      detectedName: dco_decode_opt_String(arr[5]),
     );
   }
 
@@ -1153,12 +1154,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_status = sse_decode_String(deserializer);
     var var_docType = sse_decode_opt_String(deserializer);
     var var_documentId = sse_decode_opt_box_autoadd_i_64(deserializer);
+    var var_detectedName = sse_decode_opt_String(deserializer);
     return ImportOutcomeDto(
       name: var_name,
       sourceFileId: var_sourceFileId,
       status: var_status,
       docType: var_docType,
       documentId: var_documentId,
+      detectedName: var_detectedName,
     );
   }
 
@@ -1489,6 +1492,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.status, serializer);
     sse_encode_opt_String(self.docType, serializer);
     sse_encode_opt_box_autoadd_i_64(self.documentId, serializer);
+    sse_encode_opt_String(self.detectedName, serializer);
   }
 
   @protected

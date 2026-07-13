@@ -197,12 +197,18 @@ class ImportOutcomeDto {
   /// 去重/失败等没建文档的情况为 None。
   final PlatformInt64? documentId;
 
+  /// 从本份报告文本里识别出的**患者姓名**(`parser::extract_demographics`)。
+  /// 前端用它和当前成员档案名字比对——不一致就在「待确认」里标红警告(防导错人)。
+  /// 识别不到为 None。
+  final String? detectedName;
+
   const ImportOutcomeDto({
     required this.name,
     required this.sourceFileId,
     required this.status,
     this.docType,
     this.documentId,
+    this.detectedName,
   });
 
   @override
@@ -211,7 +217,8 @@ class ImportOutcomeDto {
       sourceFileId.hashCode ^
       status.hashCode ^
       docType.hashCode ^
-      documentId.hashCode;
+      documentId.hashCode ^
+      detectedName.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -222,7 +229,8 @@ class ImportOutcomeDto {
           sourceFileId == other.sourceFileId &&
           status == other.status &&
           docType == other.docType &&
-          documentId == other.documentId;
+          documentId == other.documentId &&
+          detectedName == other.detectedName;
 }
 
 class PatientProfileDto {

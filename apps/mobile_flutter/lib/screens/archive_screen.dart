@@ -748,40 +748,96 @@ class _NewImportsSection extends StatelessWidget {
           for (final d in docs)
             Card(
               margin: const EdgeInsets.only(top: 8),
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: _colorFor(d.docType).withValues(alpha: 0.12),
-                  child: Icon(
-                    _iconForDoc(d.docType),
-                    color: _colorFor(d.docType),
-                    size: 20,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: _colorFor(
+                        d.docType,
+                      ).withValues(alpha: 0.12),
+                      child: Icon(
+                        _iconForDoc(d.docType),
+                        color: _colorFor(d.docType),
+                        size: 20,
+                      ),
+                    ),
+                    title: Text(
+                      d.title ?? _docLabel[d.docType] ?? '记录',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      [
+                        _docLabel[d.docType] ?? d.docType,
+                        _fmtDate(d.docDate).isNotEmpty
+                            ? _fmtDate(d.docDate)
+                            : '无日期',
+                      ].join(' · '),
+                      style: const TextStyle(
+                        color: MedMe.faint,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                    trailing: FilledButton(
+                      style: FilledButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      onPressed: () => onReview(d.id),
+                      child: const Text('确认'),
+                    ),
+                    onTap: () => onOpen(d.id),
                   ),
-                ),
-                title: Text(
-                  d.title ?? _docLabel[d.docType] ?? '记录',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: Text(
-                  [
-                    _docLabel[d.docType] ?? d.docType,
-                    _fmtDate(d.docDate).isNotEmpty
-                        ? _fmtDate(d.docDate)
-                        : '无日期',
-                  ].join(' · '),
-                  style: const TextStyle(color: MedMe.faint, fontSize: 12.5),
-                ),
-                trailing: FilledButton(
-                  style: FilledButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  onPressed: () => onReview(d.id),
-                  child: const Text('确认'),
-                ),
-                onTap: () => onOpen(d.id),
+                  if (ReviewState.instance.mismatchName(d.id) case final who?)
+                    _MismatchBanner(who: who),
+                ],
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 这份报告识别到的患者姓名和当前档案不一致 → 醒目提示,可能导错了人。
+/// 只警告不自动搬(用户可自行处理);点开核对无误后「确认」即可归档。
+class _MismatchBanner extends StatelessWidget {
+  const _MismatchBanner({required this.who});
+
+  final String who;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: Colors.orange,
+            size: 18,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              '报告上的姓名是「$who」,与当前档案「${ProfileManager.instance.current}」不一致,'
+              '请核对是否导错了人。',
+              style: const TextStyle(
+                fontSize: 12,
+                height: 1.4,
+                color: Color(0xFFB25E00),
+              ),
+            ),
+          ),
         ],
       ),
     );

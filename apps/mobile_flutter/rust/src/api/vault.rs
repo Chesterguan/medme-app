@@ -306,6 +306,13 @@ pub fn patient_profile() -> anyhow::Result<PatientProfileDto> {
 /// Flutter 端已用 `google_mlkit_text_recognition` 识别好图片文本,走
 /// `ingest_image_with_text`,这里只处理 PDF/TXT/DICOM 等有文本层/结构化元数据的
 /// 文件类型(见 `docs/020_Flutter_Mobile_Rewrite.md` 的 OCR 分工)。
+/// 从一份文档的 OCR 文本里识别患者姓名(用于「导错人」核对)。读文本失败或识别不到返回 None。
+fn detected_name_for(v: &Vault, doc_id: i64) -> Option<String> {
+    v.ocr_text(doc_id)
+        .ok()
+        .and_then(|t| parser::extract_demographics(&t).name)
+}
+
 fn ingest_one(v: &Vault, path: &Path) -> ImportOutcomeDto {
     // Panic firewall:parser/dicom 栈里的 panic 不能一路 unwind 穿过持锁的 Vault、
     // 污染共享 Mutex(与 Tauri 版 `ingest_one` 同一理由)。
@@ -330,12 +337,14 @@ fn ingest_one(v: &Vault, path: &Path) -> ImportOutcomeDto {
                 .ok()
                 .flatten()
                 .map(|d| d.id);
+            let detected_name = document_id.and_then(|id| detected_name_for(v, id));
             ImportOutcomeDto {
                 name: o.name,
                 source_file_id: o.source_file_id,
                 status,
                 doc_type: o.doc_type.map(|d| d.as_str().to_string()),
                 document_id,
+                detected_name,
             }
         }
         Err(e) => {
@@ -350,6 +359,7 @@ fn ingest_one(v: &Vault, path: &Path) -> ImportOutcomeDto {
                 status: "failed".to_string(),
                 doc_type: None,
                 document_id: None,
+                detected_name: None,
             }
         }
     }
@@ -461,6 +471,7 @@ pub fn ingest_image_with_text(
                 status: "deduped".to_string(),
                 doc_type: None,
                 document_id: None,
+                detected_name: None,
             }
         } else {
             let text = ocr_text.trim().to_string();
@@ -494,6 +505,7 @@ pub fn ingest_image_with_text(
                     status: status.to_string(),
                     doc_type: Some(doc_type.as_str().to_string()),
                     document_id: Some(doc.id),
+                    detected_name: parser::extract_demographics(&text).name,
                 }
             } else {
                 let (doc_date, doc_date_end) = parser::guess_date_range(&safe_name);
@@ -515,6 +527,7 @@ pub fn ingest_image_with_text(
                     status: "stored_no_text".to_string(),
                     doc_type: Some(doc_type.as_str().to_string()),
                     document_id: Some(doc.id),
+                    detected_name: None, // 无文本,识别不到名字
                 }
             }
         };

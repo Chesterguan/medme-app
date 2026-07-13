@@ -124,6 +124,10 @@ pub struct ImportOutcomeDto {
     /// 本次采集落库的文档 id(前端「待确认」review 队列据此显式标记新导入)。
     /// 去重/失败等没建文档的情况为 None。
     pub document_id: Option<i64>,
+    /// 从本份报告文本里识别出的**患者姓名**(`parser::extract_demographics`)。
+    /// 前端用它和当前成员档案名字比对——不一致就在「待确认」里标红警告(防导错人)。
+    /// 识别不到为 None。
+    pub detected_name: Option<String>,
 }
 
 /// 加密分享生成结果:口令(单独告知医生)、记录数、文件字节数、分享文件路径。
