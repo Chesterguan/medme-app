@@ -40,8 +40,8 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
 
-      # apps/mobile (medme-mobile) is owned/formatted by the mobile track and
-      # excluded here so this check never depends on that crate's state.
+      # Mobile is Flutter now (apps/mobile_flutter), built by mobile.yml; its Rust
+      # crate is workspace-excluded, so this desktop/core check never touches it.
       - name: rustfmt
         run: >
           cargo fmt --check

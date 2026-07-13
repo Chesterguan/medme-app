@@ -25,7 +25,7 @@ Flutter (Dart) UI  ──FRB──▶  crates/mobile_ffi (Rust)  ──▶  core
 - **新建**:
   - `crates/mobile_ffi`:FRB 封装层。依赖上述 crate,暴露干净 async API。
   - `apps/mobile_flutter/`:Flutter 工程(FRB 生成的 Dart 绑定 + UI)。
-- **删除(达到功能对齐后)**:`apps/mobile`(Tauri v2 移动端)。
+- **已删除(功能对齐后,2026-07)**:`apps/mobile`(Tauri v2 移动端)。手机端只剩 `apps/mobile_flutter`。
 
 ## FFI API 面(mobile_ffi 暴露给 Flutter)
 镜像现有 `apps/mobile/src-tauri/src/commands.rs` 的能力:

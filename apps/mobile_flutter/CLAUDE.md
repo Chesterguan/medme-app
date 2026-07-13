@@ -35,4 +35,4 @@
 ## 出包(仅发布时,优先 CI)
 
 - iOS bundle id = `com.medme.mobile`(复用现有 App Store app + 「MedMe App Store」描述文件)。
-- 后续:安卓 `applicationId`/`namespace` 从 `com.medme.mobile_flutter` 改齐 `com.medme.mobile`(涉及 kotlin 目录改名,发布前做)。
+- 安卓 `applicationId`/`namespace` 已对齐 `com.medme.mobile`(kotlin 目录已改名);iOS/安卓统一 `com.medme.mobile`。

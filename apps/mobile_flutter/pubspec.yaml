@@ -74,7 +74,7 @@ dev_dependencies:
 patrol:
   app_name: MedMe 医我
   android:
-    package_name: com.medme.mobile_flutter
+    package_name: com.medme.mobile
   ios:
     bundle_id: com.medme.mobile
 

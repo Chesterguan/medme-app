@@ -24,18 +24,6 @@ updates:
       npm:
         patterns: ["*"]
 
-  # Mobile frontend (pnpm) — all updates in ONE grouped PR
-  - package-ecosystem: npm
-    directory: "/apps/mobile"
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 10
-    commit-message:
-      prefix: "chore(deps)"
-    groups:
-      npm:
-        patterns: ["*"]
-
   # GitHub Actions used in workflows — all updates in ONE grouped PR
   - package-ecosystem: github-actions
     directory: "/"

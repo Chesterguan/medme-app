@@ -1,4 +1,4 @@
-package com.medme.mobile_flutter
+package com.medme.mobile
 
 import io.flutter.embedding.android.FlutterActivity
 

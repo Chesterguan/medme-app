@@ -118,7 +118,7 @@ Rust 工作区 crate 名(供 `cargo -p` 使用):`core-model`、`parser`、`pipel
 - **流程**:从 `main` 拉分支 → 改动 → 本地跑 fmt / clippy / test(前端另加 tsc +
   build)→ 提 PR,填写 PR 模板 → 关联 issue → 等待评审。
 - 保持 PR 小而聚焦,便于评审。
-- **不要改动 `apps/mobile/**`**,除非该 PR 本身就是关于手机端。
+- 手机端在 `apps/mobile_flutter`(Flutter + 复用 Rust core);其构建/发布走 `.github/workflows/mobile.yml`,与桌面/core 的 `ci.yml` 分离。
 
 ---
 

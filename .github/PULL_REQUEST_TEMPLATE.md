@@ -27,7 +27,6 @@
 - [ ] 前端改动:`pnpm -C apps/desktop exec tsc --noEmit` 与 `pnpm -C apps/desktop build` 通过 / frontend typecheck + build pass (if touched)
 - [ ] 生产代码中没有 `unwrap()`(用 typed error 或有注释不变量的 `expect`)/ no `unwrap()` in production code
 - [ ] 没有提交真实敏感病历或个人数据 / no real sensitive medical data committed
-- [ ] 未改动 `apps/mobile/**`,除非本 PR 就是关于手机端 / did not touch `apps/mobile/**` unless this PR is about mobile
 
 ## 说明 / Notes
 
