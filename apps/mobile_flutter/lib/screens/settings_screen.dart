@@ -4,6 +4,7 @@ import 'package:mobile_flutter/src/rust/api/vault.dart';
 import 'package:mobile_flutter/theme.dart';
 import 'package:mobile_flutter/vault_events.dart';
 import 'package:mobile_flutter/icloud_bridge.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// 与 `pubspec.yaml` 的 `version:` 字段保持一致。P3 范围内没有为读版本号新增
 /// `package_info_plus` 依赖(约束里明确不加新依赖),手工同步即可——这颗
@@ -63,6 +64,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _showSnack(String text) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  Future<void> _openHomepage() async {
+    final uri = Uri.parse('https://chesterguan.github.io/medme/');
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok) _showSnack('无法打开主页,请稍后重试');
   }
 
   Future<void> _loadDemoData() async {
@@ -169,6 +176,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SectionLabel('关于'),
           _SettingsGroup(
             children: [
+              _SettingsRow(
+                icon: Icons.home_outlined,
+                title: 'MedMe 主页',
+                subtitle: '了解更多、下载其它平台版本',
+                onTap: _openHomepage,
+              ),
               _InfoRow(
                 title: 'MedMe 医我',
                 subtitle: 'v$_appVersion · 本地优先:你的病历只保存在你自己的设备上',

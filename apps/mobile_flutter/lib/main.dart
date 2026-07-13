@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:mobile_flutter/src/rust/frb_generated.dart';
-import 'package:mobile_flutter/src/rust/api/vault.dart';
 import 'package:mobile_flutter/theme.dart';
 import 'package:mobile_flutter/screens/archive_screen.dart';
 import 'package:mobile_flutter/screens/export_screen.dart';
 import 'package:mobile_flutter/screens/settings_screen.dart';
-import 'package:mobile_flutter/icloud_bridge.dart';
+import 'package:mobile_flutter/vault_boot.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,20 +44,8 @@ class VaultBootstrap extends StatefulWidget {
 }
 
 class _VaultBootstrapState extends State<VaultBootstrap> {
-  late final Future<void> _open = _openVault();
-
-  Future<void> _openVault() async {
-    final docs = await getApplicationDocumentsDirectory();
-    final support = await getApplicationSupportDirectory();
-    // iCloud 容器路径由原生 channel 解析(iOS 且登录了 iCloud 才非空),传给 Rust:
-    // 若之前开过同步(<data>/icloud_enabled 标记在)且容器可用,保险箱真相就开在容器里。
-    final container = await IcloudBridge.containerPath();
-    await openVault(
-      docsDir: docs.path,
-      dataDir: support.path,
-      icloudContainerDir: container,
-    );
-  }
+  // 打开「当前成员」的保险箱(多成员见 profile_manager / vault_boot)。
+  final Future<void> _open = openCurrentProfileVault();
 
   @override
   Widget build(BuildContext context) {

@@ -7,6 +7,8 @@ import 'package:mobile_flutter/screens/document_detail.dart';
 import 'package:mobile_flutter/vault_events.dart';
 import 'package:mobile_flutter/import_flow.dart';
 import 'package:mobile_flutter/review_state.dart';
+import 'package:mobile_flutter/profile_manager.dart';
+import 'package:mobile_flutter/vault_boot.dart';
 
 /// 底部导航一级 tab「健康档案」—— 生命时间线:就诊组 + 独立文档,按日期倒序,
 /// 点开看详情。与旧 Tauri 移动端 App.tsx 的 archive tab(phead + tl)同一观感,
@@ -177,6 +179,102 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
     if (mounted) setState(() {});
   }
 
+  /// 顶部 banner 点击:弹出成员切换器(家庭多成员)。
+  Future<void> _showProfileSwitcher() async {
+    await ProfileManager.instance.ensureLoaded();
+    final members = ProfileManager.instance.members;
+    final current = ProfileManager.instance.current;
+    if (!mounted) return;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '切换成员',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+            for (final m in members)
+              ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: MedMe.tealSoft,
+                  child: Text(
+                    m.isNotEmpty ? m[0] : '?',
+                    style: const TextStyle(
+                      color: MedMe.teal,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                title: Text(
+                  m,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                trailing: m == current
+                    ? const Icon(Icons.check, color: MedMe.teal)
+                    : null,
+                onTap: () => Navigator.of(context).pop('member:$m'),
+              ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.person_add_alt, color: MedMe.teal),
+              title: const Text('添加成员'),
+              onTap: () => Navigator.of(context).pop('add'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !mounted) return;
+    if (action == 'add') {
+      await _addMember();
+    } else if (action.startsWith('member:')) {
+      final name = action.substring('member:'.length);
+      if (name != current) {
+        await switchProfileAndReopen(name);
+        if (mounted) setState(() {});
+      }
+    }
+  }
+
+  Future<void> _addMember() async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('添加成员'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: '成员名字(如:妈妈、爸爸)'),
+          onSubmitted: (v) => Navigator.of(context).pop(v),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text),
+            child: const Text('创建'),
+          ),
+        ],
+      ),
+    );
+    if (name == null || name.trim().isEmpty || !mounted) return;
+    await createProfileAndReopen(name.trim());
+    if (mounted) setState(() {});
+  }
+
   Future<void> _refresh() async {
     final next = _load();
     setState(() => _future = next);
@@ -247,7 +345,11 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
-                _PatientHeader(profile: profile),
+                _PatientHeader(
+                  profile: profile,
+                  memberName: ProfileManager.instance.current,
+                  onTap: _showProfileSwitcher,
+                ),
                 const SizedBox(height: 20),
                 if (unreviewed.isNotEmpty) ...[
                   _NewImportsSection(
@@ -291,62 +393,90 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
 /// 患者头卡:姓名 / 性别·年龄 / 记录数,字段可空一律优雅缺省。
 class _PatientHeader extends StatelessWidget {
   final PatientProfileDto profile;
-  const _PatientHeader({required this.profile});
+  final String memberName;
+  final VoidCallback onTap;
+  const _PatientHeader({
+    required this.profile,
+    required this.memberName,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final initial = (profile.name?.isNotEmpty ?? false)
-        ? profile.name![0]
-        : '我';
+    final initial = memberName.isNotEmpty ? memberName[0] : '我';
     final subParts = [
       profile.gender,
       profile.age,
     ].whereType<String>().where((s) => s.isNotEmpty).toList();
     subParts.add('${profile.recordCount} 份记录');
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: MedMe.panel,
+    return Material(
+      color: MedMe.panel,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap, // 点顶部切换成员(家庭多成员)
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: MedMe.line),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 26,
-            backgroundColor: MedMe.tealSoft,
-            child: Text(
-              initial,
-              style: const TextStyle(
-                color: MedMe.teal,
-                fontWeight: FontWeight.w700,
-                fontSize: 18,
-              ),
-            ),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: MedMe.line),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  profile.name ?? '我的健康档案',
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 26,
+                backgroundColor: MedMe.tealSoft,
+                child: Text(
+                  initial,
                   style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    color: MedMe.ink,
+                    color: MedMe.teal,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  subParts.join(' · '),
-                  style: const TextStyle(fontSize: 12.5, color: MedMe.faint),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            memberName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: MedMe.ink,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.unfold_more,
+                          size: 18,
+                          color: MedMe.faint,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subParts.join(' · '),
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: MedMe.faint,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
