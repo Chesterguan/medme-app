@@ -19,8 +19,8 @@ serde_json = { workspace = true }
 sha2.workspace = true
 chrono.workspace = true
 base64 = "0.22"
-aes-gcm = "0.10"
-rand = "0.8"
+aes-gcm = "0.11"
+rand = "0.10"
 
 [dev-dependencies]
 tempfile = { workspace = true }

@@ -7,20 +7,20 @@ members = ["packages/core-model", "packages/parser", "packages/terminology", "pa
 exclude = ["apps/mobile_flutter/rust"]
 
 [workspace.dependencies]
-rusqlite = { version = "0.32", features = ["bundled"] }
-sha2 = "0.10"
-hmac = "0.12"
+rusqlite = { version = "0.40", features = ["bundled"] }
+sha2 = "0.11"
+hmac = "0.13"
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2"
 anyhow = "1"
-jieba-rs = "0.7"
+jieba-rs = "0.10"
 pdf-extract = "0.12"
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tempfile = "3"
 regex = "1"
-lopdf = "0.43"
+lopdf = "0.44"
 
 [profile.release]
 # Strip symbols from release binaries/.so's — the main lever for a slim

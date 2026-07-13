@@ -11,7 +11,7 @@ edition = "2021"
 # binary -- no runtime download of the runtime. `auto-download` (fetching the OCR
 # *model* files into ~/.oar at run time) is split into its own feature below so
 # the Android build can keep the engine but ship models itself.
-oar-ocr = { version = "0.7.4", default-features = false, features = [
+oar-ocr = { version = "0.8.0", default-features = false, features = [
     "download-binaries",
     "simd",
 ], optional = true }
