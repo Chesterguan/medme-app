@@ -143,14 +143,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ),
-          _SectionLabel('iCloud 同步'),
+          _SectionLabel('iCloud 同步(实验性)'),
           _SettingsGroup(
             children: [
               _SettingsRow(
-                icon: Icons.cloud_off_outlined,
+                icon: (_icloud?.enabled ?? false)
+                    ? Icons.cloud_done_outlined
+                    : Icons.cloud_outlined,
                 title: 'iCloud 同步',
                 subtitle: _icloudSubtitle(_icloud),
-                trailing: Switch(value: false, onChanged: null),
+                trailing: Switch(
+                  value: _icloud?.enabled ?? false,
+                  onChanged: (_busy || _icloud == null || !_icloud!.available)
+                      ? null
+                      : _toggleIcloud,
+                ),
               ),
             ],
           ),
@@ -176,9 +183,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _icloudSubtitle(IcloudStatusDto? status) {
     if (status == null) return '正在查询…';
-    if (!status.available) return '此设备暂不可用,后续版本会支持一键开启同步';
-    if (!status.enabled) return '暂未开启,即将在后续版本支持';
-    return '已开启,自动同步到你的苹果设备';
+    if (!status.available) {
+      return '请先在系统「设置」登录 iCloud 并开启 iCloud 云盘,再回来开启同步';
+    }
+    if (!status.enabled) return '开启后病历会同步到你其它苹果设备(实验性,建议先备份)';
+    return '已开启,病历会自动同步到你的苹果设备';
+  }
+
+  Future<void> _toggleIcloud(bool want) async {
+    if (want) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('开启 iCloud 同步?'),
+          content: const Text(
+            '会把你的病历(真相数据)搬进本 App 的 iCloud 空间,在你登录同一 Apple ID 的'
+            '苹果设备间自动同步;数据库仍留在本机。\n\n这是实验性功能,建议先用「导出」备份一份。',
+            style: TextStyle(fontSize: 13.5, height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('开启'),
+            ),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      if (want) {
+        await enableIcloudSync();
+      } else {
+        await disableIcloudSync();
+      }
+      bumpVaultRevision(); // 保险箱已重开,通知档案屏刷新
+      await _refresh();
+      _showSnack(want ? '已开启 iCloud 同步' : '已关闭(本机保留一份副本)');
+    } catch (e) {
+      _showSnack('操作失败:$e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 }
 
