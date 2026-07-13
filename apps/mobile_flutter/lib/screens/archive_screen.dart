@@ -4,6 +4,7 @@ import 'package:mobile_flutter/src/rust/api/dto.dart';
 import 'package:mobile_flutter/src/rust/api/vault.dart';
 import 'package:mobile_flutter/theme.dart';
 import 'package:mobile_flutter/screens/document_detail.dart';
+import 'package:mobile_flutter/vault_events.dart';
 
 /// 底部导航一级 tab「健康档案」—— 生命时间线:就诊组 + 独立文档,按日期倒序,
 /// 点开看详情。与旧 Tauri 移动端 App.tsx 的 archive tab(phead + tl)同一观感,
@@ -122,6 +123,23 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
   late Future<(PatientProfileDto, List<TimelineGroupDto>)> _future = _load();
   // 就诊组在时间线里点开时展开其子文档(可再点开各自详情)。
   final Set<int> _expanded = {};
+
+  @override
+  void initState() {
+    super.initState();
+    // 导入/清空/载入示例后自动重载(本屏在 IndexedStack 里保活,initState 不会重跑)。
+    vaultRevision.addListener(_onVaultChanged);
+  }
+
+  @override
+  void dispose() {
+    vaultRevision.removeListener(_onVaultChanged);
+    super.dispose();
+  }
+
+  void _onVaultChanged() {
+    if (mounted) _refresh();
+  }
 
   Future<(PatientProfileDto, List<TimelineGroupDto>)> _load() async {
     final results = await Future.wait([patientProfile(), loadArchive()]);

@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:mobile_flutter/src/rust/api/dto.dart';
 import 'package:mobile_flutter/src/rust/api/vault.dart';
 import 'package:mobile_flutter/theme.dart';
+import 'package:mobile_flutter/vault_events.dart';
 
 /// 与 `pubspec.yaml` 的 `version:` 字段保持一致。P3 范围内没有为读版本号新增
 /// `package_info_plus` 依赖(约束里明确不加新依赖),手工同步即可——这颗
 /// 版本号本来就只在“关于”里给人看,不参与任何业务逻辑。
-const _appVersion = '1.0.0';
+const _appVersion = '1.2.0';
 
 /// 底部导航一级 tab「设置」—— 载入示例数据 / 清空重置 / iCloud 同步占位 / 关于。
 /// 分组卡片列表,视觉还原自 `apps/mobile/src/App.tsx` 的设置区(sect + group + row)。
@@ -31,6 +32,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _refresh();
+    // 导入/清空等在别的 tab 发生时,身份卡的记录数等也要跟着更新(本屏保活)。
+    vaultRevision.addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    vaultRevision.removeListener(_refresh);
+    super.dispose();
   }
 
   Future<void> _refresh() async {
@@ -55,6 +64,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _busy = true);
     try {
       final n = await loadDemoData();
+      bumpVaultRevision(); // 通知「健康档案」屏自动重载
       await _refresh();
       _showSnack('已载入 $n 份示例病历,去「健康档案」查看');
     } catch (e) {
@@ -91,6 +101,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _busy = true);
     try {
       await resetVault();
+      bumpVaultRevision(); // 通知「健康档案」屏自动清空重载
       await _refresh();
       _showSnack('已清空');
     } catch (e) {
@@ -107,6 +118,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
+          _SectionLabel('当前健康档案'),
+          _ProfileHeader(profile: _profile),
           _SectionLabel('示例数据'),
           _SettingsGroup(
             children: [
@@ -148,11 +161,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: 'MedMe 医我',
                 subtitle: 'v$_appVersion · 本地优先:你的病历只保存在你自己的设备上',
               ),
-              if (_profile != null)
-                _InfoRow(
-                  title: '已保存记录',
-                  subtitle: '${_profile!.recordCount} 份',
-                ),
               const _InfoRow(
                 title: '医疗免责声明',
                 subtitle:
@@ -171,6 +179,73 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!status.available) return '此设备暂不可用,后续版本会支持一键开启同步';
     if (!status.enabled) return '暂未开启,即将在后续版本支持';
     return '已开启,自动同步到你的苹果设备';
+  }
+}
+
+/// 身份卡:顶部醒目展示「这是谁的健康档案」——姓名 + 性别·年龄 + 记录数。
+/// 让用户清楚当前档案属于谁(为后续家庭多成员/共享方案铺路)。姓名等来自
+/// `patientProfile()`(据已导入病历推断);空库时给友好占位。
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({required this.profile});
+  final PatientProfileDto? profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = profile;
+    final rawName = p?.name;
+    final gender = p?.gender;
+    final age = p?.age;
+    final hasName = rawName != null && rawName.isNotEmpty;
+    final hasRecords = p != null && p.recordCount > 0;
+    final name = hasName ? rawName : (hasRecords ? '未命名档案' : '还没有健康档案');
+    final meta = <String>[
+      if (gender != null && gender.isNotEmpty) gender,
+      if (age != null && age.isNotEmpty) age,
+      if (p != null) '${p.recordCount} 份记录',
+    ].join(' · ');
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 26,
+              backgroundColor: MedMe.tealSoft,
+              child: const Icon(Icons.person, color: MedMe.teal, size: 30),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: MedMe.ink,
+                    ),
+                  ),
+                  if (meta.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      meta,
+                      style: const TextStyle(fontSize: 13, color: MedMe.faint),
+                    ),
+                  ],
+                  const SizedBox(height: 6),
+                  const Text(
+                    '当前设备上的这份档案 · 多成员切换即将支持',
+                    style: TextStyle(fontSize: 11.5, color: MedMe.faint),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

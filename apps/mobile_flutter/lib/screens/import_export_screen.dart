@@ -11,6 +11,7 @@ import 'package:mobile_flutter/screens/import_helpers.dart';
 import 'package:mobile_flutter/src/rust/api/dto.dart';
 import 'package:mobile_flutter/src/rust/api/vault.dart';
 import 'package:mobile_flutter/theme.dart';
+import 'package:mobile_flutter/vault_events.dart';
 
 /// 底部导航一级 tab「导入导出」——采集(拍照 / 相册 / 选文件)+
 /// 导出(时间线 HTML)/ 加密分享给医生。保险箱在 `main.dart` 启动时已打开,
@@ -73,6 +74,17 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
   /// 图片先用 ML Kit 中文 OCR 识别文字,再连同字节交给 `ingestImageWithText`;
   /// PDF/TXT 直传字节给 `ingestBytes`(按原始文件名后缀判 MIME)。单份文件
   /// 处理失败不影响其余文件继续导入。
+  /// iOS 的分享面板(尤其 iPad)必须知道从哪个位置弹出(popover 锚点矩形),
+  /// 否则 `SharePlus` 抛 `argument must be set {{0,0},{0,0}} must be non-zero`。
+  /// 用本屏的渲染框作锚点,保证是非零矩形。
+  Rect _shareOrigin() {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box != null && box.hasSize && !box.size.isEmpty) {
+      return box.localToGlobal(Offset.zero) & box.size;
+    }
+    return const Rect.fromLTWH(0, 0, 1, 1);
+  }
+
   Future<void> _importItems(List<PendingImport> items) async {
     setState(() {
       _busy = true;
@@ -110,6 +122,11 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
       }
     }
     await recognizer?.close();
+
+    // 有任何一份成功落库(新增或降级存档),通知「健康档案」屏自动刷新看到新记录。
+    if (rows.any((r) => r.kind != ImportRowKind.failed)) {
+      bumpVaultRevision();
+    }
 
     if (!mounted) return;
     setState(() {
@@ -244,7 +261,11 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
         _progress = null;
       });
       await SharePlus.instance.share(
-        ShareParams(files: [XFile(result.path)], subject: 'MedMe 病历时间线导出'),
+        ShareParams(
+          files: [XFile(result.path)],
+          subject: 'MedMe 病历时间线导出',
+          sharePositionOrigin: _shareOrigin(),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -412,7 +433,11 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
             label: const Text('分享文件'),
             onPressed: () async {
               await SharePlus.instance.share(
-                ShareParams(files: [XFile(result.path)], subject: 'MedMe 加密病历'),
+                ShareParams(
+                  files: [XFile(result.path)],
+                  subject: 'MedMe 加密病历',
+                  sharePositionOrigin: _shareOrigin(),
+                ),
               );
             },
           ),
