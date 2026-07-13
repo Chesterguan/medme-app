@@ -158,10 +158,12 @@ bool _isDataRow(String line) {
 
 LabFlag? _rowStatus(List<String> cells) {
   final j = cells.join(' ');
-  if (cells.contains('↑') || RegExp(r'↑|偏高|升高').hasMatch(j))
+  if (cells.contains('↑') || RegExp(r'↑|偏高|升高').hasMatch(j)) {
     return LabFlag.high;
-  if (cells.contains('↓') || RegExp(r'↓|偏低|降低|减低').hasMatch(j))
+  }
+  if (cells.contains('↓') || RegExp(r'↓|偏低|降低|减低').hasMatch(j)) {
     return LabFlag.low;
+  }
   if (j.contains('正常')) return LabFlag.normal;
   return null;
 }
