@@ -6,6 +6,7 @@ import 'package:pdfx/pdfx.dart';
 import 'package:mobile_flutter/src/rust/api/dto.dart';
 import 'package:mobile_flutter/src/rust/api/vault.dart';
 import 'package:mobile_flutter/theme.dart';
+import 'package:mobile_flutter/vault_events.dart';
 import 'package:mobile_flutter/widgets/report_content.dart';
 
 // doc_type → 中文标签,与 archive_screen.dart 保持同一份映射(桌面/旧移动端
@@ -42,10 +43,53 @@ class DocumentDetailScreen extends StatefulWidget {
 class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
   late final Future<DocumentDetailDto> _future = getDocument(id: widget.docId);
 
+  /// 删除这份文档:确认 → FFI 删除 → 通知档案刷新 → 退回上一屏。
+  Future<void> _delete() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除这份记录?'),
+        content: const Text('将从健康档案移除,此操作不可撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: MedMe.danger),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await deleteDocument(documentId: widget.docId);
+      bumpVaultRevision();
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('删除失败:$e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('文档详情')),
+      appBar: AppBar(
+        title: const Text('文档详情'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: '删除',
+            onPressed: _delete,
+          ),
+        ],
+      ),
       body: FutureBuilder<DocumentDetailDto>(
         future: _future,
         builder: (context, snap) {

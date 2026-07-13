@@ -564,6 +564,30 @@ fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<ApplyOu
                 rusqlite::params![study_uid, document_id],
             )?;
         }
+        // 删除文档:按锚点 source_file 内容哈希定位当前库里的文档,移除其派生行
+        // (FTS / ocr_result / imaging_instance / document)。source_file 与 CAS 对象
+        // 保留(Raw Never Dies)。目标不在库里(已删,或 add 尚未同步)→ **no-op**,
+        // 绝不 defer —— 一条悬空删除若 defer 会永久卡住该设备段的后续事件。encounter
+        // 是二次派生,由调用方随后 rebuild_encounters 重算。
+        Event::DocumentDeleted {
+            source_file_hash,
+            deleted_at: _,
+        } => {
+            let document_id: Option<i64> = tx
+                .query_row(
+                    "SELECT d.id FROM document d JOIN source_file sf ON d.source_file_id = sf.id
+                     WHERE sf.content_hash = ?1",
+                    [source_file_hash],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            if let Some(id) = document_id {
+                tx.execute("DELETE FROM document_fts WHERE document_id = ?1", [id])?;
+                tx.execute("DELETE FROM ocr_result WHERE document_id = ?1", [id])?;
+                tx.execute("DELETE FROM imaging_instance WHERE document_id = ?1", [id])?;
+                tx.execute("DELETE FROM document WHERE id = ?1", [id])?;
+            }
+        }
         // 审计事件:纯粹的日志留痕(见 crate::audit),对 DB 投影是 no-op —— 不
         // 建任何表行,`rebuild_from_log` 重放时必须能安全跳过而不报错。
         Event::ExportPerformed { .. } | Event::ShareCreated { .. } => {}
@@ -1045,6 +1069,47 @@ mod tests {
             2,
             "deferred page recovered — not stranded by the higher-seq event"
         );
+    }
+
+    /// Deleting a document removes its derived rows (document/ocr/FTS) but keeps
+    /// the raw source_file (CAS), and the deletion — being a logged event —
+    /// survives a full rebuild-from-log (it doesn't resurrect).
+    #[test]
+    fn delete_document_removes_projection_keeps_raw_and_survives_rebuild() {
+        let dir = tempfile::tempdir().unwrap();
+        seed_doc(dir.path(), "del.txt", "DeleteMeNeedle");
+        let v = Vault::open(dir.path()).unwrap();
+        assert_eq!(v.debug_count("document"), 1);
+        let doc_id: i64 = v
+            .conn()
+            .query_row("SELECT id FROM document LIMIT 1", [], |r| r.get(0))
+            .unwrap();
+
+        v.delete_document(doc_id).unwrap();
+        assert_eq!(v.debug_count("document"), 0, "doc projection removed");
+        assert_eq!(v.debug_count("ocr_result"), 0, "its OCR removed");
+        assert_eq!(
+            v.search("DeleteMeNeedle", 10).unwrap().len(),
+            0,
+            "gone from full-text search"
+        );
+        assert_eq!(
+            v.debug_count("source_file"),
+            1,
+            "raw source_file retained (Raw Never Dies)"
+        );
+
+        // The delete is a logged event → a full rebuild replays add-then-delete
+        // and the doc stays gone (no resurrection).
+        v.rebuild_from_log().unwrap();
+        assert_eq!(
+            v.debug_count("document"),
+            0,
+            "still deleted after rebuild-from-log"
+        );
+
+        // Deleting a non-existent doc id is a harmless no-op.
+        v.delete_document(9999).unwrap();
     }
 
     // ---- hardening: forged / dangling references + malformed hashes ---------

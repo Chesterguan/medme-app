@@ -88,6 +88,14 @@ pub enum Event {
         sha256: String,
         expires: String,
     },
+    /// 删除一份文档(用户在 UI 里移除)。按锚点 source_file 的**内容哈希**引用,脱库
+    /// 重放稳定(不用 DB 自增 id)。materialize 时移除该文档的派生行
+    /// (document / ocr_result / imaging_instance / FTS);**原始字节留在 CAS 不动**
+    /// —— Raw Never Dies + 同步安全,删除只是墓碑。删除作为事件同步,各端重放后一致。
+    DocumentDeleted {
+        source_file_hash: String,
+        deleted_at: String,
+    },
 }
 
 /// One line in the append-only log: an `Event` plus the envelope needed for

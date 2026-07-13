@@ -90,6 +90,13 @@ impl Vault {
                     format!("{record_count} 条记录 · 有效期至 {expires}"),
                     Some(sha256.clone()),
                 ),
+                Event::DocumentDeleted {
+                    source_file_hash, ..
+                } => (
+                    "删除",
+                    "移除一份文档".to_string(),
+                    Some(source_file_hash.clone()),
+                ),
                 Event::DocumentAdded { .. }
                 | Event::OcrAdded { .. }
                 | Event::ImagingInstanceAdded { .. } => continue,

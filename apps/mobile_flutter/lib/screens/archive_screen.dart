@@ -186,6 +186,49 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
     if (mounted) setState(() {});
   }
 
+  /// 删除前确认(销毁性操作)。返回用户是否确认。
+  Future<bool> _confirmDelete(String what) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除这份记录?'),
+        content: Text('「$what」将从健康档案移除,此操作不可撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: MedMe.danger),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
+  }
+
+  /// 删除一份文档:调 FFI(追加删除事件 + 重放),清掉可能的「待确认」标记,刷新档案。
+  Future<void> _delete(int docId) async {
+    try {
+      await deleteDocument(documentId: docId);
+      await ReviewState.instance.markReviewed(docId);
+      bumpVaultRevision();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('删除失败:$e')));
+      }
+    }
+  }
+
+  /// 确认后删除(供 review 卡按钮 / 时间线左滑复用)。
+  Future<void> _confirmAndDelete(int docId, String label) async {
+    if (await _confirmDelete(label)) await _delete(docId);
+  }
+
   /// 顶部 banner 点击:弹出成员切换器(家庭多成员)。
   Future<void> _showProfileSwitcher() async {
     await ProfileManager.instance.ensureLoaded();
@@ -364,6 +407,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
                     onReview: _review,
                     onReviewAll: () => _reviewAll(unreviewed.map((d) => d.id)),
                     onOpen: _openDoc,
+                    onDelete: _confirmAndDelete,
                   ),
                   const SizedBox(height: 20),
                 ],
@@ -386,6 +430,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
                         }
                       },
                       onOpenSubDoc: _openDoc,
+                      onDelete: _confirmAndDelete,
                     ),
                   ],
               ],
@@ -522,17 +567,30 @@ class _EmptyState extends StatelessWidget {
 }
 
 /// 时间线一项:就诊组(可展开子文档)或独立文档。
+/// 时间线/待确认项左滑删除时的红底背景(靠右露出删除图标),Outlook 邮件式。
+Widget swipeDeleteBackground() => Container(
+  alignment: Alignment.centerRight,
+  padding: const EdgeInsets.symmetric(horizontal: 20),
+  decoration: BoxDecoration(
+    color: MedMe.danger,
+    borderRadius: BorderRadius.circular(14),
+  ),
+  child: const Icon(Icons.delete_outline, color: Colors.white),
+);
+
 class _TimelineItem extends StatelessWidget {
   final TimelineGroupDto group;
   final bool expanded;
   final VoidCallback onTap;
   final void Function(int docId) onOpenSubDoc;
+  final Future<void> Function(int docId, String label) onDelete;
 
   const _TimelineItem({
     required this.group,
     required this.expanded,
     required this.onTap,
     required this.onOpenSubDoc,
+    required this.onDelete,
   });
 
   @override
@@ -550,7 +608,7 @@ class _TimelineItem extends StatelessWidget {
       TimelineGroupDto_Document(:final doc) => _iconForDoc(doc.docType),
     };
 
-    return Container(
+    final Widget card = Container(
       decoration: BoxDecoration(
         color: MedMe.panel,
         borderRadius: BorderRadius.circular(14),
@@ -629,27 +687,56 @@ class _TimelineItem extends StatelessWidget {
               TimelineGroupDto_Encounter(:final docs) => _SubDocList(
                 docs: docs,
                 onOpenSubDoc: onOpenSubDoc,
+                onDelete: onDelete,
               ),
               TimelineGroupDto_Document() => const SizedBox.shrink(),
             },
         ],
       ),
     );
+
+    // 独立文档项:左滑删除(Outlook 式)。就诊组不整组删——展开后删组内单份。
+    if (group case TimelineGroupDto_Document(:final doc)) {
+      return Dismissible(
+        key: ValueKey('tl-doc-${doc.id}'),
+        direction: DismissDirection.endToStart,
+        background: swipeDeleteBackground(),
+        confirmDismiss: (_) async {
+          await onDelete(doc.id, _groupTitle(group));
+          return false; // 由数据重载移除,避免与 Dismissible 自身移除冲突
+        },
+        child: card,
+      );
+    }
+    return card;
   }
 }
 
 class _SubDocList extends StatelessWidget {
   final List<DocumentSummaryDto> docs;
   final void Function(int docId) onOpenSubDoc;
+  final Future<void> Function(int docId, String label) onDelete;
 
-  const _SubDocList({required this.docs, required this.onOpenSubDoc});
+  const _SubDocList({
+    required this.docs,
+    required this.onOpenSubDoc,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         for (final d in docs)
-          Container(
+          Dismissible(
+            key: ValueKey('sub-doc-${d.id}'),
+            direction: DismissDirection.endToStart,
+            background: swipeDeleteBackground(),
+            confirmDismiss: (_) async {
+              await onDelete(d.id, d.title ?? _docLabel[d.docType] ?? '记录');
+              return false;
+            },
+            child: Container(
             decoration: const BoxDecoration(
               border: Border(top: BorderSide(color: MedMe.line)),
             ),
@@ -695,6 +782,7 @@ class _SubDocList extends StatelessWidget {
                 ),
               ),
             ),
+            ),
           ),
       ],
     );
@@ -709,12 +797,14 @@ class _NewImportsSection extends StatelessWidget {
     required this.onReview,
     required this.onReviewAll,
     required this.onOpen,
+    required this.onDelete,
   });
 
   final List<DocumentSummaryDto> docs;
   final void Function(int docId) onReview;
   final VoidCallback onReviewAll;
   final void Function(int docId) onOpen;
+  final Future<void> Function(int docId, String label) onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -787,12 +877,29 @@ class _NewImportsSection extends StatelessWidget {
                         fontSize: 12.5,
                       ),
                     ),
-                    trailing: FilledButton(
-                      style: FilledButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      onPressed: () => onReview(d.id),
-                      child: const Text('确认'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            color: MedMe.danger,
+                          ),
+                          tooltip: '删除',
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () => onDelete(
+                            d.id,
+                            d.title ?? _docLabel[d.docType] ?? '记录',
+                          ),
+                        ),
+                        FilledButton(
+                          style: FilledButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: () => onReview(d.id),
+                          child: const Text('确认'),
+                        ),
+                      ],
                     ),
                     onTap: () => onOpen(d.id),
                   ),

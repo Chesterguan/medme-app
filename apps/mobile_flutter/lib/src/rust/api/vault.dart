@@ -54,6 +54,12 @@ Future<Uint8List> readSourceBytes({required PlatformInt64 id}) =>
 Future<Uint8List> renderDicomPng({required PlatformInt64 id}) =>
     RustLib.instance.api.crateApiVaultRenderDicomPng(id: id);
 
+/// 删除一份文档(用户在 review 队列 / 时间线 / 详情页移除)。追加 `DocumentDeleted`
+/// 事件 + 重放,原始字节留在 CAS(见 core-model `delete_document`)。文档不存在 = no-op。
+/// 前端删完 `bumpVaultRevision` 刷新即可。
+Future<void> deleteDocument({required PlatformInt64 documentId}) =>
+    RustLib.instance.api.crateApiVaultDeleteDocument(documentId: documentId);
+
 /// 患者档案头(姓名/性别/年龄/记录数)。与桌面/Tauri 移动端同构。
 Future<PatientProfileDto> patientProfile() =>
     RustLib.instance.api.crateApiVaultPatientProfile();

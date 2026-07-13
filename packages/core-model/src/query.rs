@@ -206,6 +206,31 @@ impl Vault {
             .next())
     }
 
+    /// 删除一份文档:追加 [`Event::DocumentDeleted`] 事件 → 重放 → 重算就诊分组。
+    /// **原始字节留在 CAS**(只移除派生投影,Raw Never Dies + 同步安全)。文档不存在
+    /// (已删)→ `Ok(())`(no-op)。删除作为事件同步,各端重放后一致。
+    pub fn delete_document(&self, doc_id: i64) -> Result<(), MedmeError> {
+        let source_file_hash: Option<String> = self
+            .conn()
+            .query_row(
+                "SELECT sf.content_hash FROM document d
+                 JOIN source_file sf ON d.source_file_id = sf.id WHERE d.id = ?1",
+                [doc_id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        let Some(hash) = source_file_hash else {
+            return Ok(()); // 已经不在了
+        };
+        self.append_event(crate::event::Event::DocumentDeleted {
+            source_file_hash: hash,
+            deleted_at: Self::now_rfc3339(),
+        })?;
+        self.materialize()?;
+        self.rebuild_encounters()?;
+        Ok(())
+    }
+
     pub fn rebuild_encounters(&self) -> Result<(), MedmeError> {
         use std::collections::HashSet;
         let tx = self.conn().unchecked_transaction()?;
