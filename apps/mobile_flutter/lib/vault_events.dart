@@ -10,3 +10,10 @@ final ValueNotifier<int> vaultRevision = ValueNotifier<int>(0);
 
 /// 保险箱内容变了(导入/清空/载入示例),通知所有监听屏重载。
 void bumpVaultRevision() => vaultRevision.value++;
+
+/// 当前底部一级 tab 下标(0=健康档案,1=导出分享,2=设置)。`HomeShell` 监听它
+/// 切换页面 —— 让「设置」里载入示例后能自动跳回「健康档案」,不用用户再手点。
+final ValueNotifier<int> selectedTab = ValueNotifier<int>(0);
+
+/// 跳到「健康档案」tab。
+void goToArchive() => selectedTab.value = 0;

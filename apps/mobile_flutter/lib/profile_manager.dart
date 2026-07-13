@@ -15,10 +15,19 @@ class ProfileManager {
   ProfileManager._();
   static final ProfileManager instance = ProfileManager._();
 
-  /// 当前成员变化时通知各屏重载(切换成员 = 重开保险箱)。
-  final ValueNotifier<String> currentMember = ValueNotifier<String>('我');
+  /// 保险箱默认名字(不用「我」这种身份词)。用户可在设置里改成「我家」「张建国的病历」等。
+  static const defaultVaultName = '我的医疗档案';
 
-  List<String> _members = const ['我'];
+  /// 当前成员变化时通知各屏重载(切换成员 = 重开保险箱)。
+  final ValueNotifier<String> currentMember = ValueNotifier<String>(
+    defaultVaultName,
+  );
+
+  List<String> _members = const [defaultVaultName];
+  // 整个保险箱的名字(家庭/个人层面,与「成员」是两回事);设置页展示 + 可改。
+  String _vaultName = defaultVaultName;
+  // 成员 → 最近一次已知记录数(档案屏加载时回填);设置页展示每人多少份,不必开各自库去数。
+  final Map<String, int> _counts = {};
   // 首个成员的名字是否仍是占位默认(未被用户/自动识别定过)。为 true 时,首次导入
   // 若从报告里识别到患者姓名,就把默认档案自动改成那个名字(见 [maybeAutoNameRoot])。
   bool _rootAutoNamed = true;
@@ -27,6 +36,15 @@ class ProfileManager {
 
   List<String> get members => List.unmodifiable(_members);
   String get current => currentMember.value;
+  String get vaultName => _vaultName;
+
+  /// 档案屏顶部展示名:只有一个、且还没被数据/用户命过名的默认成员时,显示保险箱名
+  /// (不把占位名露出来,彻底避开「我」);否则显示当前成员真名。
+  String get displayName =>
+      (_members.length == 1 && _rootAutoNamed) ? _vaultName : current;
+
+  /// 某成员最近已知记录数(没加载过为 null)。
+  int? countFor(String member) => _counts[member];
 
   Future<File> _stateFile() async {
     if (_file != null) return _file!;
@@ -49,6 +67,12 @@ class ProfileManager {
             ? cur
             : _members.first;
         _rootAutoNamed = json['rootAutoNamed'] as bool? ?? false;
+        _vaultName = json['vaultName'] as String? ?? defaultVaultName;
+        final counts = json['counts'] as Map<String, dynamic>?;
+        if (counts != null) {
+          _counts.clear();
+          counts.forEach((k, v) => _counts[k] = v as int);
+        }
       }
     } catch (_) {
       // 读坏了不致命:退回单成员「我」。
@@ -64,6 +88,8 @@ class ProfileManager {
           'members': _members,
           'current': current,
           'rootAutoNamed': _rootAutoNamed,
+          'vaultName': _vaultName,
+          'counts': _counts,
         }),
       );
     } catch (_) {}
@@ -103,11 +129,30 @@ class ProfileManager {
       await _save();
       return null;
     }
+    final old = _members.first;
+    if (_counts.remove(old) case final n?) _counts[name] = n;
     _members = [name];
     _rootAutoNamed = false;
     currentMember.value = name;
     await _save();
     return name;
+  }
+
+  /// 改保险箱名字(设置页)。空或没变则忽略。
+  Future<void> setVaultName(String name) async {
+    await ensureLoaded();
+    final t = name.trim();
+    if (t.isEmpty || t == _vaultName) return;
+    _vaultName = t;
+    await _save();
+  }
+
+  /// 回填某成员的记录数(档案屏加载时调),供设置页展示每人多少份。
+  Future<void> setCount(String member, int n) async {
+    await ensureLoaded();
+    if (_counts[member] == n) return;
+    _counts[member] = n;
+    await _save();
   }
 
   // ---- 路径组合(第一个成员用原位置,其余用子文件夹)----

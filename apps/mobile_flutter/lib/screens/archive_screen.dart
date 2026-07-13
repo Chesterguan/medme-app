@@ -165,6 +165,13 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
     final groups = results[1] as List<TimelineGroupDto>;
     // 载入「待确认」集(build 里同步判断 isPending 前要先加载好)。
     await ReviewState.instance.ensureLoaded();
+    // 兜底自动命名:示例数据等不走导入流程的路径,也能把默认档案改成识别到的姓名。
+    await autoNameCurrentProfileFrom(profile.name);
+    // 回填当前成员记录数,设置页据此展示每人多少份(不必逐个开库去数)。
+    await ProfileManager.instance.setCount(
+      ProfileManager.instance.current,
+      profile.recordCount,
+    );
     return (profile, groups);
   }
 
@@ -347,7 +354,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
               children: [
                 _PatientHeader(
                   profile: profile,
-                  memberName: ProfileManager.instance.current,
+                  memberName: ProfileManager.instance.displayName,
                   onTap: _showProfileSwitcher,
                 ),
                 const SizedBox(height: 20),
