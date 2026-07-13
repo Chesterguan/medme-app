@@ -534,7 +534,7 @@ class _PatientHeader extends StatelessWidget {
   }
 }
 
-/// 空态引导:没有记录时提示去「导入导出」或「设置」载入示例数据。
+/// 空态引导:没有记录时提示点右上角「导入」,或去「设置」载入示例数据。
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
 
@@ -556,7 +556,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            '去「导入导出」拍照或选择文件添加,\n或在「设置」里载入示例数据试试看',
+            '点右上角「导入」拍照或选择文件添加,\n或在「设置」里载入示例数据试试看',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 13, color: MedMe.faint, height: 1.6),
           ),

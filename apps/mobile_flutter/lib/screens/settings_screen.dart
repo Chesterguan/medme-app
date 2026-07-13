@@ -3,6 +3,7 @@ import 'package:mobile_flutter/src/rust/api/dto.dart';
 import 'package:mobile_flutter/src/rust/api/vault.dart';
 import 'package:mobile_flutter/theme.dart';
 import 'package:mobile_flutter/vault_events.dart';
+import 'package:mobile_flutter/vault_boot.dart';
 import 'package:mobile_flutter/profile_manager.dart';
 import 'package:mobile_flutter/icloud_bridge.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -92,10 +93,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('清空保险箱?'),
+        title: const Text('清空所有数据?'),
         content: const Text(
-          '确定清空全部记录?示例数据和已导入的病历都会被删除,'
-          '此操作不可撤销。',
+          '确定清空全部记录?所有成员的示例数据和已导入病历都会被删除,'
+          '保险箱恢复到初始状态,此操作不可撤销。',
         ),
         actions: [
           TextButton(
@@ -114,8 +115,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     setState(() => _busy = true);
     try {
-      await resetVault();
-      bumpVaultRevision(); // 通知「健康档案」屏自动清空重载
+      await wipeAllData(); // 全清:所有成员 vault + 份数缓存 + 待确认 + 恢复出厂
       await _refresh();
       _showSnack('已清空');
     } catch (e) {

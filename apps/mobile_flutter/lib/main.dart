@@ -94,8 +94,8 @@ class _VaultBootstrapState extends State<VaultBootstrap> {
   }
 }
 
-/// 底部导航壳:三个一级 tab —— 导入导出 / 健康档案 / 设置。
-/// 「导入导出」按用户要求提升为一级 tab(不埋设置里),后续导出维度会变多。
+/// 底部导航壳:三个一级 tab —— 健康档案 / 导出分享 / 设置。
+/// 导入入口在「健康档案」页右上角「导入」按钮(不是独立 tab);导出/分享独立成一级 tab。
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
   @override

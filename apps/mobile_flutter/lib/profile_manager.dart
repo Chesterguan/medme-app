@@ -155,6 +155,17 @@ class ProfileManager {
     await _save();
   }
 
+  /// 恢复出厂:成员表清回单一默认(root)、清份数缓存、保险箱名回默认、允许自动命名。
+  /// 「清空所有数据」调它(配合删各 profile 的 vault 目录),而不是只清当前 profile。
+  Future<void> factoryReset() async {
+    _members = const [defaultVaultName];
+    _vaultName = defaultVaultName;
+    _counts.clear();
+    _rootAutoNamed = true;
+    currentMember.value = defaultVaultName;
+    await _save();
+  }
+
   // ---- 路径组合(第一个成员用原位置,其余用子文件夹)----
 
   bool _isRoot(String name) => _members.isNotEmpty && name == _members.first;
