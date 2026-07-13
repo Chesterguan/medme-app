@@ -194,8 +194,9 @@ impl Vault {
     }
 
     /// Look up the (unique, per v0.1) document for a source file — used by
-    /// `add_document` to return the materialized row after appending its event.
-    pub(crate) fn document_by_source_file_id(
+    /// `add_document` to return the materialized row after appending its event,
+    /// and by the mobile FFI to report the ingested document id (review queue).
+    pub fn document_by_source_file_id(
         &self,
         source_file_id: i64,
     ) -> Result<Option<Document>, MedmeError> {

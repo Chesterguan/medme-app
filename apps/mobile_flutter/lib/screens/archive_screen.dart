@@ -161,10 +161,8 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
     final results = await Future.wait([patientProfile(), loadArchive()]);
     final profile = results[0] as PatientProfileDto;
     final groups = results[1] as List<TimelineGroupDto>;
-    // 首次运行把现有记录设为「已审」基线——之后的新导入才会被标「待确认」。
-    await ReviewState.instance.ensureBaseline(
-      _allDocs(groups).map((d) => d.id).toList(),
-    );
+    // 载入「待确认」集(build 里同步判断 isPending 前要先加载好)。
+    await ReviewState.instance.ensureLoaded();
     return (profile, groups);
   }
 
@@ -236,11 +234,11 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
           }
 
           final (profile, groups) = snap.data!;
-          // 新导入(未审核)的文档:置顶「待确认」,新的(id 大)在前。
+          // 新导入(待确认)的文档:置顶,新的(id 大)在前。
           final unreviewed =
               _allDocs(
                   groups,
-                ).where((d) => ReviewState.instance.isNew(d.id)).toList()
+                ).where((d) => ReviewState.instance.isPending(d.id)).toList()
                 ..sort((a, b) => b.id.compareTo(a.id));
           return RefreshIndicator(
             onRefresh: _refresh,

@@ -193,11 +193,16 @@ class ImportOutcomeDto {
   final String status;
   final String? docType;
 
+  /// 本次采集落库的文档 id(前端「待确认」review 队列据此显式标记新导入)。
+  /// 去重/失败等没建文档的情况为 None。
+  final PlatformInt64? documentId;
+
   const ImportOutcomeDto({
     required this.name,
     required this.sourceFileId,
     required this.status,
     this.docType,
+    this.documentId,
   });
 
   @override
@@ -205,7 +210,8 @@ class ImportOutcomeDto {
       name.hashCode ^
       sourceFileId.hashCode ^
       status.hashCode ^
-      docType.hashCode;
+      docType.hashCode ^
+      documentId.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -215,7 +221,8 @@ class ImportOutcomeDto {
           name == other.name &&
           sourceFileId == other.sourceFileId &&
           status == other.status &&
-          docType == other.docType;
+          docType == other.docType &&
+          documentId == other.documentId;
 }
 
 class PatientProfileDto {

@@ -10,6 +10,7 @@ import 'package:mobile_flutter/src/rust/api/dto.dart';
 import 'package:mobile_flutter/src/rust/api/vault.dart';
 import 'package:mobile_flutter/theme.dart';
 import 'package:mobile_flutter/vault_events.dart';
+import 'package:mobile_flutter/review_state.dart';
 
 /// 「健康档案」右上角「+ 导入」触发的采集流程:弹三选一(拍照 / 相册 / 选文件),
 /// 选定后逐个采集→(图片先 ML Kit 中文 OCR)→落库,期间显示进度对话框,结束弹汇总,
@@ -126,6 +127,7 @@ Future<void> _runImport(BuildContext context, List<PendingImport> items) async {
 
   TextRecognizer? recognizer;
   final rows = <ImportResultRow>[];
+  final newDocIds = <int>[]; // 本次新建的文档 id → 加入「待确认」队列
   for (var i = 0; i < items.length; i++) {
     final item = items[i];
     progress.value = '正在导入 ${i + 1}/${items.length}…';
@@ -147,6 +149,7 @@ Future<void> _runImport(BuildContext context, List<PendingImport> items) async {
         final bytes = await File(item.path).readAsBytes();
         outcome = await ingestBytes(filename: item.name, data: bytes);
       }
+      if (outcome.documentId case final id?) newDocIds.add(id);
       rows.add(rowFromOutcome(outcome));
     } catch (e) {
       rows.add(rowFromError(item.name, e));
@@ -154,6 +157,10 @@ Future<void> _runImport(BuildContext context, List<PendingImport> items) async {
   }
   await recognizer?.close();
 
+  // 本次新建的文档显式加入「待确认」队列(健康档案顶部据此置顶让用户核对)。
+  if (newDocIds.isNotEmpty) {
+    await ReviewState.instance.markPending(newDocIds);
+  }
   // 有任一份成功落库,通知「健康档案」屏自动刷新。
   if (rows.any((r) => r.kind != ImportRowKind.failed)) {
     bumpVaultRevision();

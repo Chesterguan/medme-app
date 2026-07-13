@@ -858,11 +858,13 @@ impl SseDecode for crate::api::dto::ImportOutcomeDto {
         let mut var_sourceFileId = <i64>::sse_decode(deserializer);
         let mut var_status = <String>::sse_decode(deserializer);
         let mut var_docType = <Option<String>>::sse_decode(deserializer);
+        let mut var_documentId = <Option<i64>>::sse_decode(deserializer);
         return crate::api::dto::ImportOutcomeDto {
             name: var_name,
             source_file_id: var_sourceFileId,
             status: var_status,
             doc_type: var_docType,
+            document_id: var_documentId,
         };
     }
 }
@@ -934,6 +936,17 @@ impl SseDecode for Option<i32> {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<i32>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<i64> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<i64>::sse_decode(deserializer));
         } else {
             return None;
         }
@@ -1206,6 +1219,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::dto::ImportOutcomeDto {
             self.source_file_id.into_into_dart().into_dart(),
             self.status.into_into_dart().into_dart(),
             self.doc_type.into_into_dart().into_dart(),
+            self.document_id.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -1427,6 +1441,7 @@ impl SseEncode for crate::api::dto::ImportOutcomeDto {
         <i64>::sse_encode(self.source_file_id, serializer);
         <String>::sse_encode(self.status, serializer);
         <Option<String>>::sse_encode(self.doc_type, serializer);
+        <Option<i64>>::sse_encode(self.document_id, serializer);
     }
 }
 
@@ -1486,6 +1501,16 @@ impl SseEncode for Option<i32> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <i32>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<i64> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <i64>::sse_encode(value, serializer);
         }
     }
 }

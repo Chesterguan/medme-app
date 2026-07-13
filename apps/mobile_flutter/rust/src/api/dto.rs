@@ -121,6 +121,9 @@ pub struct ImportOutcomeDto {
     pub source_file_id: i64,
     pub status: String, // new|backfilled|deduped|stored_no_text|instance_attached|failed
     pub doc_type: Option<String>,
+    /// 本次采集落库的文档 id(前端「待确认」review 队列据此显式标记新导入)。
+    /// 去重/失败等没建文档的情况为 None。
+    pub document_id: Option<i64>,
 }
 
 /// 加密分享生成结果:口令(单独告知医生)、记录数、文件字节数、分享文件路径。

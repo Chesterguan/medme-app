@@ -321,11 +321,17 @@ fn ingest_one(v: &Vault, path: &Path) -> ImportOutcomeDto {
                 pipeline::IngestStatus::InstanceAttached => "instance_attached",
             }
             .to_string();
+            let document_id = v
+                .document_by_source_file_id(o.source_file_id)
+                .ok()
+                .flatten()
+                .map(|d| d.id);
             ImportOutcomeDto {
                 name: o.name,
                 source_file_id: o.source_file_id,
                 status,
                 doc_type: o.doc_type.map(|d| d.as_str().to_string()),
+                document_id,
             }
         }
         Err(e) => {
@@ -339,6 +345,7 @@ fn ingest_one(v: &Vault, path: &Path) -> ImportOutcomeDto {
                 source_file_id: 0,
                 status: "failed".to_string(),
                 doc_type: None,
+                document_id: None,
             }
         }
     }
@@ -449,6 +456,7 @@ pub fn ingest_image_with_text(
                 source_file_id: sid,
                 status: "deduped".to_string(),
                 doc_type: None,
+                document_id: None,
             }
         } else {
             let text = ocr_text.trim().to_string();
@@ -481,25 +489,28 @@ pub fn ingest_image_with_text(
                     source_file_id: sid,
                     status: status.to_string(),
                     doc_type: Some(doc_type.as_str().to_string()),
+                    document_id: Some(doc.id),
                 }
             } else {
                 let (doc_date, doc_date_end) = parser::guess_date_range(&safe_name);
                 let doc_type = parser::classify(&safe_name);
-                v.add_document(NewDocument {
-                    source_file_id: sid,
-                    doc_type: doc_type.clone(),
-                    doc_date,
-                    doc_date_end,
-                    title: Some(safe_name.clone()),
-                    language: None,
-                    page_count: 1,
-                })
-                .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+                let doc = v
+                    .add_document(NewDocument {
+                        source_file_id: sid,
+                        doc_type: doc_type.clone(),
+                        doc_date,
+                        doc_date_end,
+                        title: Some(safe_name.clone()),
+                        language: None,
+                        page_count: 1,
+                    })
+                    .map_err(|e| anyhow::anyhow!(e.to_string()))?;
                 ImportOutcomeDto {
                     name: safe_name.clone(),
                     source_file_id: sid,
                     status: "stored_no_text".to_string(),
                     doc_type: Some(doc_type.as_str().to_string()),
+                    document_id: Some(doc.id),
                 }
             }
         };
