@@ -122,6 +122,14 @@ class ReviewState {
     if (changed) await _save();
   }
 
+  /// 清空全部成员的待确认/标红状态(「清空所有数据」恢复出厂时调)。
+  Future<void> clearAll() async {
+    await ensureLoaded();
+    _byMember.clear();
+    _flagged.clear();
+    await _save();
+  }
+
   /// 成员改名(如默认档案被识别到的姓名自动重命名)时迁移其待确认/标红键。
   Future<void> renameMember(String from, String to) async {
     if (from == to) return;

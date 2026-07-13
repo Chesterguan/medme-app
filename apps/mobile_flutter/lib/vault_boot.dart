@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:path_provider/path_provider.dart';
 
 import 'package:mobile_flutter/src/rust/api/vault.dart';
@@ -28,6 +30,30 @@ Future<void> openCurrentProfileVault() async {
 Future<void> switchProfileAndReopen(String name) async {
   await ProfileManager.instance.switchTo(name);
   await openCurrentProfileVault();
+  bumpVaultRevision();
+}
+
+/// 「清空所有数据」= 恢复出厂:清**所有**成员的 vault(不只当前 profile)+ 份数缓存
+/// + 待确认状态,重置成单一默认档案。做法:先把注册表恢复出厂(current 回默认 root)、
+/// 重开 root vault 并 `resetVault` 清它,再删掉所有子成员(`profiles/`)的数据目录。
+Future<void> wipeAllData() async {
+  final docsRoot = (await getApplicationDocumentsDirectory()).path;
+  final containerRoot = await IcloudBridge.containerPath();
+
+  // 1. 注册表恢复出厂(current→默认 root)+ 清待确认。
+  await ProfileManager.instance.factoryReset();
+  await ReviewState.instance.clearAll();
+
+  // 2. 重开默认(root)vault → 活跃 vault = root;3. 清它(删目录+重开空)。
+  await openCurrentProfileVault();
+  await resetVault();
+
+  // 4. 删掉所有子成员的数据目录(它们没被打开,直接删)。root 已由 resetVault 清掉。
+  for (final root in [docsRoot, if (containerRoot != null) '$containerRoot/Documents']) {
+    final profiles = Directory('$root/profiles');
+    if (await profiles.exists()) await profiles.delete(recursive: true);
+  }
+
   bumpVaultRevision();
 }
 
