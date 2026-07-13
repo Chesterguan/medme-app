@@ -3,6 +3,7 @@ import 'package:mobile_flutter/src/rust/api/dto.dart';
 import 'package:mobile_flutter/src/rust/api/vault.dart';
 import 'package:mobile_flutter/theme.dart';
 import 'package:mobile_flutter/vault_events.dart';
+import 'package:mobile_flutter/profile_manager.dart';
 import 'package:mobile_flutter/icloud_bridge.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -76,9 +77,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _busy = true);
     try {
       final n = await loadDemoData();
-      bumpVaultRevision(); // 通知「健康档案」屏自动重载
+      bumpVaultRevision(); // 通知「健康档案」屏自动重载(并按识别姓名自动命名档案)
       await _refresh();
-      _showSnack('已载入 $n 份示例病历,去「健康档案」查看');
+      goToArchive(); // 载入完直接跳到「健康档案」,不用用户再手点
+      _showSnack('已载入 $n 份示例病历');
     } catch (e) {
       _showSnack('载入示例数据失败:$e');
     } finally {
@@ -130,8 +132,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
-          _SectionLabel('当前健康档案'),
-          _ProfileHeader(profile: _profile),
+          _SectionLabel('保险箱'),
+          _VaultCard(profile: _profile, onChanged: () => setState(() {})),
           _SectionLabel('示例数据'),
           _SettingsGroup(
             children: [
@@ -256,68 +258,101 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-/// 身份卡:顶部醒目展示「这是谁的健康档案」——姓名 + 性别·年龄 + 记录数。
-/// 让用户清楚当前档案属于谁(为后续家庭多成员/共享方案铺路)。姓名等来自
-/// `patientProfile()`(据已导入病历推断);空库时给友好占位。
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.profile});
+/// 保险箱卡:展示 + 可改**保险箱名字**(整个箱子的名字,不是某个人),多成员时列出
+/// 每位成员各有多少份档案。切换成员/导入/加成员都在「健康档案」页,这里不重复那些
+/// 功能——只做「这是哪个箱子、里面各人多少份」。名字默认「我的医疗档案」,不用「我」。
+class _VaultCard extends StatelessWidget {
+  const _VaultCard({required this.profile, required this.onChanged});
   final PatientProfileDto? profile;
+  final VoidCallback onChanged;
+
+  /// 当前成员用刚查到的最新记录数,其余成员用缓存(没加载过为 null)。
+  int? _countOf(String member) {
+    final pm = ProfileManager.instance;
+    if (member == pm.current && profile != null) return profile!.recordCount;
+    return pm.countFor(member);
+  }
+
+  Future<void> _rename(BuildContext context) async {
+    final pm = ProfileManager.instance;
+    final controller = TextEditingController(text: pm.vaultName);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('保险箱名字'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: '例如:我家、张建国的病历'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    if (name != null && name.trim().isNotEmpty) {
+      await pm.setVaultName(name);
+      onChanged();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final p = profile;
-    final rawName = p?.name;
-    final gender = p?.gender;
-    final age = p?.age;
-    final hasName = rawName != null && rawName.isNotEmpty;
-    final hasRecords = p != null && p.recordCount > 0;
-    final name = hasName ? rawName : (hasRecords ? '未命名档案' : '还没有健康档案');
-    final meta = <String>[
-      if (gender != null && gender.isNotEmpty) gender,
-      if (age != null && age.isNotEmpty) age,
-      if (p != null) '${p.recordCount} 份记录',
-    ].join(' · ');
-
+    final pm = ProfileManager.instance;
+    final members = pm.members;
+    final multi = members.length > 1;
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 26,
+      child: Column(
+        children: [
+          ListTile(
+            leading: const CircleAvatar(
+              radius: 24,
               backgroundColor: MedMe.tealSoft,
-              child: const Icon(Icons.person, color: MedMe.teal, size: 30),
+              child: Icon(Icons.folder_shared, color: MedMe.teal, size: 26),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: MedMe.ink,
+            title: Text(
+              pm.vaultName,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            subtitle: Text(
+              multi
+                  ? '${members.length} 位成员'
+                  : '${_countOf(pm.current) ?? 0} 份记录',
+              style: const TextStyle(color: MedMe.faint),
+            ),
+            trailing: IconButton(
+              icon: const Icon(Icons.edit_outlined, color: MedMe.faint),
+              tooltip: '改名字',
+              onPressed: () => _rename(context),
+            ),
+          ),
+          if (multi) ...[
+            const Divider(height: 1, color: MedMe.line),
+            for (final m in members)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(m, style: const TextStyle(fontSize: 14)),
                     ),
-                  ),
-                  if (meta.isNotEmpty) ...[
-                    const SizedBox(height: 4),
                     Text(
-                      meta,
-                      style: const TextStyle(fontSize: 13, color: MedMe.faint),
+                      _countOf(m) == null ? '—' : '${_countOf(m)} 份',
+                      style: const TextStyle(color: MedMe.faint, fontSize: 13),
                     ),
                   ],
-                  const SizedBox(height: 6),
-                  const Text(
-                    '当前设备上的这份档案 · 多成员切换即将支持',
-                    style: TextStyle(fontSize: 11.5, color: MedMe.faint),
-                  ),
-                ],
+                ),
               ),
-            ),
+            const SizedBox(height: 6),
           ],
-        ),
+        ],
       ),
     );
   }

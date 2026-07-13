@@ -11,7 +11,7 @@ import 'package:mobile_flutter/src/rust/api/vault.dart';
 import 'package:mobile_flutter/theme.dart';
 import 'package:mobile_flutter/vault_events.dart';
 import 'package:mobile_flutter/review_state.dart';
-import 'package:mobile_flutter/profile_manager.dart';
+import 'package:mobile_flutter/vault_boot.dart';
 
 /// 「健康档案」右上角「+ 导入」触发的采集流程:弹三选一(拍照 / 相册 / 选文件),
 /// 选定后逐个采集→(图片先 ML Kit 中文 OCR)→落库,期间显示进度对话框,结束弹汇总,
@@ -167,11 +167,7 @@ Future<void> _runImport(BuildContext context, List<PendingImport> items) async {
       (n) => n != null && n.trim().isNotEmpty,
       orElse: () => null,
     );
-    if (detected != null) {
-      final old = ProfileManager.instance.current;
-      final renamed = await ProfileManager.instance.maybeAutoNameRoot(detected);
-      if (renamed != null) await ReviewState.instance.renameMember(old, renamed);
-    }
+    await autoNameCurrentProfileFrom(detected);
     await ReviewState.instance.markPending(newDocs);
   }
   // 有任一份成功落库,通知「健康档案」屏自动刷新。

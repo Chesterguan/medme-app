@@ -6,6 +6,7 @@ import 'package:mobile_flutter/screens/archive_screen.dart';
 import 'package:mobile_flutter/screens/export_screen.dart';
 import 'package:mobile_flutter/screens/settings_screen.dart';
 import 'package:mobile_flutter/vault_boot.dart';
+import 'package:mobile_flutter/vault_events.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -109,12 +110,32 @@ class _HomeShellState extends State<HomeShell> {
   static const _screens = [ArchiveScreen(), ExportScreen(), SettingsScreen()];
 
   @override
+  void initState() {
+    super.initState();
+    // 别的屏(如设置载入示例后)可程序化切 tab。
+    selectedTab.addListener(_onTabRequested);
+  }
+
+  @override
+  void dispose() {
+    selectedTab.removeListener(_onTabRequested);
+    super.dispose();
+  }
+
+  void _onTabRequested() {
+    if (mounted && selectedTab.value != _index) {
+      setState(() => _index = selectedTab.value);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(index: _index, children: _screens),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        // 统一走 selectedTab:手点和程序化跳转(设置载入示例后)同一条路径。
+        onDestinationSelected: (i) => selectedTab.value = i,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.folder_outlined),
