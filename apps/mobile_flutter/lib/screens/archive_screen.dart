@@ -255,7 +255,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(hintText: '成员名字(如:妈妈、爸爸)'),
+          decoration: const InputDecoration(hintText: '输入姓名(家庭内唯一即可)'),
           onSubmitted: (v) => Navigator.of(context).pop(v),
         ),
         actions: [
