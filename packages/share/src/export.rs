@@ -156,7 +156,26 @@ pub fn build_timeline_html(
     vault: &Vault,
     render_dicom_png: crate::DicomPngRenderer,
 ) -> Result<(String, i64), String> {
-    let records = gather_records(vault)?;
+    build_timeline_html_ranged(vault, render_dicom_png, None, None)
+}
+
+/// 与 [`build_timeline_html`] 相同,但只导出 `doc_date` 落在 `[from, to]`(含端点)
+/// 区间内的记录。`from`/`to` 任一为 `None` 表示该侧不限;两者都为 `None` 即全量
+/// (等价于 [`build_timeline_html`])。**无 `doc_date` 的记录仅在完全不筛选时纳入**
+/// ——一旦指定了任一端点,无日期记录无法归入区间,予以排除(行为可预期)。
+pub fn build_timeline_html_ranged(
+    vault: &Vault,
+    render_dicom_png: crate::DicomPngRenderer,
+    from: Option<chrono::DateTime<chrono::Utc>>,
+    to: Option<chrono::DateTime<chrono::Utc>>,
+) -> Result<(String, i64), String> {
+    let records: Vec<GatheredRecord> = gather_records(vault)?
+        .into_iter()
+        .filter(|rec| match rec.doc.doc_date {
+            Some(d) => from.is_none_or(|f| d >= f) && to.is_none_or(|t| d <= t),
+            None => from.is_none() && to.is_none(),
+        })
+        .collect();
     let profile = pipeline::patient_profile(vault).map_err(|e| e.to_string())?;
 
     let mut body = String::new();
@@ -306,6 +325,49 @@ mod tests {
         assert!(html.contains("化验")); // 类型徽标
         assert!(html.contains("本导出由 MedMe 生成"));
         assert!(html.starts_with("<!doctype html>"));
+    }
+
+    #[test]
+    fn ranged_export_filters_by_doc_date() {
+        use chrono::TimeZone;
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Vault::open(dir.path()).unwrap();
+        let mk = |name: &str, date: Option<chrono::DateTime<chrono::Utc>>| {
+            let imp = vault.import(name, "text/plain", name.as_bytes()).unwrap();
+            vault
+                .add_document(NewDocument {
+                    source_file_id: imp.source_file.id,
+                    doc_type: DocType::LabReport,
+                    doc_date: date,
+                    doc_date_end: None,
+                    title: Some(name.into()),
+                    language: None,
+                    page_count: 1,
+                })
+                .unwrap();
+        };
+        let d = |y, m, day| chrono::Utc.with_ymd_and_hms(y, m, day, 12, 0, 0).unwrap();
+        mk("old.txt", Some(d(2020, 1, 1)));
+        mk("mid.txt", Some(d(2023, 6, 15)));
+        mk("new.txt", Some(d(2025, 1, 1)));
+        mk("nodate.txt", None);
+
+        let r = &crate::render_dicom_png_in_process;
+        // 全量(不筛选):4 份,含无日期
+        let (_, all) = build_timeline_html_ranged(&vault, r, None, None).unwrap();
+        assert_eq!(all, 4);
+        // 区间 [2023-01-01, 2024-01-01]:只 mid 命中;无日期记录被排除
+        let (html, n) =
+            build_timeline_html_ranged(&vault, r, Some(d(2023, 1, 1)), Some(d(2024, 1, 1)))
+                .unwrap();
+        assert_eq!(n, 1);
+        assert!(html.contains("mid.txt"));
+        assert!(!html.contains("old.txt"));
+        assert!(!html.contains("nodate.txt"));
+        // 只给起点 2024-01-01:仅 new 命中
+        let (_, from_only) =
+            build_timeline_html_ranged(&vault, r, Some(d(2024, 1, 1)), None).unwrap();
+        assert_eq!(from_only, 1);
     }
 
     #[test]

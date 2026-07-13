@@ -221,30 +221,102 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
   );
 
   // ---------------------------------------------------------------------
-  // 导出时间线(未加密 HTML)。P6 才做日期区间筛选——FFI 目前无日期参数,
-  // 这里如实全量导出,并在说明里提前告知,不做假的日期选择器。
+  // 导出时间线(未加密 HTML),支持可选的日期区间筛选(留空=全部记录)。
   // ---------------------------------------------------------------------
 
+  static String _ymd(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
   Future<void> _exportTimeline() async {
+    DateTime? from;
+    DateTime? to;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('导出时间线'),
-        content: const Text(
-          '导出完整病历时间线为可打印文件(HTML),未加密,用浏览器打开后可直接打印或另存为 PDF,'
-          '适合报销或给医生留档。\n\n当前导出的是全部记录;按时间段筛选导出即将支持。',
-          style: TextStyle(fontSize: 13.5, height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('导出并分享'),
-          ),
-        ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialog) {
+          Future<void> pickDate(bool isFrom) async {
+            final now = DateTime.now();
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: (isFrom ? from : to) ?? now,
+              firstDate: DateTime(1970),
+              lastDate: DateTime(now.year + 1),
+            );
+            if (picked != null) {
+              setDialog(() => isFrom ? from = picked : to = picked);
+            }
+          }
+
+          return AlertDialog(
+            title: const Text('导出时间线'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '导出病历时间线为可打印文件(HTML),未加密,用浏览器打开后可直接打印或另存为 PDF,适合报销或给医生留档。',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    height: 1.5,
+                    color: MedMe.faint,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '时间范围(可选,留空即导出全部)',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => pickDate(true),
+                        child: Text('从:${from == null ? '不限' : _ymd(from!)}'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => pickDate(false),
+                        child: Text('到:${to == null ? '不限' : _ymd(to!)}'),
+                      ),
+                    ),
+                  ],
+                ),
+                if (from != null || to != null)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => setDialog(() {
+                        from = null;
+                        to = null;
+                      }),
+                      child: const Text('清除范围'),
+                    ),
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  if (from != null && to != null && from!.isAfter(to!)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('起始日期不能晚于结束日期')),
+                    );
+                    return;
+                  }
+                  Navigator.of(context).pop(true);
+                },
+                child: const Text('导出并分享'),
+              ),
+            ],
+          );
+        },
       ),
     );
     if (confirmed != true) return;
@@ -254,7 +326,10 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
       _progress = '正在生成导出文件…';
     });
     try {
-      final result = await exportTimelineHtml();
+      final result = await exportTimelineHtml(
+        fromDate: from == null ? null : _ymd(from!),
+        toDate: to == null ? null : _ymd(to!),
+      );
       if (!mounted) return;
       setState(() {
         _busy = false;

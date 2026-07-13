@@ -84,7 +84,10 @@ abstract class RustLibApi extends BaseApi {
     required PlatformInt64 expiresDays,
   });
 
-  Future<ExportResultDto> crateApiVaultExportTimelineHtml();
+  Future<ExportResultDto> crateApiVaultExportTimelineHtml({
+    String? fromDate,
+    String? toDate,
+  });
 
   Future<DocumentDetailDto> crateApiVaultGetDocument({
     required PlatformInt64 id,
@@ -170,11 +173,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "create_share", argNames: ["expiresDays"]);
 
   @override
-  Future<ExportResultDto> crateApiVaultExportTimelineHtml() {
+  Future<ExportResultDto> crateApiVaultExportTimelineHtml({
+    String? fromDate,
+    String? toDate,
+  }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_opt_String(fromDate, serializer);
+          sse_encode_opt_String(toDate, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -187,14 +195,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta: kCrateApiVaultExportTimelineHtmlConstMeta,
-        argValues: [],
+        argValues: [fromDate, toDate],
         apiImpl: this,
       ),
     );
   }
 
   TaskConstMeta get kCrateApiVaultExportTimelineHtmlConstMeta =>
-      const TaskConstMeta(debugName: "export_timeline_html", argNames: []);
+      const TaskConstMeta(
+        debugName: "export_timeline_html",
+        argNames: ["fromDate", "toDate"],
+      );
 
   @override
   Future<DocumentDetailDto> crateApiVaultGetDocument({

@@ -134,7 +134,8 @@ pub fn open_vault(docs_dir: String, data_dir: String, icloud_enabled: bool) -> a
 pub fn load_archive() -> anyhow::Result<Vec<TimelineGroupDto>> {
     with_state(|state| {
         let v = &state.vault;
-        v.rebuild_encounters().map_err(|e| anyhow::anyhow!(e.to_string()))?; // 幂等
+        v.rebuild_encounters()
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?; // 幂等
         let mut groups: Vec<(Option<String>, TimelineGroupDto)> = Vec::new();
         for (enc, docs) in v
             .encounters_with_docs()
@@ -307,7 +308,8 @@ pub fn ingest_file(path: String) -> anyhow::Result<ImportOutcomeDto> {
     with_state(|state| {
         let v = &state.vault;
         let outcome = ingest_one(v, Path::new(&path));
-        v.rebuild_encounters().map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        v.rebuild_encounters()
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
         Ok(outcome)
     })
 }
@@ -340,17 +342,15 @@ pub fn ingest_bytes(filename: String, data: Vec<u8>) -> anyhow::Result<ImportOut
 
     with_state(|state| {
         let stamp = chrono::Utc::now().format("%Y%m%d%H%M%S%f");
-        let tmp_dir = state
-            .data_dir
-            .join("medme-ingest")
-            .join(stamp.to_string());
+        let tmp_dir = state.data_dir.join("medme-ingest").join(stamp.to_string());
         std::fs::create_dir_all(&tmp_dir)?;
         let tmp_path = tmp_dir.join(&safe_name);
         std::fs::write(&tmp_path, &data)?;
 
         let v = &state.vault;
         let outcome = ingest_one(v, &tmp_path);
-        v.rebuild_encounters().map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        v.rebuild_encounters()
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
         let _ = std::fs::remove_dir_all(&tmp_dir); // 尽力清理,失败无妨
         Ok(outcome)
     })
@@ -399,7 +399,8 @@ pub fn ingest_image_with_text(
         let sid = imp.source_file.id;
 
         let outcome = if imp.deduped
-            && v.has_document(sid).map_err(|e| anyhow::anyhow!(e.to_string()))?
+            && v.has_document(sid)
+                .map_err(|e| anyhow::anyhow!(e.to_string()))?
         {
             ImportOutcomeDto {
                 name: safe_name.clone(),
@@ -460,7 +461,8 @@ pub fn ingest_image_with_text(
                 }
             }
         };
-        v.rebuild_encounters().map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        v.rebuild_encounters()
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
         Ok(outcome)
     })
 }
@@ -503,17 +505,45 @@ pub fn create_share(expires_days: i64) -> anyhow::Result<ShareResultDto> {
     })
 }
 
-/// 导出时间线:复用 `medme_share::export::build_timeline_html`,把整条时间线
+/// 导出时间线:复用 `medme_share::export::build_timeline_html_ranged`,把时间线
 /// 渲染成未加密、可打印的自包含 HTML 写进保险箱 `shares/` 目录(与加密分享共用
-/// 同一目录——都是本机生成、交给系统分享 sheet 的临时导出件)。**日期区间筛选
-/// 留给 P6**——本阶段全量导出,与当前 `medme_share::export::build_timeline_html`
-/// 的签名(无日期参数)一致。
-pub fn export_timeline_html() -> anyhow::Result<ExportResultDto> {
+/// 同一目录——都是本机生成、交给系统分享 sheet 的临时导出件)。
+///
+/// `from_date` / `to_date` 为可选的 `YYYY-MM-DD`(前端日期选择器传入);任一为空
+/// 表示该侧不限,两者都为空即全量导出。`from` 取当天 00:00、`to` 取当天 23:59:59
+/// (含端点)。无 `doc_date` 的记录仅在完全不筛选时纳入(见共享 crate 的说明)。
+pub fn export_timeline_html(
+    from_date: Option<String>,
+    to_date: Option<String>,
+) -> anyhow::Result<ExportResultDto> {
+    let parse = |s: &str, end_of_day: bool| -> anyhow::Result<chrono::DateTime<chrono::Utc>> {
+        let d = chrono::NaiveDate::parse_from_str(s.trim(), "%Y-%m-%d")
+            .map_err(|e| anyhow::anyhow!("日期格式应为 YYYY-MM-DD:{e}"))?;
+        let t = if end_of_day {
+            d.and_hms_opt(23, 59, 59)
+        } else {
+            d.and_hms_opt(0, 0, 0)
+        }
+        .ok_or_else(|| anyhow::anyhow!("无效日期"))?;
+        Ok(t.and_utc())
+    };
+    let from = from_date
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| parse(s, false))
+        .transpose()?;
+    let to = to_date
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| parse(s, true))
+        .transpose()?;
     with_state(|state| {
         let v = &state.vault;
-        let (html, record_count) = medme_share::export::build_timeline_html(
+        let (html, record_count) = medme_share::export::build_timeline_html_ranged(
             v,
             &medme_share::render_dicom_png_in_process,
+            from,
+            to,
         )
         .map_err(|e| anyhow::anyhow!(e))?;
         let byte_size = html.len() as i64;
@@ -536,10 +566,7 @@ pub fn export_timeline_html() -> anyhow::Result<ExportResultDto> {
 }
 
 /// 递归收集 `include_dir!` 打进二进制的示例数据集里的全部文件。
-fn collect_demo_files<'a>(
-    dir: &'a include_dir::Dir<'a>,
-    out: &mut Vec<&'a include_dir::File<'a>>,
-) {
+fn collect_demo_files<'a>(dir: &'a include_dir::Dir<'a>, out: &mut Vec<&'a include_dir::File<'a>>) {
     out.extend(dir.files());
     for sub in dir.dirs() {
         collect_demo_files(sub, out);
@@ -577,7 +604,9 @@ pub fn load_demo_data() -> anyhow::Result<i64> {
             }));
             match result {
                 Ok(Ok(_)) => count += 1,
-                Ok(Err(e)) => eprintln!("[demo-data] ingest failed for {}: {e}", tmp_path.display()),
+                Ok(Err(e)) => {
+                    eprintln!("[demo-data] ingest failed for {}: {e}", tmp_path.display())
+                }
                 Err(_) => eprintln!(
                     "[demo-data] ingest panicked (isolated) for {}",
                     tmp_path.display()
@@ -585,7 +614,8 @@ pub fn load_demo_data() -> anyhow::Result<i64> {
             }
         }
         let _ = std::fs::remove_dir_all(&tmp_root); // 尽力清理,失败无妨
-        v.rebuild_encounters().map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        v.rebuild_encounters()
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
         Ok(count)
     })
 }
@@ -605,8 +635,9 @@ pub fn reset_vault() -> anyhow::Result<()> {
         if state.db_path.exists() && !state.db_path.starts_with(&state.truth_root) {
             std::fs::remove_file(&state.db_path)?;
         }
-        let fresh = Vault::open_split_resilient(&state.truth_root, &state.db_path, &state.device_id)
-            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        let fresh =
+            Vault::open_split_resilient(&state.truth_root, &state.db_path, &state.device_id)
+                .map_err(|e| anyhow::anyhow!(e.to_string()))?;
         state.vault = fresh; // 旧 Vault(连接/日志句柄)在此被 drop
         Ok(())
     })
