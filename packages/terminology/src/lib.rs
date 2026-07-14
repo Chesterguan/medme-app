@@ -226,12 +226,101 @@ impl Index {
     }
 }
 
+/// 药名规范化前的**确定性剥壳**:真实处方写「盐酸二甲双胍片」「阿托伐他汀钙片」,而
+/// 字典按通用名(二甲双胍 / 阿托伐他汀)收录。这里对已 normalize 的词生成候选词干 ——
+/// 去前导盐基、去尾部剂型、再去尾部成盐金属字 —— 供 [`normalize`] 在直配未命中时逐个
+/// 重试。**候选式、不破坏原词**:某个候选没配上只是跳过,所以「碳酸氢钠」不会被误删成
+/// 「碳酸氢」再乱配——两个候选都配不上就整体 miss(诚实,交给上层保留原文)。
+fn drug_stem_candidates(norm: &str) -> Vec<String> {
+    // 前导成盐酸根(仅去一次)。刻意不含「单硝酸/碳酸氢」这类本身就是药名一部分的。
+    const SALT_PREFIX: &[&str] = &[
+        "盐酸",
+        "硫酸氢",
+        "硫酸",
+        "苯磺酸",
+        "琥珀酸",
+        "马来酸",
+        "富马酸",
+        "酒石酸",
+        "氢溴酸",
+        "磷酸",
+        "醋酸",
+        "枸橼酸",
+        "甲磺酸",
+        "门冬",
+    ];
+    const FORM_SUFFIX: &[&str] = &[
+        "缓释片",
+        "控释片",
+        "分散片",
+        "咀嚼片",
+        "泡腾片",
+        "肠溶片",
+        "口服溶液",
+        "口服液",
+        "软胶囊",
+        "缓释胶囊",
+        "肠溶胶囊",
+        "注射液",
+        "混悬液",
+        "干混悬剂",
+        "颗粒",
+        "胶囊",
+        "滴丸",
+        "糖浆",
+        "贴片",
+        "栓",
+        "片",
+    ];
+    const METAL_SALT: &[&str] = &["钙", "钠", "钾", "镁"];
+
+    let mut base = norm.to_string();
+    for p in SALT_PREFIX {
+        let pn = normalize_term(p);
+        if let Some(r) = base.strip_prefix(&pn) {
+            base = r.to_string();
+            break;
+        }
+    }
+    // 反复去尾部剂型(如「…钙片」先去片)。
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for f in FORM_SUFFIX {
+            let fnorm = normalize_term(f);
+            if let Some(r) = base.strip_suffix(&fnorm) {
+                base = r.to_string();
+                changed = true;
+                break;
+            }
+        }
+    }
+    let mut cands: Vec<String> = Vec::new();
+    if base != norm && !base.is_empty() {
+        cands.push(base.clone());
+    }
+    // 再去一个尾部成盐金属字(阿托伐他汀钙 → 阿托伐他汀);仅当剩余仍 >1 字。
+    for m in METAL_SALT {
+        let mn = normalize_term(m);
+        if base.ends_with(&mn) {
+            let shorter = base[..base.len() - mn.len()].to_string();
+            if shorter.chars().count() > 1 && shorter != norm {
+                cands.push(shorter);
+            }
+        }
+    }
+    cands.dedup();
+    cands
+}
+
 /// Map a single candidate term to its canonical concept. Returns `None` on no
 /// hit. This is a lookup, not a full-text scan — locating terms in free text is
 /// the extraction layer's job (design §6).
 ///
 /// An exact (normalized) alias hit yields `confidence == 1.0`; an
-/// `ocr_confusions` hit yields `confidence == 0.5`.
+/// `ocr_confusions` hit yields `confidence == 0.5`. If a raw drug term
+/// (`盐酸二甲双胍片`) doesn't match directly, deterministic salt/form stripping is
+/// retried and, on a **drug** hit, returned at confidence 1.0.
 pub fn normalize(raw_term: &str) -> Option<Match> {
     let norm = normalize_term(raw_term);
     if norm.is_empty() {
@@ -243,6 +332,14 @@ pub fn normalize(raw_term: &str) -> Option<Match> {
     }
     if let Some(hit) = idx.confusions.get(&norm) {
         return Some(idx.to_match(hit, 0.5));
+    }
+    // 药名剥壳兜底:去盐/剂型后重试,只接受 Drug 类精确命中(仍确定性、可核对)。
+    for cand in drug_stem_candidates(&norm) {
+        if let Some(hit) = idx.aliases.get(&cand) {
+            if idx.entries[hit.entry_idx].category == Category::Drug {
+                return Some(idx.to_match(hit, 1.0));
+            }
+        }
     }
     None
 }
@@ -360,6 +457,20 @@ mod tests {
         assert!(normalize("完全不是术语").is_none());
         assert!(normalize("").is_none());
         assert!(normalize("   ").is_none());
+    }
+
+    #[test]
+    fn strips_salt_and_dosage_form_to_ingredient() {
+        // 真实处方写法(盐基 + 通用名 + 剂型)→ 剥壳后命中通用名。
+        assert_eq!(normalize("盐酸二甲双胍片").unwrap().key, "metformin");
+        assert_eq!(normalize("琥珀酸美托洛尔缓释片").unwrap().key, "metoprolol");
+        assert_eq!(normalize("苯磺酸氨氯地平片").unwrap().key, "amlodipine");
+        // 「…钙片」先去剂型再去成盐金属字。
+        assert_eq!(normalize("阿托伐他汀钙片").unwrap().key, "atorvastatin");
+        // 候选式不破坏:词典没有的整体 miss,绝不误配(碳酸氢钠 ≠ 碳酸氢)。
+        assert!(normalize("碳酸氢钠片").is_none());
+        // 剥壳只接受 Drug 类,不会把化验名误当药。
+        assert_eq!(normalize("阿托伐他汀").unwrap().category, Category::Drug);
     }
 
     #[test]
