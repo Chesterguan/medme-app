@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 
 use serde::Deserialize;
-use terminology::{normalize, normalize_drug, normalize_unit, term_candidates, Dictionary};
+use terminology::{normalize_unit, resolve, resolve_drug, Dictionary};
 
 #[derive(Deserialize)]
 struct Demo {
@@ -60,8 +60,8 @@ fn main() {
     for r in &demo.reports {
         for it in &r.items {
             lab_n += 1;
-            // 复合名先拆候选,任一 token 命中即算(确定性)。
-            let hit = term_candidates(&it.name).iter().find_map(|c| normalize(c));
+            // 提取层入口:拆候选 + 用单位证据/最长匹配择优(不再「第一个命中即用」)。
+            let hit = resolve(&it.name, Some(&it.unit));
             match hit {
                 Some(m) => {
                     lab_hit += 1;
@@ -86,10 +86,7 @@ fn main() {
         for d in &r.drugs {
             drug_n += 1;
             // 先候选拆分(去括号商品名/尾部规格),再 normalize(内部剥盐基/剂型)。
-            match term_candidates(&d.name)
-                .iter()
-                .find_map(|c| normalize_drug(c))
-            {
+            match resolve_drug(&d.name) {
                 Some(m) => {
                     drug_hit += 1;
                     if m.confidence < 1.0 {

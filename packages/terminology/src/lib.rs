@@ -543,8 +543,64 @@ pub fn normalize(raw_term: &str) -> Option<Match> {
     None
 }
 
-/// 处方语境的 [`normalize`]:**只在 drug 命名空间里查**。同名跨类别时(「叶酸」「维生素C」
-/// 「氯化钠」既是化验也是药),提取层解析的是处方就该用这个,否则会被化验项抢走。
+/// 这个条目认不认这个单位(记法折叠后比较 canonical_unit 与 units[])。
+fn entry_accepts_unit(entry: &Entry, unit: &str) -> bool {
+    let u = normalize_unit(unit);
+    entry.canonical_unit.as_deref().map(normalize_unit) == Some(u.clone())
+        || entry.units.iter().any(|r| normalize_unit(&r.unit) == u)
+}
+
+/// 报告一行(项名 + 单位)→ 概念。**提取层该用的入口**,不是 [`normalize`]。
+///
+/// 拆候选后**不是「第一个命中即用」** —— 那样结果取决于候选顺序,很脆:
+/// 「血小板压积(PCT)」的 PCT 会撞降钙素原,「尿红细胞计数(RBC)」的 RBC 会撞血 RBC。
+/// 这里收集**所有**候选的命中,按证据择优:
+///
+/// 1. **单位证据优先**:报告行本来就带单位,而它是确定性的判别器 ——
+///    `红细胞分布宽度(RDW-SD)` 的 `fL` vs RDW-CV 的 `%`;`血小板压积` 的 `%` vs
+///    降钙素原的 `ng/mL`;`尿红细胞` 的 `/uL` vs 血 RBC 的 `10*12/L`。
+/// 2. 然后比置信度(精确 1.0 > 剥壳 0.8 > OCR 混淆 0.5)。
+/// 3. 再取**匹配最长**的(maximal munch):更长的别名 = 更具体的概念。
+/// 4. 全平手才按候选顺序 —— 顺序退化成 tie-break,不再是正确性的支点。
+pub fn resolve(name: &str, unit: Option<&str>) -> Option<Match> {
+    let hits: Vec<Match> = term_candidates(name)
+        .iter()
+        .filter_map(|c| normalize(c))
+        .collect();
+    pick_best(hits, unit)
+}
+
+/// 处方语境的 [`resolve`]:只在 drug 命名空间里择优(处方没有单位可用作证据)。
+pub fn resolve_drug(name: &str) -> Option<Match> {
+    let hits: Vec<Match> = term_candidates(name)
+        .iter()
+        .filter_map(|c| normalize_drug(c))
+        .collect();
+    pick_best(hits, None)
+}
+
+/// 从若干候选命中里按证据择优。`max_by_key` 在平手时保留**最后**一个,所以先反转,
+/// 让平手回落到候选顺序里**最靠前**的那个。
+fn pick_best(hits: Vec<Match>, unit: Option<&str>) -> Option<Match> {
+    let entries = dictionary_entries();
+    let unit = unit.map(str::trim).filter(|u| !u.is_empty());
+    hits.into_iter().rev().max_by_key(|m| {
+        let accepts = unit.is_some_and(|u| {
+            entries
+                .iter()
+                .find(|e| e.key == m.key)
+                .is_some_and(|e| entry_accepts_unit(e, u))
+        });
+        (
+            accepts,
+            (m.confidence * 100.0) as u32,
+            m.matched_alias.chars().count(),
+        )
+    })
+}
+
+/// 处方语境的 [`normalize`]:**只在 drug 命名空间里查**。同名跨类别时(「叶酸」「氢化可的松」
+/// 既是化验也是药),提取层解析的是处方就该用这个,否则会被化验项抢走。
 /// 先整串直配,再走确定性剥壳(前缀「注射用」/ 盐基 / 剂型 / 尾部成盐)。
 pub fn normalize_drug(raw_term: &str) -> Option<Match> {
     let norm = normalize_term(raw_term);
@@ -694,6 +750,48 @@ mod tests {
         assert_eq!(hit("硫酸羟氯喹片(纷乐)0.1g"), "hydroxychloroquine");
         // 规格不会把药名本身吃掉:剥出的候选仍是完整通用名。
         assert!(term_candidates("醋酸泼尼松片5mg").contains(&"醋酸泼尼松片".to_string()));
+    }
+
+    #[test]
+    fn resolve_uses_unit_evidence_to_break_ambiguity() {
+        // 同一个项名能命中两个概念时,报告行里的**单位**是确定性的判别器。
+        // 这些以前全靠候选顺序碰运气 —— 顺次试到哪个算哪个,排错一次就是临床误配。
+        let cases: &[(&str, &str, &str)] = &[
+            // 括号里的裸缩写会撞别的项:PCT 撞降钙素原、RBC 撞血 RBC —— 单位把它们劈开。
+            ("血小板压积(PCT)", "%", "plateletcrit"),
+            ("尿红细胞计数(RBC)", "/uL", "urine_rbc_count"),
+            ("尿白细胞计数(WBC)", "/uL", "urine_wbc_count"),
+            // 主体是更泛的名字(红细胞分布宽度 = CV),括号里的 SD 才是本行的项:
+            // 单位 fL(SD,绝对值)vs %(CV,变异系数)。
+            ("红细胞分布宽度(RDW-SD)", "fL", "rdw_sd"),
+            ("红细胞分布宽度(RDW-CV)", "%", "rdw"),
+        ];
+        for (name, unit, key) in cases {
+            let m = resolve(name, Some(unit)).unwrap_or_else(|| panic!("no hit for {name}"));
+            assert_eq!(m.key, *key, "{name} [{unit}]");
+        }
+        // 没有单位时退回最长匹配(maximal munch):主体比括号内的裸缩写更具体。
+        assert_eq!(
+            resolve("血小板压积(PCT)", None).unwrap().key,
+            "plateletcrit"
+        );
+        // 单位对不上任何候选 → 不硬套,仍按置信度/长度择优,不会因此 miss。
+        assert!(resolve("血小板压积(PCT)", Some("荒谬单位")).is_some());
+    }
+
+    #[test]
+    fn resolve_drug_picks_longest_match() {
+        // maximal munch:更长的别名 = 更具体的药。「地氯雷他定片」不该被 5 字的
+        // 「氯雷他定」抢走(那是**另一个药**)。
+        assert_eq!(
+            resolve_drug("地氯雷他定片 5mg").unwrap().key,
+            "desloratadine"
+        );
+        assert_eq!(resolve_drug("氯雷他定片 10mg").unwrap().key, "loratadine");
+        assert_eq!(
+            resolve_drug("单硝酸异山梨酯缓释片 60mg").unwrap().key,
+            "isosorbide_mononitrate"
+        );
     }
 
     #[test]
