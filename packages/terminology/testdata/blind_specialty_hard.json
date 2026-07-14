@@ -1,0 +1,386 @@
+{
+  "reports": [
+    {
+      "type": "lab",
+      "dept": "内分泌科",
+      "items": [
+        { "name": "皮质醇(8AM)", "value": "21.6", "unit": "µg/dL", "ref": "6.2-19.4" },
+        { "name": "皮质醇 (16:00)", "value": "12.8", "unit": "μg/dl", "ref": "2.3-11.9" },
+        { "name": "皮质醇（0AM/午夜）", "value": "9.4", "unit": "ug/dL", "ref": "<7.5" },
+        { "name": "ACTH（促肾上腺皮质激素）", "value": "68.2", "unit": "pg/mL", "ref": "7.2-63.3" },
+        { "name": "24h尿游离皮质醇 UFC", "value": "285", "unit": "µg/24h", "ref": "36-137" },
+        { "name": "血浆醛固酮 (卧位)", "value": "18.6", "unit": "ng/dL", "ref": "3.0-23.6" },
+        { "name": "血浆肾素活性 PRA", "value": "0.42", "unit": "ng/mL/h", "ref": "0.15-2.33" },
+        { "name": "醛固酮/肾素比值 ARR", "value": "44.3", "unit": "", "ref": "<30" }
+      ]
+    },
+    {
+      "type": "lab",
+      "dept": "内分泌科",
+      "items": [
+        { "name": "卵泡刺激素(FSH)", "value": "6.8", "unit": "mIU/mL", "ref": "3.5-12.5" },
+        { "name": "黄体生成素 LH", "value": "5.2", "unit": "IU/L", "ref": "2.4-12.6" },
+        { "name": "催乳素（PRL/泌乳素）", "value": "38.6", "unit": "ng/mL", "ref": "4.79-23.3" },
+        { "name": "雌二醇 E2", "value": "42", "unit": "pg/mL", "ref": "12.5-166" },
+        { "name": "孕酮 (P)", "value": "0.8", "unit": "ng/mL", "ref": "<0.89" },
+        { "name": "睾酮 T（总睾酮）", "value": "0.28", "unit": "ng/mL", "ref": "0.084-0.481" },
+        { "name": "游离睾酮", "value": "1.9", "unit": "pg/mL", "ref": "0.29-3.18" },
+        { "name": "硫酸脱氢表雄酮 DHEA-S", "value": "312", "unit": "µg/dL", "ref": "35-430" },
+        { "name": "性激素结合球蛋白 SHBG", "value": "56", "unit": "nmol/L", "ref": "18-114" },
+        { "name": "抗苗勒管激素 AMH", "value": "1.24", "unit": "ng/mL", "ref": "1.0-6.8" }
+      ]
+    },
+    {
+      "type": "lab",
+      "dept": "内分泌科",
+      "items": [
+        { "name": "甲状旁腺激素 PTH", "value": "88.4", "unit": "pg/mL", "ref": "15-65" },
+        { "name": "25-羟基维生素D [25(OH)D]", "value": "16.2", "unit": "ng/mL", "ref": "30-100" },
+        { "name": "1,25-双羟维生素D3", "value": "42", "unit": "pg/mL", "ref": "19.6-54.3" },
+        { "name": "血清钙 (Ca)", "value": "2.68", "unit": "mmol/L", "ref": "2.11-2.52" },
+        { "name": "血清磷 P", "value": "0.72", "unit": "mmol/L", "ref": "0.85-1.51" },
+        { "name": "β-胶原降解产物 β-CTX", "value": "0.68", "unit": "ng/mL", "ref": "0.10-0.70" },
+        { "name": "总I型胶原氨基端延长肽 P1NP", "value": "68.2", "unit": "ng/mL", "ref": "15.1-58.6" },
+        { "name": "骨钙素 N-MID", "value": "24.6", "unit": "ng/mL", "ref": "11-43" },
+        { "name": "碱性磷酸酶 ALP", "value": "126", "unit": "U/L", "ref": "45-125" }
+      ]
+    },
+    {
+      "type": "lab",
+      "dept": "风湿免疫科",
+      "items": [
+        { "name": "抗核抗体 ANA（间接免疫荧光）", "value": "1:320 核颗粒型", "unit": "", "ref": "<1:100" },
+        { "name": "抗双链DNA抗体 抗ds-DNA", "value": "186", "unit": "IU/mL", "ref": "<100" },
+        { "name": "补体C3", "value": "0.58", "unit": "g/L", "ref": "0.9-1.8" },
+        { "name": "补体C4", "value": "0.09", "unit": "g/L", "ref": "0.1-0.4" },
+        { "name": "类风湿因子 RF", "value": "128", "unit": "IU/mL", "ref": "<20" },
+        { "name": "抗环瓜氨酸肽抗体 抗CCP", "value": "245", "unit": "U/mL", "ref": "<17" },
+        { "name": "C反应蛋白 CRP", "value": "32.6", "unit": "mg/L", "ref": "<8" },
+        { "name": "红细胞沉降率 ESR（血沉）", "value": "58", "unit": "mm/h", "ref": "0-20" },
+        { "name": "免疫球蛋白 IgG", "value": "18.6", "unit": "g/L", "ref": "7.0-16.0" }
+      ]
+    },
+    {
+      "type": "lab",
+      "dept": "风湿免疫科",
+      "items": [
+        { "name": "抗 SSA/Ro52 抗体", "value": "阳性(+++)", "unit": "", "ref": "阴性" },
+        { "name": "抗SSA/Ro60抗体", "value": "阳性(++)", "unit": "", "ref": "阴性" },
+        { "name": "抗SSB/La抗体", "value": "阳性(+)", "unit": "", "ref": "阴性" },
+        { "name": "抗Sm抗体", "value": "阴性", "unit": "", "ref": "阴性" },
+        { "name": "抗 U1-nRNP 抗体", "value": "弱阳性", "unit": "", "ref": "阴性" },
+        { "name": "抗Scl-70抗体", "value": "阴性", "unit": "", "ref": "阴性" },
+        { "name": "抗Jo-1抗体", "value": "阴性", "unit": "", "ref": "阴性" },
+        { "name": "抗着丝点抗体 CENP-B", "value": "阴性", "unit": "", "ref": "阴性" },
+        { "name": "抗中性粒细胞胞浆抗体 p-ANCA(MPO)", "value": "阴性", "unit": "", "ref": "阴性" },
+        { "name": "抗 c-ANCA(PR3)", "value": "阴性", "unit": "", "ref": "阴性" },
+        { "name": "抗β2糖蛋白1抗体 IgG", "value": "26", "unit": "RU/mL", "ref": "<20" },
+        { "name": "抗心磷脂抗体 ACA-IgG", "value": "18", "unit": "GPL", "ref": "<12" }
+      ]
+    },
+    {
+      "type": "lab",
+      "dept": "感染科",
+      "items": [
+        { "name": "降钙素原 PCT", "value": "4.86", "unit": "ng/mL", "ref": "<0.5" },
+        { "name": "白细胞介素-6 (IL-6)", "value": "128", "unit": "pg/mL", "ref": "<7" },
+        { "name": "(1,3)-β-D-葡聚糖 G试验", "value": "186", "unit": "pg/mL", "ref": "<100" },
+        { "name": "半乳甘露聚糖 GM试验", "value": "0.82", "unit": "I", "ref": "<0.5" },
+        { "name": "结核感染T细胞检测 T-SPOT.TB", "value": "阳性", "unit": "", "ref": "阴性" },
+        { "name": "隐球菌荚膜多糖抗原", "value": "阴性", "unit": "", "ref": "阴性" },
+        { "name": "内毒素（鲎试验）", "value": "0.32", "unit": "EU/mL", "ref": "<0.5" },
+        { "name": "血清淀粉样蛋白A SAA", "value": "162", "unit": "mg/L", "ref": "<10" }
+      ]
+    },
+    {
+      "type": "lab",
+      "dept": "肿瘤科",
+      "items": [
+        { "name": "甲胎蛋白 AFP", "value": "6.8", "unit": "ng/mL", "ref": "<7.0" },
+        { "name": "癌胚抗原 CEA", "value": "12.6", "unit": "ng/mL", "ref": "<5.0" },
+        { "name": "糖类抗原 CA19-9", "value": "86", "unit": "U/mL", "ref": "<37" },
+        { "name": "糖类抗原125 CA125", "value": "168", "unit": "U/mL", "ref": "<35" },
+        { "name": "糖类抗原15-3 CA15-3", "value": "22", "unit": "U/mL", "ref": "<25" },
+        { "name": "糖类抗原72-4 CA72-4", "value": "3.1", "unit": "U/mL", "ref": "<6.9" },
+        { "name": "细胞角蛋白19片段 CYFRA21-1", "value": "4.8", "unit": "ng/mL", "ref": "<3.3" },
+        { "name": "神经元特异性烯醇化酶 NSE", "value": "18.6", "unit": "ng/mL", "ref": "<16.3" },
+        { "name": "鳞状细胞癌抗原 SCC", "value": "1.2", "unit": "ng/mL", "ref": "<1.5" },
+        { "name": "胃泌素释放肽前体 ProGRP", "value": "42", "unit": "pg/mL", "ref": "<63" },
+        { "name": "总前列腺特异性抗原 tPSA", "value": "8.6", "unit": "ng/mL", "ref": "<4.0" },
+        { "name": "游离PSA / 总PSA 比值 (f/tPSA)", "value": "0.12", "unit": "", "ref": ">0.16" }
+      ]
+    },
+    {
+      "type": "lab",
+      "dept": "心内科",
+      "items": [
+        { "name": "N末端B型钠尿肽前体 NT-proBNP", "value": "3860", "unit": "pg/mL", "ref": "<125" },
+        { "name": "B型钠尿肽 BNP", "value": "820", "unit": "pg/mL", "ref": "<100" },
+        { "name": "高敏肌钙蛋白T hs-cTnT", "value": "86", "unit": "ng/L", "ref": "<14" },
+        { "name": "肌钙蛋白I（cTnI）", "value": "0.68", "unit": "ng/mL", "ref": "<0.034" },
+        { "name": "肌红蛋白 Mb", "value": "156", "unit": "ng/mL", "ref": "<70" },
+        { "name": "肌酸激酶同工酶 CK-MB质量", "value": "18.6", "unit": "ng/mL", "ref": "<5.0" },
+        { "name": "肌酸激酶 CK", "value": "286", "unit": "U/L", "ref": "38-174" },
+        { "name": "乳酸脱氢酶 LDH", "value": "312", "unit": "U/L", "ref": "120-250" },
+        { "name": "同型半胱氨酸 Hcy", "value": "22.6", "unit": "µmol/L", "ref": "<15" },
+        { "name": "超敏C反应蛋白 hs-CRP", "value": "6.8", "unit": "mg/L", "ref": "<3.0" }
+      ]
+    },
+    {
+      "type": "lab",
+      "dept": "血液科",
+      "items": [
+        { "name": "血清铁 (SI)", "value": "6.2", "unit": "µmol/L", "ref": "10.6-36.7" },
+        { "name": "总铁结合力 TIBC", "value": "78", "unit": "µmol/L", "ref": "48.3-68.0" },
+        { "name": "转铁蛋白饱和度 TSAT", "value": "8", "unit": "%", "ref": "20-50" },
+        { "name": "铁蛋白 (Ferritin/SF)", "value": "8.6", "unit": "ng/mL", "ref": "13-150" },
+        { "name": "转铁蛋白 TRF", "value": "3.8", "unit": "g/L", "ref": "2.0-3.6" },
+        { "name": "可溶性转铁蛋白受体 sTfR", "value": "3.2", "unit": "mg/L", "ref": "1.9-4.4" },
+        { "name": "叶酸 (Folate)", "value": "3.2", "unit": "ng/mL", "ref": "3.1-19.9" },
+        { "name": "维生素B12（VitB12/钴胺素）", "value": "168", "unit": "pg/mL", "ref": "197-771" },
+        { "name": "网织红细胞百分比 Ret%", "value": "0.6", "unit": "%", "ref": "0.5-1.5" },
+        { "name": "促红细胞生成素 EPO", "value": "42", "unit": "mIU/mL", "ref": "4.3-29" }
+      ]
+    },
+    {
+      "type": "lab",
+      "dept": "血液科",
+      "items": [
+        { "name": "凝血酶原时间 PT", "value": "16.8", "unit": "s", "ref": "11-14.5" },
+        { "name": "国际标准化比值 INR", "value": "1.42", "unit": "", "ref": "0.8-1.2" },
+        { "name": "活化部分凝血活酶时间 APTT", "value": "48.6", "unit": "s", "ref": "28-40" },
+        { "name": "凝血酶时间 TT", "value": "18.2", "unit": "s", "ref": "14-21" },
+        { "name": "纤维蛋白原 Fbg（FIB）", "value": "5.8", "unit": "g/L", "ref": "2.0-4.0" },
+        { "name": "D-二聚体 D-Dimer", "value": "3.86", "unit": "mg/L FEU", "ref": "<0.5" },
+        { "name": "纤维蛋白（原）降解产物 FDP", "value": "18.6", "unit": "µg/mL", "ref": "<5.0" },
+        { "name": "抗凝血酶Ⅲ AT-III", "value": "68", "unit": "%", "ref": "80-120" },
+        { "name": "凝血酶原活动度 PTA", "value": "62", "unit": "%", "ref": "70-130" }
+      ]
+    },
+    {
+      "type": "lab",
+      "dept": "肾内科",
+      "items": [
+        { "name": "尿红细胞计数（定量）", "value": "186", "unit": "/µL", "ref": "<25" },
+        { "name": "尿白细胞（定量/镜检）", "value": "62", "unit": "/µL", "ref": "<28" },
+        { "name": "尿蛋白定量（24h）", "value": "2860", "unit": "mg/24h", "ref": "<150" },
+        { "name": "尿微量白蛋白 mALB", "value": "286", "unit": "mg/L", "ref": "<20" },
+        { "name": "尿白蛋白/肌酐比值 ACR", "value": "320", "unit": "mg/g", "ref": "<30" },
+        { "name": "尿β2-微球蛋白", "value": "3.8", "unit": "mg/L", "ref": "<0.3" },
+        { "name": "尿α1-微球蛋白", "value": "42", "unit": "mg/L", "ref": "<12" },
+        { "name": "尿 N-乙酰-β-D-氨基葡萄糖苷酶 NAG", "value": "28", "unit": "U/L", "ref": "<11.5" },
+        { "name": "尿管型（透明管型）", "value": "3", "unit": "/LPF", "ref": "0-1" }
+      ]
+    },
+    {
+      "type": "lab",
+      "dept": "重症医学科",
+      "items": [
+        { "name": "酸碱度 pH", "value": "7.28", "unit": "", "ref": "7.35-7.45" },
+        { "name": "二氧化碳分压 PaCO2", "value": "56", "unit": "mmHg", "ref": "35-45" },
+        { "name": "氧分压 PaO2", "value": "62", "unit": "mmHg", "ref": "80-100" },
+        { "name": "碳酸氢根 HCO3-", "value": "20.6", "unit": "mmol/L", "ref": "22-27" },
+        { "name": "剩余碱 BE", "value": "-4.8", "unit": "mmol/L", "ref": "-3~+3" },
+        { "name": "血氧饱和度 SaO2", "value": "89", "unit": "%", "ref": "95-99" },
+        { "name": "乳酸 Lac", "value": "3.6", "unit": "mmol/L", "ref": "0.5-1.6" },
+        { "name": "阴离子间隙 AG", "value": "18", "unit": "mmol/L", "ref": "8-16" },
+        { "name": "氧合指数 P/F", "value": "206", "unit": "", "ref": ">300" }
+      ]
+    },
+    {
+      "type": "lab",
+      "dept": "变态反应科",
+      "items": [
+        { "name": "总IgE (tIgE)", "value": "486", "unit": "IU/mL", "ref": "<100" },
+        { "name": "特异性IgE-户尘螨 (d1) sIgE", "value": "3级 (8.2 kUA/L)", "unit": "kUA/L", "ref": "<0.35" },
+        { "name": "sIgE-粉尘螨 d2", "value": "3级", "unit": "", "ref": "<0.35" },
+        { "name": "特异性IgE 猫毛皮屑 e1", "value": "2级 (1.8)", "unit": "kUA/L", "ref": "<0.35" },
+        { "name": "sIgE-鸡蛋白 f1", "value": "0级", "unit": "", "ref": "<0.35" },
+        { "name": "特异性IgE-牛奶 f2", "value": "1级 (0.68)", "unit": "kUA/L", "ref": "<0.35" },
+        { "name": "sIgE-花生 f13", "value": "0级", "unit": "", "ref": "<0.35" },
+        { "name": "特异性IgE 艾蒿 w6", "value": "4级 (26)", "unit": "kUA/L", "ref": "<0.35" },
+        { "name": "嗜酸性粒细胞阳离子蛋白 ECP", "value": "32", "unit": "µg/L", "ref": "<13.3" }
+      ]
+    },
+    {
+      "type": "lab",
+      "dept": "药学监护/TDM",
+      "items": [
+        { "name": "万古霉素血药浓度（谷浓度）", "value": "22.6", "unit": "µg/mL", "ref": "10-20" },
+        { "name": "他克莫司 (FK506) 谷浓度", "value": "12.8", "unit": "ng/mL", "ref": "5-15" },
+        { "name": "环孢素 CsA 谷浓度 C0", "value": "186", "unit": "ng/mL", "ref": "100-200" },
+        { "name": "地高辛血药浓度", "value": "2.4", "unit": "ng/mL", "ref": "0.8-2.0" },
+        { "name": "丙戊酸（丙戊酸钠）浓度", "value": "48", "unit": "µg/mL", "ref": "50-100" },
+        { "name": "卡马西平血药浓度", "value": "10.6", "unit": "µg/mL", "ref": "4-12" },
+        { "name": "苯妥英钠浓度", "value": "8.2", "unit": "µg/mL", "ref": "10-20" },
+        { "name": "甲氨蝶呤浓度 (24h)", "value": "5.8", "unit": "µmol/L", "ref": "<10" }
+      ]
+    },
+    {
+      "type": "lab",
+      "dept": "消化内科",
+      "items": [
+        { "name": "谷 丙 转 氨 酶 ALT", "value": "186", "unit": "U/L", "ref": "9-50" },
+        { "name": "谷草转氨酶 AST", "value": "142", "unit": "U/L", "ref": "15-40" },
+        { "name": "y-谷氨酰转肽酶 GGT", "value": "286", "unit": "U/L", "ref": "10-60" },
+        { "name": "总胆红素 TBIL", "value": "68.2", "unit": "µmol/L", "ref": "3.4-20.5" },
+        { "name": "直接胆红素 DBIL", "value": "42.6", "unit": "μmol/L", "ref": "0-6.8" },
+        { "name": "总蛋白 TP", "value": "58", "unit": "g/L", "ref": "65-85" },
+        { "name": "白蛋白 ALB", "value": "28", "unit": "g/L", "ref": "40-55" },
+        { "name": "球蛋白 GLB", "value": "30", "unit": "g/L", "ref": "20-40" },
+        { "name": "总胆汁酸 TBA", "value": "68", "unit": "µmol/L", "ref": "0-10" },
+        { "name": "胆碱酯酶 ChE", "value": "3200", "unit": "U/L", "ref": "5000-12000" }
+      ]
+    },
+    {
+      "type": "lab",
+      "dept": "肾内科",
+      "items": [
+        { "name": "尿素氮 BUN", "value": "18.6", "unit": "mmol/L", "ref": "3.1-8.0" },
+        { "name": "肌酐 Cr（Scr）", "value": "286", "unit": "µmol/L", "ref": "44-133" },
+        { "name": "估算肾小球滤过率 eGFR", "value": "28", "unit": "mL/min/1.73m²", "ref": ">90" },
+        { "name": "尿酸 UA", "value": "526", "unit": "µmol/L", "ref": "208-428" },
+        { "name": "胱抑素C Cys-C", "value": "2.86", "unit": "mg/L", "ref": "0.51-1.09" },
+        { "name": "钾 K+", "value": "5.8", "unit": "mmol/L", "ref": "3.5-5.3" },
+        { "name": "钠 Na+", "value": "132", "unit": "mmol/L", "ref": "137-147" },
+        { "name": "氯 Cl-", "value": "108", "unit": "mmol/L", "ref": "99-110" },
+        { "name": "二氧化碳结合力 CO2-CP", "value": "18", "unit": "mmol/L", "ref": "22-29" },
+        { "name": "镁 Mg2+", "value": "0.68", "unit": "mmol/L", "ref": "0.75-1.02" }
+      ]
+    },
+    {
+      "type": "lab",
+      "dept": "内分泌科",
+      "items": [
+        { "name": "空腹血糖 GLU", "value": "9.8", "unit": "mmol/L", "ref": "3.9-6.1" },
+        { "name": "糖化血红蛋白 HbA1c", "value": "8.6", "unit": "%", "ref": "4.0-6.0" },
+        { "name": "糖化白蛋白 GA", "value": "22.6", "unit": "%", "ref": "11-16" },
+        { "name": "空腹C肽 C-P", "value": "0.68", "unit": "ng/mL", "ref": "1.1-4.4" },
+        { "name": "空腹胰岛素 INS", "value": "3.2", "unit": "µIU/mL", "ref": "2.6-24.9" },
+        { "name": "胰岛素抵抗指数 HOMA-IR", "value": "1.4", "unit": "", "ref": "<2.0" },
+        { "name": "谷氨酸脱羧酶抗体 GADA", "value": "阳性 (86)", "unit": "IU/mL", "ref": "<10" },
+        { "name": "胰岛细胞抗体 ICA", "value": "阳性", "unit": "", "ref": "阴性" },
+        { "name": "总胆固醇 TC", "value": "6.8", "unit": "mmol/L", "ref": "<5.2" },
+        { "name": "甘油三酯 TG", "value": "3.86", "unit": "mmol/L", "ref": "<1.7" },
+        { "name": "低密度脂蛋白胆固醇 LDL-C", "value": "4.62", "unit": "mmol/L", "ref": "<3.4" },
+        { "name": "高密度脂蛋白胆固醇 HDL-C", "value": "0.86", "unit": "mmol/L", "ref": ">1.0" },
+        { "name": "脂蛋白(a) Lp(a)", "value": "486", "unit": "mg/L", "ref": "<300" },
+        { "name": "载脂蛋白B ApoB", "value": "1.28", "unit": "g/L", "ref": "0.6-1.1" }
+      ]
+    },
+    {
+      "type": "lab",
+      "dept": "内分泌科",
+      "items": [
+        { "name": "游离三碘甲状腺原氨酸 FT3", "value": "2.86", "unit": "pmol/L", "ref": "3.1-6.8" },
+        { "name": "游离甲状腺素 FT4", "value": "8.6", "unit": "pmol/L", "ref": "12-22" },
+        { "name": "促甲状腺激素 TSH", "value": "18.6", "unit": "µIU/mL", "ref": "0.27-4.2" },
+        { "name": "总T3 (TT3)", "value": "0.86", "unit": "nmol/L", "ref": "1.3-3.1" },
+        { "name": "总甲状腺素 TT4", "value": "62", "unit": "nmol/L", "ref": "66-181" },
+        { "name": "甲状腺过氧化物酶抗体 TPOAb（TPO-Ab）", "value": "486", "unit": "IU/mL", "ref": "<34" },
+        { "name": "甲状腺球蛋白抗体 TgAb", "value": "286", "unit": "IU/mL", "ref": "<115" },
+        { "name": "促甲状腺激素受体抗体 TRAb", "value": "1.2", "unit": "IU/L", "ref": "<1.75" },
+        { "name": "甲状腺球蛋白 Tg", "value": "12.8", "unit": "ng/mL", "ref": "1.4-78" }
+      ]
+    },
+    {
+      "type": "rx",
+      "dx": "类风湿关节炎",
+      "drugs": [
+        { "name": "甲氨蝶呤片", "dose": "12.5mg", "freq": "每周一次" },
+        { "name": "来氟米特片", "dose": "20mg", "freq": "每日一次" },
+        { "name": "叶酸片", "dose": "10mg", "freq": "每周一次(MTX次日)" },
+        { "name": "醋酸泼尼松片", "dose": "10mg", "freq": "每日一次" },
+        { "name": "注射用重组人II型肿瘤坏死因子受体-抗体融合蛋白(依那西普)", "dose": "25mg", "freq": "皮下注射 每周两次" }
+      ]
+    },
+    {
+      "type": "rx",
+      "dx": "社区获得性肺炎",
+      "drugs": [
+        { "name": "注射用头孢曲松钠", "dose": "2g", "freq": "静滴 每日一次" },
+        { "name": "阿奇霉素分散片", "dose": "0.5g", "freq": "每日一次" },
+        { "name": "盐酸莫西沙星氯化钠注射液", "dose": "0.4g", "freq": "静滴 每日一次" },
+        { "name": "盐酸氨溴索口服溶液", "dose": "10mL", "freq": "每日三次" }
+      ]
+    },
+    {
+      "type": "rx",
+      "dx": "高血压病3级 冠心病",
+      "drugs": [
+        { "name": "富马酸比索洛尔片", "dose": "5mg", "freq": "每日一次" },
+        { "name": "苯磺酸氨氯地平片", "dose": "5mg", "freq": "每日一次" },
+        { "name": "缬沙坦氢氯噻嗪片", "dose": "1片", "freq": "每日一次 晨服" },
+        { "name": "单硝酸异山梨酯缓释片", "dose": "40mg", "freq": "每日一次" },
+        { "name": "阿托伐他汀钙片", "dose": "20mg", "freq": "每晚一次" }
+      ]
+    },
+    {
+      "type": "rx",
+      "dx": "2型糖尿病",
+      "drugs": [
+        { "name": "盐酸二甲双胍缓释片", "dose": "0.5g", "freq": "每日两次 随餐" },
+        { "name": "达格列净片", "dose": "10mg", "freq": "每日一次" },
+        { "name": "司美格鲁肽注射液", "dose": "0.5mg", "freq": "皮下注射 每周一次" },
+        { "name": "甘精胰岛素注射液", "dose": "16U", "freq": "睡前皮下注射" }
+      ]
+    },
+    {
+      "type": "rx",
+      "dx": "系统性红斑狼疮",
+      "drugs": [
+        { "name": "硫酸羟氯喹片", "dose": "0.2g", "freq": "每日两次" },
+        { "name": "吗替麦考酚酯胶囊", "dose": "0.75g", "freq": "每日两次" },
+        { "name": "甲泼尼龙片", "dose": "16mg", "freq": "每日一次" },
+        { "name": "他克莫司胶囊", "dose": "1mg", "freq": "每12小时一次" }
+      ]
+    },
+    {
+      "type": "rx",
+      "dx": "慢性阻塞性肺疾病",
+      "drugs": [
+        { "name": "噻托溴铵粉吸入剂", "dose": "18µg", "freq": "每日一次吸入" },
+        { "name": "布地奈德福莫特罗吸入粉雾剂", "dose": "1吸", "freq": "每日两次" },
+        { "name": "乙酰半胱氨酸泡腾片", "dose": "0.6g", "freq": "每日一次" }
+      ]
+    },
+    {
+      "type": "rx",
+      "dx": "干眼症 结膜炎",
+      "drugs": [
+        { "name": "玻璃酸钠滴眼液", "dose": "1滴", "freq": "每日四次 双眼" },
+        { "name": "妥布霉素地塞米松滴眼液", "dose": "1滴", "freq": "每日三次" },
+        { "name": "环孢素滴眼液(II)", "dose": "1滴", "freq": "每日两次" }
+      ]
+    },
+    {
+      "type": "rx",
+      "dx": "慢性胃炎 功能性消化不良",
+      "drugs": [
+        { "name": "雷贝拉唑钠肠溶片", "dose": "20mg", "freq": "每日一次 早餐前" },
+        { "name": "枸橼酸铋钾颗粒", "dose": "1袋", "freq": "每日两次" },
+        { "name": "复方消化酶胶囊", "dose": "2粒", "freq": "餐后服" },
+        { "name": "气滞胃痛颗粒", "dose": "1袋", "freq": "每日三次" }
+      ]
+    },
+    {
+      "type": "rx",
+      "dx": "冠心病 非瓣膜性房颤",
+      "drugs": [
+        { "name": "利伐沙班片", "dose": "20mg", "freq": "每日一次 随餐" },
+        { "name": "硫酸氢氯吡格雷片", "dose": "75mg", "freq": "每日一次" },
+        { "name": "盐酸胺碘酮片", "dose": "0.2g", "freq": "每日一次" }
+      ]
+    },
+    {
+      "type": "rx",
+      "dx": "脑梗死恢复期",
+      "drugs": [
+        { "name": "阿司匹林肠溶片", "dose": "100mg", "freq": "每日一次" },
+        { "name": "银杏叶提取物片", "dose": "1片", "freq": "每日三次" },
+        { "name": "丁苯酞软胶囊", "dose": "0.2g", "freq": "每日三次 空腹" },
+        { "name": "甲钴胺片", "dose": "0.5mg", "freq": "每日三次" }
+      ]
+    }
+  ]
+}
