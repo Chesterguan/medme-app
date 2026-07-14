@@ -105,7 +105,9 @@ String _groupDesc(TimelineGroupDto g) {
       for (final d in docs) {
         kinds.add(_docLabel[d.docType] ?? d.docType);
       }
-      final parts = ['${encounter.docCount} 份记录', ...kinds.take(3)];
+      // 用实际 docs.length —— 待确认剔除后 `_confirmedOnly` 会重建只含已确认文档的组,
+      // 此时 encounter.docCount(FFI 按全量算)会 stale,显示条数与展开数量对不上。
+      final parts = ['${docs.length} 份记录', ...kinds.take(3)];
       if (encounter.transferred) parts.add('转院');
       return parts.join(' · ');
     }(),
@@ -162,7 +164,7 @@ class ArchiveScreen extends StatefulWidget {
 
 class _ArchiveScreenState extends State<ArchiveScreen> {
   late Future<(PatientProfileDto, List<TimelineGroupDto>)> _future = _load();
-  // 就诊组在时间线里点开时展开其子文档(可再点开各自详情)。
+  // 已展开的就诊组(按 **encounter.id** 记,不用列表下标——删除/导入后下标会错位)。
   final Set<int> _expanded = {};
 
   @override
@@ -449,15 +451,22 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
                     if (i > 0) const SizedBox(height: 10),
                     _TimelineItem(
                       group: confirmed[i],
-                      expanded: _expanded.contains(i),
+                      // 按就诊组 id 记展开态(不用列表下标)——删除/导入后下标会错位到别的组。
+                      expanded: switch (confirmed[i]) {
+                        TimelineGroupDto_Encounter(:final encounter) =>
+                          _expanded.contains(encounter.id),
+                        _ => false,
+                      },
                       onTap: () {
-                        final g = confirmed[i];
-                        if (g is TimelineGroupDto_Document) {
-                          _openDoc(g.doc.id);
-                        } else {
-                          setState(() {
-                            if (!_expanded.add(i)) _expanded.remove(i);
-                          });
+                        switch (confirmed[i]) {
+                          case TimelineGroupDto_Document(:final doc):
+                            _openDoc(doc.id);
+                          case TimelineGroupDto_Encounter(:final encounter):
+                            setState(() {
+                              if (!_expanded.add(encounter.id)) {
+                                _expanded.remove(encounter.id);
+                              }
+                            });
                         }
                       },
                       onOpenSubDoc: _openDoc,

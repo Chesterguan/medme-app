@@ -84,6 +84,18 @@ impl Vault {
     pub fn materialize(&self) -> Result<(), MedmeError> {
         let map = self.applied_seq_map()?;
         let entries = self.log.read_all()?;
+        // 墓碑集:从**全部**事件(不只本次 pending)收集被删文档的锚点 hash。用它抑制
+        // 对应的 DocumentAdded/OcrAdded/ImagingInstanceAdded —— 这样即便删除事件因时钟偏移
+        // 排在 add 之前(多设备/NTP 回退),重放也不会把已删文档复活(评审 Important)。
+        let tombstones: HashSet<String> = entries
+            .iter()
+            .filter_map(|e| match &e.event {
+                Event::DocumentDeleted {
+                    source_file_hash, ..
+                } => Some(source_file_hash.clone()),
+                _ => None,
+            })
+            .collect();
         let pending: Vec<&LogEntry> = entries
             .iter()
             .filter(|e| e.seq > map.get(&e.device_id).copied().unwrap_or(0))
@@ -100,7 +112,7 @@ impl Vault {
             if stopped.contains(&entry.device_id) {
                 continue;
             }
-            match apply_event(&tx, self, &entry.event)? {
+            match apply_event(&tx, self, &entry.event, &tombstones)? {
                 ApplyOutcome::Applied => {
                     let cur = new_map.entry(entry.device_id.clone()).or_insert(0);
                     if entry.seq > *cur {
@@ -327,7 +339,12 @@ fn sanitize_mime_type(mime: &str) -> String {
     }
 }
 
-fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<ApplyOutcome, MedmeError> {
+fn apply_event(
+    tx: &Transaction,
+    vault: &Vault,
+    event: &Event,
+    tombstones: &HashSet<String>,
+) -> Result<ApplyOutcome, MedmeError> {
     match event {
         Event::FileImported {
             content_hash,
@@ -378,6 +395,10 @@ fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<ApplyOu
             page_count,
             created_at,
         } => {
+            // 被墓碑标记的文档不投影(哪怕删除事件因时钟偏移排在本 add 之前)。
+            if tombstones.contains(source_file_hash) {
+                return Ok(ApplyOutcome::Applied);
+            }
             // A forged event — or a legitimately not-yet-synced FileImported — may
             // reference a source_file that isn't in the DB. Defer instead of letting
             // `QueryReturnedNoRows` abort the whole materialize / `Vault::open` (the
@@ -413,6 +434,10 @@ fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<ApplyOu
             confidence,
             created_at,
         } => {
+            // 文档被墓碑标记 → 跳过(不 defer,否则会永远等一个不会出现的文档、卡住该设备段)。
+            if tombstones.contains(&document_ref.source_file_hash) {
+                return Ok(ApplyOutcome::Applied);
+            }
             // Defer (not abort) when the referenced document isn't materialized yet —
             // a forged ref or a not-yet-synced DocumentAdded — mirroring the missing
             // source_file / missing CAS-blob handling.
@@ -515,6 +540,10 @@ fn apply_event(tx: &Transaction, vault: &Vault, event: &Event) -> Result<ApplyOu
             instance_number,
             created_at: _,
         } => {
+            // study 文档被墓碑标记 → 跳过(同 OcrAdded,别 defer 卡段)。
+            if tombstones.contains(&document_ref.source_file_hash) {
+                return Ok(ApplyOutcome::Applied);
+            }
             // Defer (not abort) when either referenced row isn't materialized yet —
             // a forged ImagingInstanceAdded ref or a not-yet-synced document /
             // source_file — mirroring the DocumentAdded / OcrAdded branches. A bare
@@ -1110,6 +1139,64 @@ mod tests {
 
         // Deleting a non-existent doc id is a harmless no-op.
         v.delete_document(9999).unwrap();
+    }
+
+    /// 墓碑防复活:即便 `DocumentDeleted` 因时钟偏移排在它的 `DocumentAdded` **之前**,
+    /// 重放也不能把文档复活(旧行为:delete 先 no-op、add 再重建 → 复活)。
+    #[test]
+    fn tombstone_suppresses_add_even_when_delete_sorts_first() {
+        use crate::event::{Event, LogEntry};
+        let dir = tempfile::tempdir().unwrap();
+        let v = Vault::open(dir.path()).unwrap();
+        let dev = v.device_id.clone();
+        let sfh = cas::sha256_hex(b"anchor-del-reorder");
+        let append = |seq: i64, ts: &str, ev: Event| {
+            v.log
+                .append(&LogEntry::new(seq, ts.into(), dev.clone(), ev).unwrap())
+                .unwrap();
+        };
+        append(
+            1,
+            "2024-01-01T00:00:10Z",
+            Event::FileImported {
+                content_hash: sfh.clone(),
+                original_name: "a.txt".into(),
+                mime_type: "text/plain".into(),
+                byte_size: 6,
+                imported_at: "2024-01-01T00:00:10Z".into(),
+            },
+        );
+        // DELETE 的 ts(:11)早于 ADD 的 ts(:12)→ 全局排序里 delete 在 add 前。
+        append(
+            2,
+            "2024-01-01T00:00:11Z",
+            Event::DocumentDeleted {
+                source_file_hash: sfh.clone(),
+                deleted_at: "2024-01-01T00:00:11Z".into(),
+            },
+        );
+        append(
+            3,
+            "2024-01-01T00:00:12Z",
+            Event::DocumentAdded {
+                source_file_hash: sfh.clone(),
+                doc_type: "lab_report".into(),
+                doc_date: None,
+                doc_date_end: None,
+                title: Some("t".into()),
+                language: None,
+                page_count: 1,
+                created_at: "2024-01-01T00:00:12Z".into(),
+            },
+        );
+
+        v.rebuild_from_log().unwrap();
+        assert_eq!(
+            v.debug_count("document"),
+            0,
+            "被墓碑标记的文档不能因 add 排在 delete 后而复活"
+        );
+        assert_eq!(v.debug_count("source_file"), 1, "原始 source_file 保留");
     }
 
     // ---- hardening: forged / dangling references + malformed hashes ---------
