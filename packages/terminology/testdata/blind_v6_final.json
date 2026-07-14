@@ -1,0 +1,1823 @@
+{
+ "reports": [
+  {
+   "kind": "检验报告单(血常规)",
+   "date": "2025-01-12",
+   "items": [
+    {
+     "name": "白细胞计数(WBC)",
+     "value": "6.24",
+     "unit": "10^9/L"
+    },
+    {
+     "name": "中性粒细胞百分比 NEUT%",
+     "value": "62.1",
+     "unit": "%"
+    },
+    {
+     "name": "淋巴细胞百分比(LYM%)",
+     "value": "28.4",
+     "unit": "%"
+    },
+    {
+     "name": "单核细胞百分比 MONO%",
+     "value": "7.2",
+     "unit": "%"
+    },
+    {
+     "name": "嗜酸性粒细胞百分比 EO%",
+     "value": "1.8",
+     "unit": "%"
+    },
+    {
+     "name": "嗜碱性粒细胞百分比",
+     "value": "0.5",
+     "unit": "%"
+    },
+    {
+     "name": "中性粒细胞绝对值",
+     "value": "3.88",
+     "unit": "10^9/L"
+    },
+    {
+     "name": "淋巴细胞绝对值(LYMPH#)",
+     "value": "1.77",
+     "unit": "10^9/L"
+    },
+    {
+     "name": "单核细胞绝对值 MONO#",
+     "value": "0.45",
+     "unit": "10^9/L"
+    },
+    {
+     "name": "红细胞计数 RBC",
+     "value": "4.68",
+     "unit": "×10^12/L"
+    },
+    {
+     "name": "血红蛋白(HGB)",
+     "value": "143",
+     "unit": "g/L"
+    },
+    {
+     "name": "红细胞压积 HCT",
+     "value": "42.6",
+     "unit": "%"
+    },
+    {
+     "name": "平均红细胞体积 MCV",
+     "value": "91.0",
+     "unit": "fL"
+    },
+    {
+     "name": "平均血红蛋白量(MCH)",
+     "value": "30.6",
+     "unit": "pg"
+    },
+    {
+     "name": "平均血红蛋白浓度 MCHC",
+     "value": "336",
+     "unit": "g/L"
+    },
+    {
+     "name": "红细胞分布宽度-CV(RDW-CV)",
+     "value": "12.8",
+     "unit": "%"
+    },
+    {
+     "name": "血小板计数(PLT)",
+     "value": "215",
+     "unit": "10^9/L"
+    },
+    {
+     "name": "平均血小板体积 MPV",
+     "value": "10.2",
+     "unit": "fL"
+    },
+    {
+     "name": "血小板分布宽度 PDW",
+     "value": "12.1",
+     "unit": "%"
+    },
+    {
+     "name": "血小板压积 PCT",
+     "value": "0.22",
+     "unit": "%"
+    }
+   ],
+   "drugs": []
+  },
+  {
+   "kind": "检验报告单(生化全项)",
+   "date": "2025-01-12",
+   "items": [
+    {
+     "name": "丙氨酸氨基转移酶 ALT",
+     "value": "31",
+     "unit": "U/L"
+    },
+    {
+     "name": "天门冬氨酸氨基转移酶(AST)",
+     "value": "26",
+     "unit": "U/L"
+    },
+    {
+     "name": "碱性磷酸酶 ALP",
+     "value": "78",
+     "unit": "U/L"
+    },
+    {
+     "name": "γ-谷氨酰转肽酶(GGT)",
+     "value": "45",
+     "unit": "U/L"
+    },
+    {
+     "name": "总蛋白 TP",
+     "value": "72.4",
+     "unit": "g/L"
+    },
+    {
+     "name": "白蛋白(ALB)",
+     "value": "43.1",
+     "unit": "g/L"
+    },
+    {
+     "name": "球蛋白 GLB",
+     "value": "29.3",
+     "unit": "g/L"
+    },
+    {
+     "name": "白球比 A/G",
+     "value": "1.47",
+     "unit": ""
+    },
+    {
+     "name": "总胆红素(TBIL)",
+     "value": "14.2",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "直接胆红素 DBIL",
+     "value": "4.1",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "间接胆红素 IBIL",
+     "value": "10.1",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "总胆汁酸 TBA",
+     "value": "4.6",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "乳酸脱氢酶(LDH)",
+     "value": "196",
+     "unit": "U/L"
+    },
+    {
+     "name": "肌酐 Cr(Scr)",
+     "value": "88",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "尿素 Urea",
+     "value": "6.1",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "尿酸(UA)",
+     "value": "512",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "估算肾小球滤过率 eGFR",
+     "value": "82.4",
+     "unit": "mL/min/1.73m²"
+    },
+    {
+     "name": "胱抑素C(Cys-C)",
+     "value": "1.06",
+     "unit": "mg/L"
+    },
+    {
+     "name": "葡萄糖 GLU",
+     "value": "5.6",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "钾 K",
+     "value": "4.21",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "钠 Na",
+     "value": "141",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "氯 Cl",
+     "value": "103",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "二氧化碳结合力 CO2CP",
+     "value": "25.3",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "钙 Ca",
+     "value": "2.34",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "无机磷 P",
+     "value": "1.12",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "镁 Mg",
+     "value": "0.88",
+     "unit": "mmol/L"
+    }
+   ],
+   "drugs": []
+  },
+  {
+   "kind": "检验报告单(血脂全套)",
+   "date": "2025-01-12",
+   "items": [
+    {
+     "name": "总胆固醇(TC)",
+     "value": "5.86",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "甘油三酯 TG",
+     "value": "2.34",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "高密度脂蛋白胆固醇 HDL-C",
+     "value": "0.98",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "低密度脂蛋白胆固醇(LDL-C)",
+     "value": "3.91",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "载脂蛋白A1 ApoA1",
+     "value": "1.15",
+     "unit": "g/L"
+    },
+    {
+     "name": "载脂蛋白B(ApoB)",
+     "value": "1.24",
+     "unit": "g/L"
+    },
+    {
+     "name": "脂蛋白(a) Lp(a)",
+     "value": "348",
+     "unit": "mg/L"
+    },
+    {
+     "name": "非高密度脂蛋白胆固醇 non-HDL-C",
+     "value": "4.88",
+     "unit": "mmol/L"
+    }
+   ],
+   "drugs": []
+  },
+  {
+   "kind": "门诊处方",
+   "date": "2025-01-12",
+   "items": [],
+   "drugs": [
+    {
+     "name": "阿司匹林肠溶片 100mg×30片"
+    },
+    {
+     "name": "硫酸氢氯吡格雷片(波立维) 75mg×7片"
+    },
+    {
+     "name": "阿托伐他汀钙片(立普妥) 20mg×7片"
+    },
+    {
+     "name": "苯磺酸氨氯地平片(络活喜) 5mg×7片"
+    },
+    {
+     "name": "缬沙坦氢氯噻嗪片(复代文) 80mg/12.5mg×28片"
+    },
+    {
+     "name": "琥珀酸美托洛尔缓释片(倍他乐克) 47.5mg×7片"
+    },
+    {
+     "name": "单硝酸异山梨酯缓释片 60mg×14片"
+    },
+    {
+     "name": "硝酸甘油片 0.5mg×100片 舌下含服"
+    },
+    {
+     "name": "非布司他片 40mg×14片"
+    },
+    {
+     "name": "碳酸氢钠片 0.5g×100片"
+    },
+    {
+     "name": "复方丹参滴丸 27mg×180丸"
+    },
+    {
+     "name": "辅酶Q10胶囊 10mg×60粒"
+    }
+   ]
+  },
+  {
+   "kind": "检验报告单(心肌标志物+凝血+尿常规)",
+   "date": "2025-03-20",
+   "items": [
+    {
+     "name": "肌钙蛋白I(cTnI)",
+     "value": "0.012",
+     "unit": "ng/mL"
+    },
+    {
+     "name": "高敏肌钙蛋白T hs-cTnT",
+     "value": "9.6",
+     "unit": "pg/mL"
+    },
+    {
+     "name": "肌酸激酶 CK",
+     "value": "112",
+     "unit": "U/L"
+    },
+    {
+     "name": "肌酸激酶同工酶(CK-MB)",
+     "value": "13",
+     "unit": "U/L"
+    },
+    {
+     "name": "肌红蛋白 MYO",
+     "value": "42.5",
+     "unit": "ng/mL"
+    },
+    {
+     "name": "N末端脑钠肽前体(NT-proBNP)",
+     "value": "168",
+     "unit": "pg/mL"
+    },
+    {
+     "name": "凝血酶原时间(PT)",
+     "value": "12.4",
+     "unit": "s"
+    },
+    {
+     "name": "国际标准化比值 INR",
+     "value": "1.03",
+     "unit": ""
+    },
+    {
+     "name": "活化部分凝血活酶时间 APTT",
+     "value": "31.2",
+     "unit": "s"
+    },
+    {
+     "name": "凝血酶时间 TT",
+     "value": "16.8",
+     "unit": "s"
+    },
+    {
+     "name": "纤维蛋白原 FIB",
+     "value": "3.42",
+     "unit": "g/L"
+    },
+    {
+     "name": "D-二聚体(D-Dimer)",
+     "value": "0.38",
+     "unit": "mg/L FEU"
+    },
+    {
+     "name": "纤维蛋白原降解产物 FDP",
+     "value": "2.6",
+     "unit": "mg/L"
+    },
+    {
+     "name": "尿比重(SG)",
+     "value": "1.020",
+     "unit": ""
+    },
+    {
+     "name": "尿酸碱度 pH",
+     "value": "5.5",
+     "unit": ""
+    },
+    {
+     "name": "尿蛋白 PRO",
+     "value": "阴性(-)",
+     "unit": ""
+    },
+    {
+     "name": "尿葡萄糖(GLU)",
+     "value": "阴性(-)",
+     "unit": ""
+    },
+    {
+     "name": "尿酮体 KET",
+     "value": "阴性(-)",
+     "unit": ""
+    },
+    {
+     "name": "尿胆原 URO",
+     "value": "正常",
+     "unit": ""
+    },
+    {
+     "name": "尿胆红素 BIL",
+     "value": "阴性(-)",
+     "unit": ""
+    },
+    {
+     "name": "尿隐血 BLD",
+     "value": "弱阳性(±)",
+     "unit": ""
+    },
+    {
+     "name": "亚硝酸盐 NIT",
+     "value": "阴性(-)",
+     "unit": ""
+    },
+    {
+     "name": "尿白细胞酯酶 LEU",
+     "value": "阴性(-)",
+     "unit": ""
+    },
+    {
+     "name": "尿红细胞计数",
+     "value": "8.6",
+     "unit": "/uL"
+    },
+    {
+     "name": "尿白细胞计数(WBC)",
+     "value": "4.2",
+     "unit": "/uL"
+    },
+    {
+     "name": "上皮细胞",
+     "value": "2.1",
+     "unit": "/uL"
+    },
+    {
+     "name": "管型",
+     "value": "0.00",
+     "unit": "/uL"
+    }
+   ],
+   "drugs": []
+  },
+  {
+   "kind": "门诊处方",
+   "date": "2025-03-20",
+   "items": [],
+   "drugs": [
+    {
+     "name": "阿司匹林肠溶片 100mg×30片"
+    },
+    {
+     "name": "瑞舒伐他汀钙片 10mg×28片"
+    },
+    {
+     "name": "依折麦布片 10mg×7片"
+    },
+    {
+     "name": "硝苯地平控释片(拜新同) 30mg×7片"
+    },
+    {
+     "name": "培哚普利叔丁胺片 4mg×30片"
+    },
+    {
+     "name": "酒石酸美托洛尔片 25mg×20片"
+    },
+    {
+     "name": "盐酸曲美他嗪片 20mg×30片"
+    },
+    {
+     "name": "低分子肝素钙注射液 4100IU/0.4mL 皮下注射"
+    },
+    {
+     "name": "麝香保心丸 22.5mg×60丸"
+    },
+    {
+     "name": "通心络胶囊 0.26g×30粒"
+    }
+   ]
+  },
+  {
+   "kind": "检验报告单(生化复查+血脂)",
+   "date": "2025-07-08",
+   "items": [
+    {
+     "name": "肌酐 Cr(Scr)",
+     "value": "92",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "尿素氮 BUN",
+     "value": "6.4",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "尿酸(UA)",
+     "value": "418",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "估算肾小球滤过率 eGFR",
+     "value": "78.6",
+     "unit": "mL/min/1.73m²"
+    },
+    {
+     "name": "丙氨酸氨基转移酶 ALT",
+     "value": "44",
+     "unit": "U/L"
+    },
+    {
+     "name": "天门冬氨酸氨基转移酶(AST)",
+     "value": "35",
+     "unit": "U/L"
+    },
+    {
+     "name": "肌酸激酶 CK",
+     "value": "168",
+     "unit": "U/L"
+    },
+    {
+     "name": "超敏C反应蛋白(hs-CRP)",
+     "value": "2.8",
+     "unit": "mg/L"
+    },
+    {
+     "name": "同型半胱氨酸(Hcy)",
+     "value": "16.4",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "红细胞沉降率 ESR",
+     "value": "12",
+     "unit": "mm/h"
+    },
+    {
+     "name": "钾 K",
+     "value": "4.05",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "钠 Na",
+     "value": "139",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "空腹血糖(FPG)",
+     "value": "5.9",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "总胆固醇(TC)",
+     "value": "4.12",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "甘油三酯 TG",
+     "value": "1.68",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "高密度脂蛋白胆固醇 HDL-C",
+     "value": "1.06",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "低密度脂蛋白胆固醇(LDL-C)",
+     "value": "2.14",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "载脂蛋白A1 ApoA1",
+     "value": "1.21",
+     "unit": "g/L"
+    },
+    {
+     "name": "载脂蛋白B(ApoB)",
+     "value": "0.82",
+     "unit": "g/L"
+    },
+    {
+     "name": "脂蛋白(a) Lp(a)",
+     "value": "296",
+     "unit": "mg/L"
+    },
+    {
+     "name": "小而密低密度脂蛋白 sdLDL-C",
+     "value": "0.72",
+     "unit": "mmol/L"
+    }
+   ],
+   "drugs": []
+  },
+  {
+   "kind": "门诊处方",
+   "date": "2025-07-08",
+   "items": [],
+   "drugs": [
+    {
+     "name": "阿司匹林肠溶片 100mg×30片"
+    },
+    {
+     "name": "阿托伐他汀钙片(立普妥) 20mg×7片"
+    },
+    {
+     "name": "厄贝沙坦片(安博维) 150mg×7片"
+    },
+    {
+     "name": "苯磺酸氨氯地平片 5mg×14片"
+    },
+    {
+     "name": "苯溴马隆片 50mg×10片"
+    },
+    {
+     "name": "碳酸氢钠片 0.5g×100片"
+    },
+    {
+     "name": "螺内酯片 20mg×100片"
+    },
+    {
+     "name": "呋塞米片 20mg×100片"
+    },
+    {
+     "name": "叶酸片 5mg×100片"
+    }
+   ]
+  },
+  {
+   "kind": "检验报告单(血常规+糖代谢+肾功)",
+   "date": "2025-02-18",
+   "items": [
+    {
+     "name": "白细胞计数(WBC)",
+     "value": "5.86",
+     "unit": "10^9/L"
+    },
+    {
+     "name": "中性粒细胞百分比 NEUT%",
+     "value": "58.9",
+     "unit": "%"
+    },
+    {
+     "name": "淋巴细胞百分比(LYM%)",
+     "value": "31.2",
+     "unit": "%"
+    },
+    {
+     "name": "单核细胞百分比 MONO%",
+     "value": "6.9",
+     "unit": "%"
+    },
+    {
+     "name": "嗜酸性粒细胞百分比 EO%",
+     "value": "2.4",
+     "unit": "%"
+    },
+    {
+     "name": "嗜碱性粒细胞百分比",
+     "value": "0.6",
+     "unit": "%"
+    },
+    {
+     "name": "中性粒细胞绝对值",
+     "value": "3.45",
+     "unit": "10^9/L"
+    },
+    {
+     "name": "淋巴细胞绝对值(LYMPH#)",
+     "value": "1.83",
+     "unit": "10^9/L"
+    },
+    {
+     "name": "红细胞计数 RBC",
+     "value": "3.62",
+     "unit": "×10^12/L"
+    },
+    {
+     "name": "血红蛋白(HGB)",
+     "value": "98",
+     "unit": "g/L"
+    },
+    {
+     "name": "红细胞压积 HCT",
+     "value": "31.4",
+     "unit": "%"
+    },
+    {
+     "name": "平均红细胞体积 MCV",
+     "value": "86.7",
+     "unit": "fL"
+    },
+    {
+     "name": "平均血红蛋白量(MCH)",
+     "value": "27.1",
+     "unit": "pg"
+    },
+    {
+     "name": "平均血红蛋白浓度 MCHC",
+     "value": "312",
+     "unit": "g/L"
+    },
+    {
+     "name": "红细胞分布宽度-SD(RDW-SD)",
+     "value": "46.2",
+     "unit": "fL"
+    },
+    {
+     "name": "血小板计数(PLT)",
+     "value": "246",
+     "unit": "10^9/L"
+    },
+    {
+     "name": "平均血小板体积 MPV",
+     "value": "9.8",
+     "unit": "fL"
+    },
+    {
+     "name": "网织红细胞百分比 Ret%",
+     "value": "1.2",
+     "unit": "%"
+    },
+    {
+     "name": "血小板压积 PCT",
+     "value": "0.24",
+     "unit": "%"
+    },
+    {
+     "name": "糖化血红蛋白 HbA1c",
+     "value": "8.4",
+     "unit": "%"
+    },
+    {
+     "name": "糖化白蛋白(GA)",
+     "value": "22.6",
+     "unit": "%"
+    },
+    {
+     "name": "空腹血糖(FPG)",
+     "value": "9.2",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "餐后2小时血糖 2hPG",
+     "value": "14.8",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "空腹胰岛素(FINS)",
+     "value": "12.4",
+     "unit": "μIU/mL"
+    },
+    {
+     "name": "空腹C肽 C-P",
+     "value": "1.86",
+     "unit": "ng/mL"
+    },
+    {
+     "name": "肌酐 Cr(Scr)",
+     "value": "126",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "尿素 Urea",
+     "value": "9.8",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "尿酸(UA)",
+     "value": "436",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "估算肾小球滤过率 eGFR",
+     "value": "52.3",
+     "unit": "mL/min/1.73m²"
+    },
+    {
+     "name": "胱抑素C(Cys-C)",
+     "value": "1.68",
+     "unit": "mg/L"
+    },
+    {
+     "name": "尿微量白蛋白 mALB",
+     "value": "186",
+     "unit": "mg/L"
+    },
+    {
+     "name": "尿肌酐 Ucr",
+     "value": "8.4",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "尿白蛋白/肌酐比值(ACR)",
+     "value": "196.5",
+     "unit": "mg/g"
+    },
+    {
+     "name": "24小时尿蛋白定量",
+     "value": "0.86",
+     "unit": "g/24h"
+    }
+   ],
+   "drugs": []
+  },
+  {
+   "kind": "门诊处方",
+   "date": "2025-02-18",
+   "items": [],
+   "drugs": [
+    {
+     "name": "盐酸二甲双胍缓释片(格华止) 0.5g×30片"
+    },
+    {
+     "name": "阿卡波糖片(拜唐苹) 50mg×30片"
+    },
+    {
+     "name": "格列美脲片 2mg×30片"
+    },
+    {
+     "name": "达格列净片(安达唐) 10mg×14片"
+    },
+    {
+     "name": "甘精胰岛素注射液(来得时) 300IU/3mL 笔芯 皮下注射"
+    },
+    {
+     "name": "门冬胰岛素30注射液(诺和锐30) 300IU/3mL 预填充笔"
+    },
+    {
+     "name": "缬沙坦胶囊(代文) 80mg×7粒"
+    },
+    {
+     "name": "甲钴胺片(弥可保) 0.5mg×20片"
+    },
+    {
+     "name": "硫辛酸胶囊 0.2g×24粒"
+    },
+    {
+     "name": "依帕司他片 50mg×30片"
+    },
+    {
+     "name": "阿托伐他汀钙片 20mg×7片"
+    },
+    {
+     "name": "羟苯磺酸钙胶囊 0.5g×30粒"
+    }
+   ]
+  },
+  {
+   "kind": "检验报告单(生化全项+铁代谢+尿常规)",
+   "date": "2025-06-10",
+   "items": [
+    {
+     "name": "丙氨酸氨基转移酶 ALT",
+     "value": "22",
+     "unit": "U/L"
+    },
+    {
+     "name": "天门冬氨酸氨基转移酶(AST)",
+     "value": "24",
+     "unit": "U/L"
+    },
+    {
+     "name": "碱性磷酸酶 ALP",
+     "value": "94",
+     "unit": "U/L"
+    },
+    {
+     "name": "γ-谷氨酰转肽酶(GGT)",
+     "value": "38",
+     "unit": "U/L"
+    },
+    {
+     "name": "总蛋白 TP",
+     "value": "66.8",
+     "unit": "g/L"
+    },
+    {
+     "name": "白蛋白(ALB)",
+     "value": "35.2",
+     "unit": "g/L"
+    },
+    {
+     "name": "球蛋白 GLB",
+     "value": "31.6",
+     "unit": "g/L"
+    },
+    {
+     "name": "白球比 A/G",
+     "value": "1.11",
+     "unit": ""
+    },
+    {
+     "name": "总胆红素(TBIL)",
+     "value": "9.8",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "直接胆红素 DBIL",
+     "value": "3.2",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "间接胆红素 IBIL",
+     "value": "6.6",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "乳酸脱氢酶(LDH)",
+     "value": "212",
+     "unit": "U/L"
+    },
+    {
+     "name": "肌酐 Cr(Scr)",
+     "value": "138",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "尿素 Urea",
+     "value": "11.2",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "尿酸(UA)",
+     "value": "452",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "估算肾小球滤过率 eGFR",
+     "value": "46.8",
+     "unit": "mL/min/1.73m²"
+    },
+    {
+     "name": "葡萄糖 GLU",
+     "value": "7.8",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "钾 K",
+     "value": "4.86",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "钠 Na",
+     "value": "138",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "氯 Cl",
+     "value": "106",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "二氧化碳结合力 CO2CP",
+     "value": "21.4",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "钙 Ca",
+     "value": "2.18",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "无机磷 P",
+     "value": "1.48",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "镁 Mg",
+     "value": "0.94",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "甲状旁腺激素(PTH)",
+     "value": "88.6",
+     "unit": "pg/mL"
+    },
+    {
+     "name": "超敏C反应蛋白(hs-CRP)",
+     "value": "4.6",
+     "unit": "mg/L"
+    },
+    {
+     "name": "血清铁 Fe",
+     "value": "7.8",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "铁蛋白(SF)",
+     "value": "42",
+     "unit": "ng/mL"
+    },
+    {
+     "name": "总铁结合力 TIBC",
+     "value": "68.4",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "转铁蛋白饱和度 TS",
+     "value": "11.4",
+     "unit": "%"
+    },
+    {
+     "name": "转铁蛋白 TRF",
+     "value": "2.86",
+     "unit": "g/L"
+    },
+    {
+     "name": "叶酸 FA",
+     "value": "4.2",
+     "unit": "ng/mL"
+    },
+    {
+     "name": "维生素B12(VitB12)",
+     "value": "268",
+     "unit": "pg/mL"
+    },
+    {
+     "name": "促红细胞生成素 EPO",
+     "value": "8.6",
+     "unit": "mIU/mL"
+    },
+    {
+     "name": "尿比重(SG)",
+     "value": "1.012",
+     "unit": ""
+    },
+    {
+     "name": "尿酸碱度 pH",
+     "value": "6.0",
+     "unit": ""
+    },
+    {
+     "name": "尿蛋白 PRO",
+     "value": "阳性(2+)",
+     "unit": ""
+    },
+    {
+     "name": "尿葡萄糖(GLU)",
+     "value": "阳性(3+)",
+     "unit": ""
+    },
+    {
+     "name": "尿酮体 KET",
+     "value": "阴性(-)",
+     "unit": ""
+    },
+    {
+     "name": "尿胆原 URO",
+     "value": "正常",
+     "unit": ""
+    },
+    {
+     "name": "尿胆红素 BIL",
+     "value": "阴性(-)",
+     "unit": ""
+    },
+    {
+     "name": "尿隐血 BLD",
+     "value": "阳性(1+)",
+     "unit": ""
+    },
+    {
+     "name": "亚硝酸盐 NIT",
+     "value": "阴性(-)",
+     "unit": ""
+    },
+    {
+     "name": "尿白细胞酯酶 LEU",
+     "value": "弱阳性(±)",
+     "unit": ""
+    },
+    {
+     "name": "尿红细胞计数",
+     "value": "18.4",
+     "unit": "/uL"
+    },
+    {
+     "name": "尿白细胞计数(WBC)",
+     "value": "12.6",
+     "unit": "/uL"
+    },
+    {
+     "name": "上皮细胞",
+     "value": "3.4",
+     "unit": "/uL"
+    },
+    {
+     "name": "管型",
+     "value": "0.42",
+     "unit": "/uL"
+    }
+   ],
+   "drugs": []
+  },
+  {
+   "kind": "门诊处方",
+   "date": "2025-06-10",
+   "items": [],
+   "drugs": [
+    {
+     "name": "盐酸二甲双胍缓释片 0.5g×60片"
+    },
+    {
+     "name": "西格列汀二甲双胍片(捷诺达) 50mg/850mg×28片"
+    },
+    {
+     "name": "恩格列净片 10mg×10片"
+    },
+    {
+     "name": "甘精胰岛素注射液 300IU/3mL 笔芯"
+    },
+    {
+     "name": "厄贝沙坦氢氯噻嗪片 150mg/12.5mg×7片"
+    },
+    {
+     "name": "复方α-酮酸片(开同) 0.63g×100片"
+    },
+    {
+     "name": "尿毒清颗粒 5g×18袋"
+    },
+    {
+     "name": "百令胶囊 0.2g×42粒"
+    },
+    {
+     "name": "琥珀酸亚铁片 0.1g×48片"
+    },
+    {
+     "name": "多糖铁复合物胶囊(力蜚能) 150mg×10粒"
+    },
+    {
+     "name": "重组人促红素注射液(益比奥) 10000IU/1mL 皮下注射"
+    },
+    {
+     "name": "蔗糖铁注射液 100mg/5mL 加入0.9%氯化钠注射液100mL静脉滴注"
+    },
+    {
+     "name": "碳酸钙D3片 600mg/125IU×60片"
+    }
+   ]
+  },
+  {
+   "kind": "检验报告单(糖化+血脂复查)",
+   "date": "2025-11-22",
+   "items": [
+    {
+     "name": "糖化血红蛋白 HbA1c",
+     "value": "6.9",
+     "unit": "%"
+    },
+    {
+     "name": "空腹血糖(FPG)",
+     "value": "6.2",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "总胆固醇(TC)",
+     "value": "4.68",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "甘油三酯 TG",
+     "value": "2.86",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "高密度脂蛋白胆固醇 HDL-C",
+     "value": "0.92",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "低密度脂蛋白胆固醇(LDL-C)",
+     "value": "2.42",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "载脂蛋白B(ApoB)",
+     "value": "0.94",
+     "unit": "g/L"
+    },
+    {
+     "name": "肌酐 Cr(Scr)",
+     "value": "132",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "估算肾小球滤过率 eGFR",
+     "value": "49.2",
+     "unit": "mL/min/1.73m²"
+    },
+    {
+     "name": "血红蛋白(HGB)",
+     "value": "116",
+     "unit": "g/L"
+    }
+   ],
+   "drugs": []
+  },
+  {
+   "kind": "门诊处方",
+   "date": "2025-11-22",
+   "items": [],
+   "drugs": [
+    {
+     "name": "司美格鲁肽注射液(诺和泰) 1.5mL:3mg 每周一次皮下注射"
+    },
+    {
+     "name": "达格列净片(安达唐) 10mg×14片"
+    },
+    {
+     "name": "盐酸二甲双胍缓释片(格华止) 0.5g×60片"
+    },
+    {
+     "name": "阿卡波糖片 50mg×30片"
+    },
+    {
+     "name": "非诺贝特胶囊 0.2g×10粒"
+    },
+    {
+     "name": "阿托伐他汀钙片 20mg×7片"
+    },
+    {
+     "name": "缬沙坦胶囊(代文) 80mg×7粒"
+    },
+    {
+     "name": "甲钴胺片 0.5mg×20片"
+    },
+    {
+     "name": "多糖铁复合物胶囊 150mg×10粒"
+    },
+    {
+     "name": "维生素B12片 25μg×100片"
+    }
+   ]
+  },
+  {
+   "kind": "检验报告单(甲功七项+血常规)",
+   "date": "2025-04-02",
+   "items": [
+    {
+     "name": "促甲状腺激素 TSH",
+     "value": "0.008",
+     "unit": "μIU/mL"
+    },
+    {
+     "name": "游离三碘甲状腺原氨酸(FT3)",
+     "value": "14.6",
+     "unit": "pmol/L"
+    },
+    {
+     "name": "游离甲状腺素 FT4",
+     "value": "36.8",
+     "unit": "pmol/L"
+    },
+    {
+     "name": "总三碘甲状腺原氨酸 TT3",
+     "value": "4.62",
+     "unit": "nmol/L"
+    },
+    {
+     "name": "总甲状腺素(TT4)",
+     "value": "196",
+     "unit": "nmol/L"
+    },
+    {
+     "name": "甲状腺过氧化物酶抗体 TPOAb",
+     "value": "286",
+     "unit": "IU/mL"
+    },
+    {
+     "name": "甲状腺球蛋白抗体(TgAb)",
+     "value": "112",
+     "unit": "IU/mL"
+    },
+    {
+     "name": "促甲状腺激素受体抗体 TRAb",
+     "value": "8.6",
+     "unit": "IU/L"
+    },
+    {
+     "name": "白细胞计数(WBC)",
+     "value": "4.12",
+     "unit": "10^9/L"
+    },
+    {
+     "name": "中性粒细胞百分比 NEUT%",
+     "value": "48.6",
+     "unit": "%"
+    },
+    {
+     "name": "中性粒细胞绝对值",
+     "value": "2.00",
+     "unit": "10^9/L"
+    },
+    {
+     "name": "淋巴细胞百分比(LYM%)",
+     "value": "42.1",
+     "unit": "%"
+    },
+    {
+     "name": "淋巴细胞绝对值(LYMPH#)",
+     "value": "1.73",
+     "unit": "10^9/L"
+    },
+    {
+     "name": "单核细胞百分比 MONO%",
+     "value": "7.4",
+     "unit": "%"
+    },
+    {
+     "name": "嗜酸性粒细胞百分比 EO%",
+     "value": "1.4",
+     "unit": "%"
+    },
+    {
+     "name": "红细胞计数 RBC",
+     "value": "4.32",
+     "unit": "×10^12/L"
+    },
+    {
+     "name": "血红蛋白(HGB)",
+     "value": "126",
+     "unit": "g/L"
+    },
+    {
+     "name": "红细胞压积 HCT",
+     "value": "38.4",
+     "unit": "%"
+    },
+    {
+     "name": "平均红细胞体积 MCV",
+     "value": "88.9",
+     "unit": "fL"
+    },
+    {
+     "name": "平均血红蛋白量(MCH)",
+     "value": "29.2",
+     "unit": "pg"
+    },
+    {
+     "name": "平均血红蛋白浓度 MCHC",
+     "value": "328",
+     "unit": "g/L"
+    },
+    {
+     "name": "红细胞分布宽度-CV(RDW-CV)",
+     "value": "13.4",
+     "unit": "%"
+    },
+    {
+     "name": "血小板计数(PLT)",
+     "value": "182",
+     "unit": "10^9/L"
+    },
+    {
+     "name": "平均血小板体积 MPV",
+     "value": "10.6",
+     "unit": "fL"
+    },
+    {
+     "name": "血小板分布宽度 PDW",
+     "value": "13.2",
+     "unit": "%"
+    },
+    {
+     "name": "丙氨酸氨基转移酶 ALT",
+     "value": "58",
+     "unit": "U/L"
+    },
+    {
+     "name": "碱性磷酸酶 ALP",
+     "value": "128",
+     "unit": "U/L"
+    }
+   ],
+   "drugs": []
+  },
+  {
+   "kind": "门诊处方",
+   "date": "2025-04-02",
+   "items": [],
+   "drugs": [
+    {
+     "name": "甲巯咪唑片(赛治) 10mg×50片"
+    },
+    {
+     "name": "丙硫氧嘧啶片 50mg×100片"
+    },
+    {
+     "name": "盐酸普萘洛尔片 10mg×100片"
+    },
+    {
+     "name": "利可君片 20mg×24片"
+    },
+    {
+     "name": "复方甘草酸苷片 25mg×100片"
+    },
+    {
+     "name": "谷维素片 10mg×100片"
+    },
+    {
+     "name": "硒酵母片 100μg×60片"
+    },
+    {
+     "name": "维生素B1片 10mg×100片"
+    },
+    {
+     "name": "碳酸钙D3咀嚼片(钙尔奇D) 600mg/125IU×60片"
+    },
+    {
+     "name": "维生素D滴剂 400IU×30粒"
+    }
+   ]
+  },
+  {
+   "kind": "检验报告单(骨代谢+胃功能三项+HP)",
+   "date": "2025-08-15",
+   "items": [
+    {
+     "name": "25-羟基维生素D(25-OH-VD)",
+     "value": "16.4",
+     "unit": "ng/mL"
+    },
+    {
+     "name": "甲状旁腺激素 PTH",
+     "value": "62.8",
+     "unit": "pg/mL"
+    },
+    {
+     "name": "骨钙素 N-MID",
+     "value": "24.6",
+     "unit": "ng/mL"
+    },
+    {
+     "name": "β-胶原特殊序列(β-CTX)",
+     "value": "0.68",
+     "unit": "ng/mL"
+    },
+    {
+     "name": "总I型胶原氨基端延长肽 P1NP",
+     "value": "68.2",
+     "unit": "ng/mL"
+    },
+    {
+     "name": "血清钙 Ca",
+     "value": "2.16",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "血清磷 P",
+     "value": "0.96",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "碱性磷酸酶(ALP)",
+     "value": "136",
+     "unit": "U/L"
+    },
+    {
+     "name": "胃蛋白酶原I(PGI)",
+     "value": "42.6",
+     "unit": "ng/mL"
+    },
+    {
+     "name": "胃蛋白酶原II PGII",
+     "value": "18.4",
+     "unit": "ng/mL"
+    },
+    {
+     "name": "胃蛋白酶原比值 PGR",
+     "value": "2.32",
+     "unit": ""
+    },
+    {
+     "name": "胃泌素-17(G-17)",
+     "value": "12.8",
+     "unit": "pmol/L"
+    },
+    {
+     "name": "13C-尿素呼气试验(DOB)",
+     "value": "阳性(+) 12.6",
+     "unit": ""
+    }
+   ],
+   "drugs": []
+  },
+  {
+   "kind": "门诊处方",
+   "date": "2025-08-15",
+   "items": [],
+   "drugs": [
+    {
+     "name": "雷贝拉唑钠肠溶片(波利特) 10mg×14片"
+    },
+    {
+     "name": "枸橼酸铋钾胶囊 0.3g×56粒"
+    },
+    {
+     "name": "阿莫西林胶囊 0.5g×56粒"
+    },
+    {
+     "name": "克拉霉素片 0.5g×28片"
+    },
+    {
+     "name": "呋喃唑酮片 0.1g×28片"
+    },
+    {
+     "name": "铝碳酸镁咀嚼片(达喜) 0.5g×20片"
+    },
+    {
+     "name": "双歧杆菌三联活菌胶囊(培菲康) 210mg×36粒"
+    },
+    {
+     "name": "多潘立酮片(吗丁啉) 10mg×30片"
+    },
+    {
+     "name": "阿仑膦酸钠片(福善美) 70mg×4片 每周一次晨起空腹服"
+    },
+    {
+     "name": "骨化三醇软胶囊(罗盖全) 0.25μg×20粒"
+    },
+    {
+     "name": "碳酸钙D3咀嚼片 600mg/125IU×60片"
+    },
+    {
+     "name": "香砂养胃丸 9g×10袋"
+    }
+   ]
+  },
+  {
+   "kind": "检验报告单(甲功复查+肝功能)",
+   "date": "2025-12-05",
+   "items": [
+    {
+     "name": "促甲状腺激素 TSH",
+     "value": "9.86",
+     "unit": "μIU/mL"
+    },
+    {
+     "name": "游离三碘甲状腺原氨酸(FT3)",
+     "value": "3.12",
+     "unit": "pmol/L"
+    },
+    {
+     "name": "游离甲状腺素 FT4",
+     "value": "9.4",
+     "unit": "pmol/L"
+    },
+    {
+     "name": "甲状腺过氧化物酶抗体 TPOAb",
+     "value": "342",
+     "unit": "IU/mL"
+    },
+    {
+     "name": "甲状腺球蛋白抗体(TgAb)",
+     "value": "168",
+     "unit": "IU/mL"
+    },
+    {
+     "name": "丙氨酸氨基转移酶 ALT",
+     "value": "36",
+     "unit": "U/L"
+    },
+    {
+     "name": "天门冬氨酸氨基转移酶(AST)",
+     "value": "29",
+     "unit": "U/L"
+    },
+    {
+     "name": "γ-谷氨酰转肽酶(GGT)",
+     "value": "42",
+     "unit": "U/L"
+    },
+    {
+     "name": "碱性磷酸酶 ALP",
+     "value": "104",
+     "unit": "U/L"
+    },
+    {
+     "name": "总蛋白 TP",
+     "value": "70.2",
+     "unit": "g/L"
+    },
+    {
+     "name": "白蛋白(ALB)",
+     "value": "41.6",
+     "unit": "g/L"
+    },
+    {
+     "name": "总胆红素(TBIL)",
+     "value": "12.4",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "直接胆红素 DBIL",
+     "value": "3.8",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "总胆固醇(TC)",
+     "value": "6.24",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "低密度脂蛋白胆固醇(LDL-C)",
+     "value": "4.02",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "肌酸激酶 CK",
+     "value": "196",
+     "unit": "U/L"
+    },
+    {
+     "name": "白细胞计数(WBC)",
+     "value": "5.24",
+     "unit": "10^9/L"
+    },
+    {
+     "name": "中性粒细胞绝对值",
+     "value": "3.02",
+     "unit": "10^9/L"
+    }
+   ],
+   "drugs": []
+  },
+  {
+   "kind": "门诊处方",
+   "date": "2025-12-05",
+   "items": [],
+   "drugs": [
+    {
+     "name": "左甲状腺素钠片(优甲乐) 50μg×100片 晨起空腹顿服"
+    },
+    {
+     "name": "唑来膦酸注射液(密固达) 5mg/100mL 静脉滴注 每年一次"
+    },
+    {
+     "name": "鲑降钙素注射液(密盖息) 50IU/1mL 肌肉注射"
+    },
+    {
+     "name": "骨化三醇软胶囊 0.25μg×20粒"
+    },
+    {
+     "name": "醋酸钙片 0.6g×36片"
+    },
+    {
+     "name": "奥美拉唑肠溶胶囊(洛赛克) 20mg×14粒"
+    },
+    {
+     "name": "硫糖铝混悬凝胶 5mL×20袋"
+    },
+    {
+     "name": "枸橼酸莫沙必利片 5mg×24片"
+    },
+    {
+     "name": "胃苏颗粒 15g×9袋"
+    }
+   ]
+  },
+  {
+   "kind": "检验报告单(血常规+生化简项)",
+   "date": "2025-10-15",
+   "items": [
+    {
+     "name": "白细胞计数(WBC)",
+     "value": "7.02",
+     "unit": "10^9/L"
+    },
+    {
+     "name": "血红蛋白(HGB)",
+     "value": "139",
+     "unit": "g/L"
+    },
+    {
+     "name": "红细胞计数 RBC",
+     "value": "4.55",
+     "unit": "×10^12/L"
+    },
+    {
+     "name": "血小板计数(PLT)",
+     "value": "228",
+     "unit": "10^9/L"
+    },
+    {
+     "name": "中性粒细胞百分比 NEUT%",
+     "value": "64.2",
+     "unit": "%"
+    },
+    {
+     "name": "淋巴细胞百分比(LYM%)",
+     "value": "26.8",
+     "unit": "%"
+    },
+    {
+     "name": "平均红细胞体积 MCV",
+     "value": "90.4",
+     "unit": "fL"
+    },
+    {
+     "name": "红细胞分布宽度-CV(RDW-CV)",
+     "value": "13.0",
+     "unit": "%"
+    },
+    {
+     "name": "尿酸(UA)",
+     "value": "386",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "肌酐 Cr(Scr)",
+     "value": "94",
+     "unit": "μmol/L"
+    },
+    {
+     "name": "丙氨酸氨基转移酶 ALT",
+     "value": "38",
+     "unit": "U/L"
+    },
+    {
+     "name": "空腹血糖(FPG)",
+     "value": "6.1",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "甘油三酯 TG",
+     "value": "1.92",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "低密度脂蛋白胆固醇(LDL-C)",
+     "value": "1.98",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "钾 K",
+     "value": "3.92",
+     "unit": "mmol/L"
+    },
+    {
+     "name": "N末端脑钠肽前体(NT-proBNP)",
+     "value": "142",
+     "unit": "pg/mL"
+    },
+    {
+     "name": "D-二聚体(D-Dimer)",
+     "value": "0.26",
+     "unit": "mg/L FEU"
+    },
+    {
+     "name": "空腹血糖 GLU(静脉)",
+     "value": "110",
+     "unit": "mg/dL"
+    }
+   ],
+   "drugs": []
+  },
+  {
+   "kind": "门诊处方",
+   "date": "2025-10-15",
+   "items": [],
+   "drugs": [
+    {
+     "name": "阿司匹林肠溶片 100mg×30片"
+    },
+    {
+     "name": "瑞舒伐他汀钙片 10mg×28片"
+    },
+    {
+     "name": "琥珀酸美托洛尔缓释片(倍他乐克) 47.5mg×7片"
+    },
+    {
+     "name": "苯磺酸氨氯地平片 5mg×14片"
+    },
+    {
+     "name": "别嘌醇片 100mg×100片"
+    },
+    {
+     "name": "盐酸胺碘酮片 200mg×10片"
+    },
+    {
+     "name": "门冬氨酸钾镁注射液 20mL 加入5%葡萄糖注射液250mL静脉滴注"
+    },
+    {
+     "name": "注射用泮托拉唑钠 40mg 静脉推注"
+    }
+   ]
+  }
+ ]
+}

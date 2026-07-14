@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 
 use serde::Deserialize;
-use terminology::{normalize, Dictionary};
+use terminology::{normalize, normalize_drug, normalize_unit, term_candidates, Dictionary};
 
 #[derive(Deserialize)]
 struct Demo {
@@ -31,67 +31,6 @@ struct Drug {
     name: String,
 }
 
-/// 复合化验名 → 候选:去括号内容 + 括号内(可能是同义缩写)+ 按空格/斜杠切 token。
-/// 真实报告写「甘油三酯 TG」「皮质醇(8AM)」「肌酐 Cr(Scr)」,精确查表整串必 miss,
-/// 拆成 token 后各自去查。纯确定性,不是模型。
-fn lab_candidates(name: &str) -> Vec<String> {
-    let is_open = |c: char| matches!(c, '(' | '（' | '[' | '【');
-    let is_close = |c: char| matches!(c, ')' | '）' | ']' | '】');
-    // 去括号后的主体 + 收集括号内内容
-    let (mut stripped, mut inner_all) = (String::new(), Vec::<String>::new());
-    let mut inner = String::new();
-    let mut depth = 0i32;
-    for c in name.chars() {
-        if is_open(c) {
-            depth += 1;
-        } else if is_close(c) {
-            depth -= 1;
-            if depth <= 0 && !inner.trim().is_empty() {
-                inner_all.push(inner.trim().to_string());
-                inner.clear();
-            }
-        } else if depth >= 1 {
-            inner.push(c);
-        } else {
-            stripped.push(c);
-        }
-    }
-    let mut cands: Vec<String> = vec![stripped.trim().to_string()];
-    let seps = [' ', '\u{3000}', '/', '／', '、', ',', '，'];
-    for t in stripped.split(seps) {
-        let t = t.trim();
-        if !t.is_empty() {
-            cands.push(t.to_string());
-        }
-    }
-    for blk in inner_all {
-        for t in blk.split(seps) {
-            let t = t.trim();
-            if !t.is_empty() {
-                cands.push(t.to_string());
-            }
-        }
-    }
-    cands.retain(|c| !c.is_empty());
-    cands.dedup();
-    cands
-}
-
-/// 单位比较用的宽松归一:去空格、小写、µ/μ→u、×→x、去 ^,好让 UCUM(10*9/L)
-/// 和报告写法(×10^9/L)尽量对上;仍对不上就算 miss(多是记法差异,可补数据)。
-fn nu(u: &str) -> String {
-    u.chars()
-        .filter(|c| !c.is_whitespace())
-        .flat_map(|c| c.to_lowercase())
-        .map(|c| match c {
-            'µ' | 'μ' => 'u',
-            '×' => 'x',
-            _ => c,
-        })
-        .filter(|&c| c != '^')
-        .collect()
-}
-
 fn main() {
     let path = std::env::args()
         .nth(1)
@@ -104,9 +43,9 @@ fn main() {
     // key -> 该条目接受的所有单位(canonical + 各转换单位),供单位命中判断。
     let mut units: HashMap<String, Vec<String>> = HashMap::new();
     for e in &dict.entries {
-        let mut us: Vec<String> = e.units.iter().map(|u| nu(&u.unit)).collect();
+        let mut us: Vec<String> = e.units.iter().map(|u| normalize_unit(&u.unit)).collect();
         if let Some(cu) = &e.canonical_unit {
-            us.push(nu(cu));
+            us.push(normalize_unit(cu));
         }
         units.insert(e.key.clone(), us);
     }
@@ -122,7 +61,7 @@ fn main() {
         for it in &r.items {
             lab_n += 1;
             // 复合名先拆候选,任一 token 命中即算(确定性)。
-            let hit = lab_candidates(&it.name).iter().find_map(|c| normalize(c));
+            let hit = term_candidates(&it.name).iter().find_map(|c| normalize(c));
             match hit {
                 Some(m) => {
                     lab_hit += 1;
@@ -133,7 +72,7 @@ fn main() {
                         unit_n += 1;
                         let ok = units
                             .get(&m.key)
-                            .is_some_and(|us| us.iter().any(|u| *u == nu(&it.unit)));
+                            .is_some_and(|us| us.iter().any(|u| *u == normalize_unit(&it.unit)));
                         if ok {
                             unit_hit += 1;
                         } else {
@@ -146,8 +85,11 @@ fn main() {
         }
         for d in &r.drugs {
             drug_n += 1;
-            // normalize 内部已做确定性剥壳(盐基/剂型)。
-            match normalize(&d.name) {
+            // 先候选拆分(去括号商品名/尾部规格),再 normalize(内部剥盐基/剂型)。
+            match term_candidates(&d.name)
+                .iter()
+                .find_map(|c| normalize_drug(c))
+            {
                 Some(m) => {
                     drug_hit += 1;
                     if m.confidence < 1.0 {
