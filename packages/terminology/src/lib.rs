@@ -113,7 +113,8 @@ pub struct Match {
     pub ingredient: Option<String>,
     /// The dictionary alias that matched (traceable back to the data).
     pub matched_alias: String,
-    /// 1.0 for an exact alias hit, 0.5 for an OCR-confusion hit.
+    /// 1.0 = 字典别名精确命中;0.8 = **剥壳推断**(去盐基/剂型/规格/载液后才命中,是推断
+    /// 不是原文);0.5 = OCR 混淆表命中(可疑,送人工复核)。上层据此决定信不信。
     pub confidence: f32,
 }
 
@@ -131,8 +132,10 @@ struct Index {
     /// normalized ocr_confusion -> hit (confidence 0.5).
     confusions: HashMap<String, AliasHit>,
     /// 只含 drug 条目的别名表 —— 处方语境用 [`normalize_drug`] 查这张,
-    /// 免得「叶酸」「维生素C」「氯化钠」被同名的化验项抢走。
+    /// 免得「叶酸」「氢化可的松」被同名的化验项抢走。
     drug_aliases: HashMap<String, AliasHit>,
+    /// drug 的 OCR 混淆表(同上,按类别分)。
+    drug_confusions: HashMap<String, AliasHit>,
 }
 
 /// Normalization applied to BOTH index keys and query terms so lookups are
@@ -173,7 +176,8 @@ fn to_halfwidth(c: char) -> char {
 /// therefore a build-time bug, so `expect` documents that invariant rather than
 /// propagating an error that no runtime caller could act on.
 ///
-/// 同名跨类别是**真实存在**的:「叶酸」「维生素C」「氯化钠」既是化验项也是药。别名表按类别
+/// 同名跨类别是**真实存在**的:「叶酸」既是化验(血清叶酸)也是药(叶酸片);「氢化可的松」
+/// 既是化验(皮质醇)也是药。别名表按类别
 /// 分开建:无类别信息的 [`normalize`] 让**化验/体征优先**(报告单里这些词绝大多数是化验项),
 /// 处方语境改用 [`normalize_drug`] 查 drug 专表。同一类别内别名仍必须唯一
 /// (`no_duplicate_alias_within_category` 守着)。
@@ -184,6 +188,7 @@ fn build_index() -> Index {
     let mut aliases: HashMap<String, AliasHit> = HashMap::new();
     let mut confusions: HashMap<String, AliasHit> = HashMap::new();
     let mut drug_aliases: HashMap<String, AliasHit> = HashMap::new();
+    let mut drug_confusions: HashMap<String, AliasHit> = HashMap::new();
 
     for (entry_idx, entry) in dict.entries.iter().enumerate() {
         let is_drug = entry.category == Category::Drug;
@@ -206,13 +211,20 @@ fn build_index() -> Index {
         }
         for confusion in &entry.ocr_confusions {
             let norm = normalize_term(confusion);
-            confusions.insert(
-                norm,
-                AliasHit {
+            let hit = AliasHit {
+                entry_idx,
+                alias: confusion.clone(),
+            };
+            if is_drug {
+                // 与 aliases 同样的分表规则:混淆表也不能让药悄悄盖掉化验项。
+                drug_confusions.insert(norm.clone(), hit);
+                confusions.entry(norm).or_insert_with(|| AliasHit {
                     entry_idx,
                     alias: confusion.clone(),
-                },
-            );
+                });
+            } else {
+                confusions.insert(norm, hit);
+            }
         }
     }
 
@@ -221,6 +233,7 @@ fn build_index() -> Index {
         aliases,
         confusions,
         drug_aliases,
+        drug_confusions,
     }
 }
 
@@ -243,6 +256,10 @@ impl Index {
         }
     }
 }
+
+/// 剥壳推断出来的命中置信度:低于精确命中(1.0),高于 OCR 混淆(0.5)。「盐酸二甲双胍片」
+/// 剥成「二甲双胍」是**推断**——原文并没有这四个字,上层要能把它和原样命中区分开。
+const STRIPPED_CONFIDENCE: f32 = 0.8;
 
 /// 药名规范化前的**确定性剥壳**:真实处方写「盐酸二甲双胍片」「阿托伐他汀钙片」,而
 /// 字典按通用名(二甲双胍 / 阿托伐他汀)收录。这里对已 normalize 的词生成候选词干 ——
@@ -376,16 +393,24 @@ fn strip_trailing_dose(s: &str) -> Option<String> {
         "u",
         "%",
     ];
-    // ponytail: 只对 ASCII 单位做小写化,所以字节长度与原串一致,可以直接切 s[..n]。
-    let lower = s.to_lowercase();
     for u in DOSE_UNITS {
-        let Some(head) = lower.strip_suffix(u) else {
-            continue;
+        // 取原串末尾同样字符数的后缀 —— 从 s 自己的 char 里取,所以它的字节长度必然落在
+        // UTF-8 边界上。**不能**拿 s.to_lowercase() 的字节偏移去切 s:小写化会改变字节长度
+        // (「ẞ」3 字节 → 「ß」2 字节,「İ」2 → 3),切出来要么错位要么 panic。
+        let n = u.chars().count();
+        let tail: String = {
+            let mut cs: Vec<char> = s.chars().rev().take(n).collect();
+            cs.reverse();
+            cs.into_iter().collect()
         };
+        if tail.chars().count() < n || tail.to_lowercase() != *u {
+            continue;
+        }
+        let head = &s[..s.len() - tail.len()];
         let stem = head.trim_end_matches(|c: char| c.is_ascii_digit() || c == '.');
         // 必须真去掉了数字(否则「片g」这种误判),且剩余不能为空。
         if stem.len() < head.len() && !stem.is_empty() {
-            return Some(s[..stem.len()].to_string());
+            return Some(stem.to_string());
         }
     }
     None
@@ -425,6 +450,10 @@ pub fn term_candidates(name: &str) -> Vec<String> {
     // 刻意**不按斜杠切**:化验名里的「/」多半是比值本身(尿白蛋白/肌酐比值、AST/ALT),
     // 切开会先命中分子(尿白蛋白)而丢掉真正的项(ACR)。
     const SEPS: [char; 5] = [' ', '\u{3000}', '、', ',', '，'];
+    // OCR 常把右括号丢掉(「(肌酐」):残留的括号内内容也收进候选,否则整段被吞掉必 miss。
+    if !inner.trim().is_empty() {
+        inner_all.push(inner.trim().to_string());
+    }
     // 候选顺序:原串 → 去括号主体 → 各自的 token → **括号内内容放最后兜底**。
     // 括号里的裸缩写常与别的项撞车(尿常规「尿红细胞计数(RBC)」的 RBC = 血 RBC;
     // 「血小板压积(PCT)」的 PCT = 降钙素原),优先用它会造成**误配**——比 miss 危险得多。
@@ -491,7 +520,8 @@ pub fn normalize_unit(raw: &str) -> String {
 /// An exact (normalized) alias hit yields `confidence == 1.0`; an
 /// `ocr_confusions` hit yields `confidence == 0.5`. If a raw drug term
 /// (`盐酸二甲双胍片`) doesn't match directly, deterministic salt/form stripping is
-/// retried and, on a **drug** hit, returned at confidence 1.0.
+/// retried and, on a **drug** hit, returned at [`STRIPPED_CONFIDENCE`] (0.8) —— 剥壳是推断,
+/// 不能和原样命中同等信任。
 pub fn normalize(raw_term: &str) -> Option<Match> {
     let norm = normalize_term(raw_term);
     if norm.is_empty() {
@@ -507,7 +537,7 @@ pub fn normalize(raw_term: &str) -> Option<Match> {
     // 药名剥壳兜底:去盐/剂型后重试,只在 drug 命名空间里查(仍确定性、可核对)。
     for cand in drug_stem_candidates(&norm) {
         if let Some(hit) = idx.drug_aliases.get(&cand) {
-            return Some(idx.to_match(hit, 1.0));
+            return Some(idx.to_match(hit, STRIPPED_CONFIDENCE));
         }
     }
     None
@@ -525,10 +555,13 @@ pub fn normalize_drug(raw_term: &str) -> Option<Match> {
     if let Some(hit) = idx.drug_aliases.get(&norm) {
         return Some(idx.to_match(hit, 1.0));
     }
+    if let Some(hit) = idx.drug_confusions.get(&norm) {
+        return Some(idx.to_match(hit, 0.5));
+    }
     drug_stem_candidates(&norm)
         .iter()
         .find_map(|c| idx.drug_aliases.get(c))
-        .map(|hit| idx.to_match(hit, 1.0))
+        .map(|hit| idx.to_match(hit, STRIPPED_CONFIDENCE))
 }
 
 /// Read-only access to the parsed dictionary (entries), for consumers that need
@@ -661,6 +694,116 @@ mod tests {
         assert_eq!(hit("硫酸羟氯喹片(纷乐)0.1g"), "hydroxychloroquine");
         // 规格不会把药名本身吃掉:剥出的候选仍是完整通用名。
         assert!(term_candidates("醋酸泼尼松片5mg").contains(&"醋酸泼尼松片".to_string()));
+    }
+
+    #[test]
+    fn carrier_strip_never_swaps_one_drug_for_another() {
+        // 载液剥离的边界:带钠的葡萄糖氯化钠 ≠ 不带钠的葡萄糖注射液,复方氯化钠 ≠ 「复方」。
+        // 剥壳只能在**整串查不到**时才放宽,顺序错了就是临床误配(病人多输/少输一份钠)。
+        assert_eq!(
+            normalize_drug("葡萄糖氯化钠注射液").unwrap().key,
+            "glucose_sodium_chloride"
+        );
+        assert_eq!(
+            normalize_drug("复方氯化钠注射液").unwrap().key,
+            "compound_sodium_chloride"
+        );
+        // 真正的「药 + 载液」才剥到通用名。
+        assert_eq!(
+            normalize_drug("左氧氟沙星氯化钠注射液").unwrap().key,
+            "levofloxacin"
+        );
+    }
+
+    #[test]
+    fn stripped_match_is_not_full_confidence() {
+        // 剥壳是**推断**:原文写的是「盐酸二甲双胍片」,字典命中的是「二甲双胍」。
+        // 上层必须能把它和原样精确命中区分开(否则 OCR 掉一个字导致的换药无从察觉)。
+        assert_eq!(normalize("盐酸二甲双胍片").unwrap().confidence, 0.8);
+        assert_eq!(normalize_drug("注射用泮托拉唑钠").unwrap().confidence, 0.8);
+        // 原样命中仍是 1.0。
+        assert_eq!(normalize("二甲双胍").unwrap().confidence, 1.0);
+        assert_eq!(normalize_drug("二甲双胍").unwrap().confidence, 1.0);
+    }
+
+    #[test]
+    fn fuzz_random_input_never_panics() {
+        // 硬编码的敌意串只能挡住已知的坑;随机 fuzz 才挡得住下一个切片 bug。
+        // 用固定种子的 xorshift(可复现,无外部依赖)。
+        const ALPHABET: &[char] = &[
+            'ẞ', 'İ', 'K', 'Ω', 'ǅ', 'µ', 'μ', '×', '^', '²', '％', 'Ａ', '（', '）', '(', ')',
+            '[', ']', '、', '/', ' ', '\u{3000}', '\u{200b}', '\u{0301}', '🩺', '肌', '酐', '片',
+            '钠', '注', '射', '用', '5', '0', '.', '%', 'm', 'g', 'L', 'u', '万', '单', '位',
+        ];
+        let mut state: u64 = 0x9E3779B97F4A7C15;
+        let mut next = || {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            state
+        };
+        for _ in 0..20_000 {
+            let len = (next() % 24) as usize;
+            let s: String = (0..len)
+                .map(|_| ALPHABET[(next() as usize) % ALPHABET.len()])
+                .collect();
+            let _ = normalize(&s);
+            let _ = normalize_drug(&s);
+            let _ = normalize_unit(&s);
+            for c in term_candidates(&s) {
+                let _ = normalize(&c);
+                let _ = normalize_drug(&c);
+            }
+        }
+    }
+
+    #[test]
+    fn hostile_input_never_panics() {
+        // 输入来自 OCR 出来的病历文本 = 不可信。任何输入都只能 miss,不能 panic(panic = DoS)。
+        // 「ẞ5mg」曾真的崩过:小写化改变字节长度(ẞ 3 字节 → ß 2 字节),按 lowercase 的偏移
+        // 切原串会切在 UTF-8 字符中间。
+        let hostile = [
+            "ẞ5mg",
+            "İ5mg",
+            "ẞẞ5mg",
+            "İ1g",
+            "ǅ5ml",
+            "5mg",
+            "%",
+            "0.5",
+            "mg",
+            "万单位",
+            "(((",
+            ")))",
+            "（（（",
+            "()",
+            "（）",
+            "、、、",
+            "   ",
+            "",
+            "\u{200b}",
+            "🩺5mg",
+            "肌酐\u{0301}",
+            "10%",
+            "%%%",
+            "注射用",
+            "注射用片",
+            "钠",
+            "片",
+        ];
+        for h in hostile {
+            let _ = normalize(h);
+            let _ = normalize_drug(h);
+            let _ = normalize_unit(h);
+            for c in term_candidates(h) {
+                let _ = normalize(&c);
+                let _ = normalize_drug(&c);
+            }
+        }
+        // 超长串也不能崩(也别指数爆炸)。
+        let long_paren = "(".repeat(5_000) + &"肌酐 5mg ".repeat(2_000);
+        let _ = term_candidates(&long_paren);
+        let _ = normalize(&long_paren);
     }
 
     #[test]
