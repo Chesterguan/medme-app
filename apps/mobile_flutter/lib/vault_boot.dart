@@ -33,25 +33,42 @@ Future<void> switchProfileAndReopen(String name) async {
   bumpVaultRevision();
 }
 
-/// 「清空所有数据」= 恢复出厂:清**所有**成员的 vault(不只当前 profile)+ 份数缓存
-/// + 待确认状态,重置成单一默认档案。做法:先把注册表恢复出厂(current 回默认 root)、
-/// 重开 root vault 并 `resetVault` 清它,再删掉所有子成员(`profiles/`)的数据目录。
+/// 「清空所有数据」= 恢复出厂:清**所有成员、所有位置**的 vault 数据(本机 + iCloud
+/// 容器)+ 份数缓存 + 待确认,重置成单一默认档案。
+///
+/// ⚠️ root 成员有**两处** vault:本机 `<docs>/vault` 与 iCloud `<container>/Documents/vault`
+/// (关 iCloud 时容器副本会被 `disable_icloud_sync` 保留)。`resetVault` 只干净清掉**当前
+/// 活跃**那处(正常关连接 + 删 db/wal + 重开空);另一处必须显式删,否则清空后容器里仍留
+/// 整份病历、再开 iCloud 会 adopt 回来(评审 Critical)。子成员整个 `profiles/` 删掉。
 Future<void> wipeAllData() async {
   final docsRoot = (await getApplicationDocumentsDirectory()).path;
   final containerRoot = await IcloudBridge.containerPath();
+
+  Future<void> rmDir(String path) async {
+    final d = Directory(path);
+    if (await d.exists()) await d.delete(recursive: true);
+  }
 
   // 1. 注册表恢复出厂(current→默认 root)+ 清待确认。
   await ProfileManager.instance.factoryReset();
   await ReviewState.instance.clearAll();
 
-  // 2. 重开默认(root)vault → 活跃 vault = root;3. 清它(删目录+重开空)。
+  // 2. 重开默认(root)vault → 活跃 = root;3. resetVault 干净清活跃那处(含 db/wal)+ 重开空。
   await openCurrentProfileVault();
   await resetVault();
 
-  // 4. 删掉所有子成员的数据目录(它们没被打开,直接删)。root 已由 resetVault 清掉。
+  // 4. 删 root 的**非活跃**那处 vault 副本(resetVault 没碰到的):iCloud 开时活跃=容器,
+  //    非活跃=本机;关时反之。icloudStatus().enabled 与 Rust 的路径决策同源(同一 marker)。
+  final icloudOn = (await icloudStatus()).enabled;
+  if (icloudOn) {
+    await rmDir('$docsRoot/vault');
+  } else if (containerRoot != null) {
+    await rmDir('$containerRoot/Documents/vault');
+  }
+
+  // 5. 删所有子成员数据(各自 vault + 派生库都在 profiles/ 内);本机 + iCloud 容器都删。
   for (final root in [docsRoot, if (containerRoot != null) '$containerRoot/Documents']) {
-    final profiles = Directory('$root/profiles');
-    if (await profiles.exists()) await profiles.delete(recursive: true);
+    await rmDir('$root/profiles');
   }
 
   bumpVaultRevision();
