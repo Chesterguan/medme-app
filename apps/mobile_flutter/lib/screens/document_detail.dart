@@ -5,6 +5,7 @@ import 'package:pdfx/pdfx.dart';
 
 import 'package:mobile_flutter/src/rust/api/dto.dart';
 import 'package:mobile_flutter/src/rust/api/vault.dart';
+import 'package:mobile_flutter/review_state.dart';
 import 'package:mobile_flutter/theme.dart';
 import 'package:mobile_flutter/vault_events.dart';
 import 'package:mobile_flutter/widgets/report_content.dart';
@@ -77,8 +78,16 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
     }
   }
 
+  /// 确认这份待确认文档无误:移出待确认(去掉红框)→ 通知档案刷新 → 退回。
+  Future<void> _confirm() async {
+    await ReviewState.instance.markReviewed(widget.docId);
+    bumpVaultRevision();
+    if (mounted) Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final pending = ReviewState.instance.isPending(widget.docId);
     return Scaffold(
       appBar: AppBar(
         title: const Text('文档详情'),
@@ -90,6 +99,22 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
           ),
         ],
       ),
+      // 待确认文档:底部「确认无误」栏,核对后一键归档(去掉红框、进标准时间线)。
+      bottomNavigationBar: pending
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: FilledButton.icon(
+                  onPressed: _confirm,
+                  icon: const Icon(Icons.check),
+                  label: const Text('确认无误,归入档案'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                  ),
+                ),
+              ),
+            )
+          : null,
       body: FutureBuilder<DocumentDetailDto>(
         future: _future,
         builder: (context, snap) {

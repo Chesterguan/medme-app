@@ -130,6 +130,29 @@ List<DocumentSummaryDto> _allDocs(List<TimelineGroupDto> groups) {
   return out;
 }
 
+/// 「已确认」时间线:把待确认文档从分组里剔除(它们单独在顶部红框区展示,避免重复)。
+/// 就诊组里若有部分文档待确认,重建一个只含已确认文档的组;整组都待确认则整组略去。
+List<TimelineGroupDto> _confirmedOnly(List<TimelineGroupDto> groups) {
+  final out = <TimelineGroupDto>[];
+  for (final g in groups) {
+    switch (g) {
+      case TimelineGroupDto_Document(:final doc):
+        if (!ReviewState.instance.isPending(doc.id)) out.add(g);
+      case TimelineGroupDto_Encounter(:final encounter, :final docs):
+        final kept = docs
+            .where((d) => !ReviewState.instance.isPending(d.id))
+            .toList();
+        if (kept.isEmpty) continue;
+        out.add(
+          kept.length == docs.length
+              ? g
+              : TimelineGroupDto.encounter(encounter: encounter, docs: kept),
+        );
+    }
+  }
+  return out;
+}
+
 class ArchiveScreen extends StatefulWidget {
   const ArchiveScreen({super.key});
 
@@ -173,17 +196,6 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
       profile.recordCount,
     );
     return (profile, groups);
-  }
-
-  /// 审核通过一份文档 → 从顶部「待确认」区消失,归入正常时间线(按日期排序)。
-  Future<void> _review(int docId) async {
-    await ReviewState.instance.markReviewed(docId);
-    if (mounted) setState(() {}); // 重建 → 重算 unreviewed(数据没变,只是过滤变了)
-  }
-
-  Future<void> _reviewAll(Iterable<int> docIds) async {
-    await ReviewState.instance.markAllReviewed(docIds);
-    if (mounted) setState(() {});
   }
 
   /// 删除前确认(销毁性操作)。返回用户是否确认。
@@ -382,12 +394,14 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
           }
 
           final (profile, groups) = snap.data!;
-          // 新导入(待确认)的文档:置顶,新的(id 大)在前。
-          final unreviewed =
+          // 待确认(新导入)文档:红框置顶,新的(id 大)在前;确认在详情页做。
+          final pending =
               _allDocs(
                   groups,
                 ).where((d) => ReviewState.instance.isPending(d.id)).toList()
                 ..sort((a, b) => b.id.compareTo(a.id));
+          // 已确认时间线:剔除待确认文档,避免和上面红框区重复。
+          final confirmed = _confirmedOnly(groups);
           return RefreshIndicator(
             onRefresh: _refresh,
             color: MedMe.teal,
@@ -401,26 +415,43 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
                   onTap: _showProfileSwitcher,
                 ),
                 const SizedBox(height: 20),
-                if (unreviewed.isNotEmpty) ...[
-                  _NewImportsSection(
-                    docs: unreviewed,
-                    onReview: _review,
-                    onReviewAll: () => _reviewAll(unreviewed.map((d) => d.id)),
+                // 待确认:红框卡片,点开进详情核对 + 确认;左滑删除。
+                for (final d in pending) ...[
+                  _PendingCard(
+                    doc: d,
+                    mismatchName: ReviewState.instance.mismatchName(d.id),
                     onOpen: _openDoc,
                     onDelete: _confirmAndDelete,
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 10),
                 ],
-                if (groups.isEmpty)
+                if (pending.isNotEmpty && confirmed.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Expanded(child: Divider(color: MedMe.line)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Text(
+                          '以下为已确认',
+                          style: TextStyle(fontSize: 12, color: MedMe.faint),
+                        ),
+                      ),
+                      const Expanded(child: Divider(color: MedMe.line)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                if (pending.isEmpty && confirmed.isEmpty)
                   const _EmptyState()
                 else
-                  for (var i = 0; i < groups.length; i++) ...[
+                  for (var i = 0; i < confirmed.length; i++) ...[
                     if (i > 0) const SizedBox(height: 10),
                     _TimelineItem(
-                      group: groups[i],
+                      group: confirmed[i],
                       expanded: _expanded.contains(i),
                       onTap: () {
-                        final g = groups[i];
+                        final g = confirmed[i];
                         if (g is TimelineGroupDto_Document) {
                           _openDoc(g.doc.id);
                         } else {
@@ -789,127 +820,133 @@ class _SubDocList extends StatelessWidget {
   }
 }
 
-/// 顶部「待确认 · 新导入」区:新导入的文档先在这里让用户过一眼(OCR 猜的类型/日期
-/// 可能不准),点「确认」→ 归入下方正常时间线(按日期排序)、不再置顶。
-class _NewImportsSection extends StatelessWidget {
-  const _NewImportsSection({
-    required this.docs,
-    required this.onReview,
-    required this.onReviewAll,
+/// 待确认(新导入)卡片:红框 + 「待确认」标签,点开进**详情页**核对并确认(确认按钮
+/// 在详情页,不在这里)。左滑删除。识别姓名与当前档案不符时下方红色警告。确认后本卡
+/// 消失,该文档以标准样式进入下方时间线。
+class _PendingCard extends StatelessWidget {
+  const _PendingCard({
+    required this.doc,
+    required this.mismatchName,
     required this.onOpen,
     required this.onDelete,
   });
 
-  final List<DocumentSummaryDto> docs;
-  final void Function(int docId) onReview;
-  final VoidCallback onReviewAll;
+  final DocumentSummaryDto doc;
+  final String? mismatchName;
   final void Function(int docId) onOpen;
   final Future<void> Function(int docId, String label) onDelete;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final label = doc.title ?? _docLabel[doc.docType] ?? '记录';
+    final card = Container(
       decoration: BoxDecoration(
-        color: MedMe.tealSoft,
+        color: MedMe.panel,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: MedMe.teal.withValues(alpha: 0.3)),
+        border: Border.all(color: MedMe.danger, width: 1.5),
       ),
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      clipBehavior: Clip.antiAlias,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.fiber_new, color: MedMe.teal, size: 20),
-              const SizedBox(width: 6),
-              Text(
-                '待确认 · 新导入 ${docs.length} 份',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: MedMe.tealDark,
-                ),
-              ),
-              const Spacer(),
-              if (docs.length > 1)
-                TextButton(onPressed: onReviewAll, child: const Text('全部确认')),
-            ],
-          ),
-          const Padding(
-            padding: EdgeInsets.only(left: 26, right: 4, bottom: 4),
-            child: Text(
-              '识别的类型/日期可能不准,点开核对无误后「确认」,即归入下方时间线。',
-              style: TextStyle(fontSize: 12, color: MedMe.faint, height: 1.4),
-            ),
-          ),
-          for (final d in docs)
-            Card(
-              margin: const EdgeInsets.only(top: 8),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+          InkWell(
+            onTap: () => onOpen(doc.id),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: _colorFor(
-                        d.docType,
-                      ).withValues(alpha: 0.12),
-                      child: Icon(
-                        _iconForDoc(d.docType),
-                        color: _colorFor(d.docType),
-                        size: 20,
-                      ),
+                  Container(
+                    width: 36,
+                    height: 36,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: _colorFor(doc.docType).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    title: Text(
-                      d.title ?? _docLabel[d.docType] ?? '记录',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    child: Icon(
+                      _iconForDoc(doc.docType),
+                      size: 19,
+                      color: _colorFor(doc.docType),
                     ),
-                    subtitle: Text(
-                      [
-                        _docLabel[d.docType] ?? d.docType,
-                        _fmtDate(d.docDate).isNotEmpty
-                            ? _fmtDate(d.docDate)
-                            : '无日期',
-                      ].join(' · '),
-                      style: const TextStyle(
-                        color: MedMe.faint,
-                        fontSize: 12.5,
-                      ),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.delete_outline,
-                            color: MedMe.danger,
-                          ),
-                          tooltip: '删除',
-                          visualDensity: VisualDensity.compact,
-                          onPressed: () => onDelete(
-                            d.id,
-                            d.title ?? _docLabel[d.docType] ?? '记录',
-                          ),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: MedMe.danger.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                '待确认',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: MedMe.danger,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _fmtDate(doc.docDate),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: MedMe.faint,
+                              ),
+                            ),
+                          ],
                         ),
-                        FilledButton(
-                          style: FilledButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
+                        const SizedBox(height: 3),
+                        Text(
+                          [_docLabel[doc.docType] ?? doc.docType, '点开核对并确认']
+                              .join(' · '),
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: MedMe.faint,
                           ),
-                          onPressed: () => onReview(d.id),
-                          child: const Text('确认'),
                         ),
                       ],
                     ),
-                    onTap: () => onOpen(d.id),
                   ),
-                  if (ReviewState.instance.mismatchName(d.id) case final who?)
-                    _MismatchBanner(who: who),
+                  const Icon(Icons.chevron_right, size: 20, color: MedMe.faint),
                 ],
               ),
             ),
+          ),
+          if (mismatchName case final who?) _MismatchBanner(who: who),
         ],
       ),
+    );
+    return Dismissible(
+      key: ValueKey('pending-${doc.id}'),
+      direction: DismissDirection.endToStart,
+      background: swipeDeleteBackground(),
+      confirmDismiss: (_) async {
+        await onDelete(doc.id, label);
+        return false;
+      },
+      child: card,
     );
   }
 }
