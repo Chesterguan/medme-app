@@ -12,7 +12,7 @@
         a=d.find(o,i)
         if a<0:break
         a+=len(o);b=d.find(c,a);print(base64.b64encode(hashlib.sha256(d[a:b].encode()).digest()).decode());i=b" -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-7Z0+4VB3CnpMGP9NdEXdG4wifm/kpyirE2yqr+CEnyc=' 'sha256-OCIrCd/ySk5NOIVS5qY7Py26jHP/l+j7p3zDiPCR5EQ='; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-7Z0+4VB3CnpMGP9NdEXdG4wifm/kpyirE2yqr+CEnyc=' 'sha256-vw2dewHjrOIKMeLbnkUfdBeWHyWSNHdblPaB8EeeWlo='; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MedMe 加密分享查看器</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%201024%201024%22%3E%0A%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%232bc0d2%22%2F%3E%3Cstop%20offset%3D%220.52%22%20stop-color%3D%22%231789c1%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%231560a8%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%0A%3Crect%20width%3D%221024%22%20height%3D%221024%22%20rx%3D%22232%22%20fill%3D%22url%28%23g%29%22%2F%3E%0A%3Cpath%20transform%3D%22translate%2885.76%2C804.70%29%20scale%280.82760%2C-0.82760%29%22%20d%3D%22M326%20640C320%20672%20323%20688%20335%20688C431%20690%20535%20708%20650%20741C668%20748%20687%20734%20704%20699C720%20664%20716%20650%20691%20658C672%20666%20641%20663%20600%20651C557%20639%20509%20631%20458%20627C405%20623%20371%20615%20355%20605C342%20596%20332%20606%20326%20640ZM212%20393C226%20508%20234%20570%20236%20582C234%20600%20241%20605%20259%20600C274%20594%20292%20586%20310%20578C325%20568%20326%20555%20314%20537C283%20459%20266%20368%20260%20267C252%20165%20254%20101%20266%2075C271%2062%20321%2063%20413%2079C503%2095%20582%20104%20650%20106C717%20108%20757%20111%20772%20115C777%20117%20786%20110%20796%2095C804%2078%20813%2065%20822%2057C830%2047%20832%2034%20829%2020C825%204%20814%200%20798%2010C698%2035%20597%2043%20494%2033C391%2023%20324%2013%20296%203C267%20-6%20246%20-9%20234%20-4C229%20-1%20226%203%20226%2011C226%2018%20220%2040%20210%2077C196%20172%20196%20277%20212%20393ZM567%20292C558%20302%20561%20306%20578%20306C639%20287%20691%20265%20736%20237C740%20234%20741%20219%20737%20189C731%20160%20724%20144%20716%20140C706%20136%20699%20138%20695%20146C689%20154%20683%20165%20675%20179C628%20228%20593%20265%20567%20292ZM761%20328C702%20338%20636%20336%20561%20323C555%20322%20550%20321%20546%20321C538%20294%20525%20267%20509%20240C497%20216%20483%20198%20468%20188C450%20176%20444%20165%20449%20157C451%20149%20434%20142%20397%20135C358%20126%20331%20126%20315%20134C298%20142%20300%20148%20322%20154C324%20154%20335%20159%20355%20169C372%20178%20393%20190%20414%20208C434%20225%20453%20249%20471%20281C473%20291%20476%20300%20480%20309C429%20297%20387%20284%20355%20271C348%20266%20335%20274%20319%20298C302%20321%20310%20330%20342%20324C385%20338%20436%20352%20494%20367C498%20395%20499%20419%20497%20440C489%20438%20480%20435%20471%20431C457%20424%20450%20429%20449%20444C447%20454%20444%20463%20441%20473C422%20448%20400%20427%20377%20408C357%20396%20344%20391%20336%20393C326%20395%20329%20403%20346%20419C385%20473%20409%20513%20421%20540C433%20566%20438%20584%20439%20594C441%20611%20452%20613%20472%20601C489%20587%20502%20577%20511%20571C519%20565%20517%20559%20505%20552C497%20548%20490%20541%20484%20531C480%20525%20475%20517%20467%20507C504%20511%20537%20518%20566%20527C596%20537%20620%20543%20640%20546C649%20547%20656%20538%20660%20520C662%20500%20658%20488%20648%20485C619%20473%20592%20461%20568%20450C564%20449%20563%20448%20562%20447C558%20430%20555%20407%20554%20382C554%20382%20556%20382%20559%20383C598%20391%20635%20396%20671%20402C706%20406%20728%20409%20734%20413C740%20416%20745%20413%20750%20403C754%20394%20760%20387%20768%20383C773%20379%20777%20367%20778%20348C778%20328%20772%20321%20761%20328Z%22%20fill%3D%22%23ffffff%22%2F%3E%0A%3C%2Fsvg%3E">
@@ -106,6 +106,67 @@
   .dz-icon { font-size: 26px; }
   .dz-main { font-size: 13px; color: #475569; margin-top: 6px; line-height: 1.6; }
   .dz-file { font-size: 12px; color: #047857; margin-top: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; min-height: 16px; }
+  /* 医生视图 summary — 疾病泳道时间轴 + 趋势(#37);仅当 payload.summary 存在时渲染 */
+  .sum { margin-bottom: 22px; }
+  .sum-recs-h { font-size: 13px; font-weight: 700; color: #64748b; letter-spacing: .04em; margin: 26px 0 12px; }
+  .sum-top { display: grid; grid-template-columns: 1.25fr 1fr; gap: 14px; margin-bottom: 16px; align-items: start; }
+  @media (max-width: 700px) { .sum-top { grid-template-columns: 1fr; } }
+  .sum-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px 18px; box-shadow: 0 1px 3px rgba(30,41,59,.05); }
+  .sum-row { display: flex; gap: 10px; font-size: 13.5px; padding: 3px 0; }
+  .sum-lab { color: #94a3b8; font-size: 12px; font-weight: 700; min-width: 56px; flex-shrink: 0; padding-top: 2px; }
+  .sum-bad { color: #be123c; }
+  .sum-copy { margin-top: 14px; width: 100%; border: 0; background: #1789c1; color: #fff; font-weight: 700; font-size: 14.5px; padding: 12px; border-radius: 11px; cursor: pointer; font-family: inherit; }
+  .sum-copy:active { background: #1560a8; }
+  .sum-emr { margin-top: 9px; background: #f6f8fb; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
+  .sum-emr summary { padding: 9px 12px; font-size: 12.5px; color: #94a3b8; cursor: pointer; }
+  .sum-emr pre { margin: 0; padding: 0 12px 12px; white-space: pre-wrap; font-size: 12.5px; line-height: 1.75; color: #1e293b; font-family: inherit; }
+  .sum-h { font-size: 11px; letter-spacing: .08em; color: #94a3b8; font-weight: 700; }
+  .sum-changes ul { margin: 9px 0 0; padding-left: 18px; }
+  .sum-changes li { margin: 4px 0; font-size: 14px; }
+  .sum-hint { margin: 6px 2px 10px; font-size: 12px; color: #94a3b8; }
+  .sum-chips { display: flex; gap: 8px; margin: 0 2px 12px; flex-wrap: wrap; }
+  .sum-chip { border: 1px solid #e2e8f0; background: #fff; color: #64748b; font-family: inherit; font-size: 12.5px; font-weight: 650; padding: 6px 15px; border-radius: 999px; cursor: pointer; }
+  .sum-chip.on { background: #1789c1; border-color: #1789c1; color: #fff; }
+  .sum-tl { padding: 16px 18px 12px; }
+  .sum-tl-h { font-size: 11px; letter-spacing: .08em; color: #94a3b8; font-weight: 700; padding: 0 0 12px; }
+  .sum-legend { display: flex; flex-wrap: wrap; gap: 7px 18px; font-size: 11px; color: #94a3b8; padding: 0 0 12px; margin-bottom: 8px; border-bottom: 1px solid #eef2f6; }
+  .sum-legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .lg2 { display: inline-block; flex-shrink: 0; }
+  .lg2.bar { width: 18px; height: 9px; border-radius: 5px; }
+  .lg2.bar.ok { background: #1789c1; } .lg2.bar.warn { background: #be123c; }
+  .lg2.dotev { width: 11px; height: 11px; border-radius: 50%; background: #94a3b8; border: 2px solid #fff; box-shadow: 0 0 0 1px #e2e8f0; }
+  .lg2.pt { width: 7px; height: 7px; border-radius: 50%; background: #1789c1; } .lg2.pt.bad { background: #be123c; }
+  .sum-axis { display: grid; grid-template-columns: 150px 1fr; gap: 12px; margin-bottom: 4px; }
+  .sum-axtrack { position: relative; height: 15px; }
+  .sum-yr { position: absolute; top: 1px; font-size: 10.5px; color: #94a3b8; transform: translateX(-50%); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .lane2 { display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: center; padding: 9px 0; cursor: pointer; border-radius: 9px; }
+  .lane2:hover { background: #eef2f6; }
+  .lane2.open { background: #e6f6fa; }
+  .lane2.hide { display: none; }
+  .lane2.zebra { background: rgba(23,137,193,.028); }
+  .lh { display: flex; align-items: center; gap: 6px; min-width: 0; padding-left: 4px; }
+  .lh .cv { color: #94a3b8; font-size: 10px; flex-shrink: 0; }
+  .lane2.open .lh .cv { transform: rotate(90deg); }
+  .lh .nm { font-weight: 700; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lst { font-size: 10.5px; font-weight: 700; padding: 1px 8px; border-radius: 999px; white-space: nowrap; flex-shrink: 0; margin-left: auto; }
+  .lst.ok { color: #1560a8; background: #e6f6fa; } .lst.warn { color: #be123c; background: #fceef1; }
+  .trk { position: relative; height: 26px; border-radius: 4px; }
+  .bar2 { position: absolute; top: 6px; height: 14px; border-radius: 7px; min-width: 8px; }
+  .bar2.ok { background: #1789c1; } .bar2.warn { background: #be123c; } .bar2.soft { background: #94a3b8; opacity: .55; }
+  .dev2 { position: absolute; top: 7px; width: 13px; height: 13px; border-radius: 50%; transform: translateX(-50%); background: #94a3b8; border: 2px solid #fff; box-shadow: 0 0 0 1px #e2e8f0; }
+  .det2 { border-top: 1px solid #eef2f6; margin: 0 2px 6px; padding: 2px 0 10px; display: none; }
+  .det2.open { display: block; }
+  .bh { font-size: 11px; letter-spacing: .06em; color: #94a3b8; font-weight: 700; margin: 14px 0 4px; }
+  .lr2 { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-top: 1px solid #eef2f6; }
+  .rn { font-weight: 600; font-size: 14px; } .rf { color: #94a3b8; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  .rv { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 15px; } .rv.bad { color: #be123c; }
+  .ev2 { cursor: pointer; color: #1560a8; font-size: 11.5px; border: 1px solid #c8ebf1; background: #f0fafe; border-radius: 6px; padding: 1px 7px; white-space: nowrap; }
+  .med2 { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+  .md { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; } .md.on { background: #1789c1; } .md.off { background: #94a3b8; }
+  .mn { font-weight: 600; font-size: 14px; } .mn.off { color: #94a3b8; text-decoration: line-through; }
+  .mmv { color: #94a3b8; font-size: 12.5px; }
+  .mt2 { margin-left: auto; font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 6px; }
+  .mt2.on { color: #1560a8; background: #e6f6fa; } .mt2.off { color: #94a3b8; background: #eef2f6; }
 </style>
 </head>
 <body>
@@ -623,6 +684,177 @@ function openDicomViewer(slices, name) {
   showFrame(0, true);
 }
 
+// ── 医生视图 summary:疾病泳道时间轴 + 趋势(#37)────────────────────────────
+// 仅当 payload.summary 存在时渲染(app 端确定性提取产出,分组依据见 Notion 内部文档 030 §3b:
+// 药按 ATC、化验按具名指南)。缺省则本模块完全不介入,查看器回退纯文档列表(老分享不受影响)。
+// 消费形状:summary = { problems:[{term,onset:"YYYY-MM",end?,status,acute?,warn?,open?,evidence?:[recIdx],
+//   labs:[{name,unit,refHigh?,refLow?,pts:[["YYYY-MM",num]],evidence?}], meds:[{name,dose,on,span,evidence?}]}],
+//   allergies:[{substance,reaction}], notable_changes:[string] }。onset=首次在记录中出现(非确诊日)。
+const SUM_MN = s => { const a = String(s || "").split("-"); return (+a[0]) * 12 + ((+a[1] || 1) - 1); };
+function sumFlag(v, lo, hi) { return (hi != null && v > hi) || (lo != null && v < lo); }
+
+function sparkSVG(L) {
+  const W = 190, H = 42, padL = 4, padR = 32, padT = 6, padB = 12;
+  const pts = L.pts || []; if (!pts.length) return "";
+  const xs = pts.map(p => SUM_MN(p[0])), x0 = Math.min(...xs), xr = (Math.max(...xs) - x0) || 1;
+  const vs = pts.map(p => p[1]);
+  let lo = Math.min(...vs, L.refLow == null ? Infinity : L.refLow), hi = Math.max(...vs, L.refHigh == null ? -Infinity : L.refHigh);
+  const pd = (hi - lo) * 0.2 || 1; lo -= pd; hi += pd; const yr = (hi - lo) || 1;
+  const XX = m => padL + (m - x0) / xr * (W - padL - padR), Y = v => H - padB - (v - lo) / yr * (H - padT - padB);
+  let s = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" style="overflow:visible;flex-shrink:0">';
+  if (L.refLow != null || L.refHigh != null) {
+    const yt = Y(L.refHigh == null ? hi : L.refHigh), yb = Y(L.refLow == null ? lo : L.refLow);
+    s += '<rect x="' + padL + '" y="' + yt.toFixed(1) + '" width="' + (W - padL - padR) + '" height="' + Math.max(0, yb - yt).toFixed(1) + '" fill="#e6f6fa"></rect>';
+  }
+  let d = ""; pts.forEach((p, i) => { d += (i ? "L" : "M") + XX(SUM_MN(p[0])).toFixed(1) + " " + Y(p[1]).toFixed(1) + " "; });
+  s += '<path d="' + d + '" fill="none" stroke="#1789c1" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"></path>';
+  pts.forEach((p, i) => {
+    const last = i === pts.length - 1, bad = sumFlag(p[1], L.refLow, L.refHigh), col = bad ? "#be123c" : "#1789c1";
+    s += '<circle cx="' + XX(SUM_MN(p[0])).toFixed(1) + '" cy="' + Y(p[1]).toFixed(1) + '" r="' + (last ? 3.4 : 2.2) + '" fill="' + col + '"' + (last ? ' stroke="#fff" stroke-width="1.5"' : '') + '></circle>';
+    if (last) s += '<text x="' + (XX(SUM_MN(p[0])) + 6).toFixed(1) + '" y="' + (Y(p[1]) + 3.5).toFixed(1) + '" font-size="10" font-weight="700" fill="' + col + '">' + p[1] + '</text>';
+  });
+  return s + '</svg>';
+}
+
+function buildEMRFromSummary(sm, patient) {
+  const L = [], p = patient || {};
+  const who = [p.name, p.gender, p.age ? p.age + "岁" : ""].filter(Boolean).join(",");
+  if (who) L.push("患者:" + who);
+  const hist = (sm.problems || []).map(pr => {
+    const yr = String(pr.onset || "").slice(0, 4);
+    return pr.term + (yr ? "(" + yr + (pr.acute ? ",已愈" : "") + ")" : "");
+  }).join(";");
+  if (hist) L.push("既往史/诊断:" + hist);
+  if ((sm.allergies || []).length) L.push("过敏史:" + sm.allergies.map(a => a.substance + (a.reaction ? "(" + a.reaction + ")" : "")).join(";"));
+  const on = [], off = [];
+  (sm.problems || []).forEach(pr => (pr.meds || []).forEach(m => (m.on ? on : off).push(m.name + (m.dose ? " " + m.dose : ""))));
+  if (on.length || off.length) L.push("当前用药:" + on.join(";") + (off.length ? "。已停:" + off.join(";") : ""));
+  const labs = [];
+  (sm.problems || []).forEach(pr => (pr.labs || []).forEach(x => {
+    const pts = x.pts || []; if (!pts.length) return; const last = pts[pts.length - 1];
+    const dir = (x.refHigh != null && last[1] > x.refHigh) ? "↑偏高" : (x.refLow != null && last[1] < x.refLow) ? "↓偏低" : "";
+    labs.push((x.short || x.name) + " " + last[1] + (x.unit || "") + dir);
+  }));
+  if (labs.length) L.push("近期化验:" + labs.join(";"));
+  if ((sm.notable_changes || []).length) L.push("近期变化:" + sm.notable_changes.join(";"));
+  L.push("——由患者 MedMe 整理,数值取自原件,供参考,以原件为准。");
+  return L.join("\n");
+}
+
+function renderSummary(sm, asOf, patient) {
+  const probs = (sm.problems || []).slice().sort((a, b) => SUM_MN(a.onset) - SUM_MN(b.onset));
+  if (!probs.length) return "";
+  // 时间标度:域 = [最早起病所在年的1月, 现在(取 asOf / 最晚数据点的较大者)]
+  const months = [];
+  probs.forEach(p => { months.push(SUM_MN(p.onset)); if (p.end) months.push(SUM_MN(p.end)); (p.labs || []).forEach(L => (L.pts || []).forEach(pt => months.push(SUM_MN(pt[0])))); });
+  const asOfM = asOf ? SUM_MN(String(asOf).slice(0, 7)) : -Infinity;
+  const NOW = Math.max(asOfM, months.length ? Math.max(...months) : 0);
+  const minYear = Math.floor(Math.min(...months.concat(NOW)) / 12);
+  const maxYear = Math.floor(NOW / 12);
+  const T0 = minYear * 12, SPAN = (NOW - T0) || 1;
+  const X = m => (m - T0) / SPAN * 100;
+  const STEP = 12 / SPAN * 100;
+  const gridBg = "repeating-linear-gradient(90deg,#eef2f6 0 1px,transparent 1px " + STEP.toFixed(3) + "%)";
+  const evChip = ev => (ev && ev.length) ? '<span class="ev2" data-ev="' + (ev[0] | 0) + '">原件</span>' : "";
+
+  let axis = "";
+  for (let y = minYear; y <= maxYear; y++) { const xp = Math.max(2, Math.min(98, X(y * 12))); axis += '<div class="sum-yr" style="left:' + xp.toFixed(2) + '%">' + y + '</div>'; }
+
+  let lanes = "";
+  probs.forEach(pr => {
+    const acute = !!pr.acute, warn = !!pr.warn, cls = acute ? "soft" : (warn ? "warn" : "ok");
+    const left = X(SUM_MN(pr.onset));
+    const bar = acute
+      ? '<span class="dev2" style="left:' + left.toFixed(2) + '%"></span>'
+      : '<span class="bar2 ' + cls + '" style="left:' + left.toFixed(2) + '%;width:' + Math.max(1.5, X(pr.end ? SUM_MN(pr.end) : NOW) - left).toFixed(2) + '%"></span>';
+    const st = pr.status || (acute ? "已愈" : (warn ? "需关注" : "稳定"));
+    lanes += '<div class="lane2' + (pr.open ? " open" : "") + '" data-acute="' + (acute ? 1 : 0) + '" data-warn="' + (warn ? 1 : 0) + '">'
+      + '<div class="lh"><span class="cv">▶</span><span class="nm">' + esc(pr.term) + '</span>'
+      + '<span class="lst ' + (warn ? "warn" : "ok") + '">' + esc(st) + '</span></div>'
+      + '<div class="trk" style="background-image:' + gridBg + '">' + bar + '</div></div>';
+    let db = "";
+    if (acute) {
+      db = '<div style="font-size:13px;color:#94a3b8;padding:12px 0 2px">一次性急性事件,已痊愈。无长期随访指标或维持用药。</div>';
+    } else {
+      if ((pr.labs || []).length) {
+        db += '<div class="bh">相关化验</div>';
+        pr.labs.forEach(L => {
+          const pts = L.pts || []; if (!pts.length) return; const last = pts[pts.length - 1], bad = sumFlag(last[1], L.refLow, L.refHigh);
+          const refTxt = L.refLow != null ? "≥" + L.refLow : (L.refHigh != null ? "<" + L.refHigh : "");
+          db += '<div class="lr2"><div style="flex:1;min-width:0"><div class="rn">' + esc(L.name) + '</div><div class="rf">参考 ' + esc(refTxt) + ' ' + esc(L.unit || "") + '</div></div>'
+            + sparkSVG(L)
+            + '<div style="text-align:right;min-width:52px"><span class="rv' + (bad ? " bad" : "") + '">' + last[1] + '</span><div class="rf">' + esc(last[0]) + " " + evChip(L.evidence) + '</div></div></div>';
+        });
+      }
+      if ((pr.meds || []).length) {
+        db += '<div class="bh">相关用药</div>';
+        pr.meds.forEach(m => {
+          db += '<div class="med2"><span class="md ' + (m.on ? "on" : "off") + '"></span><span class="mn ' + (m.on ? "" : "off") + '">' + esc(m.name) + '</span>'
+            + '<span class="mmv">' + esc((m.dose || "") + (m.span ? " · " + m.span : "")) + '</span>' + evChip(m.evidence) + '<span class="mt2 ' + (m.on ? "on" : "off") + '">' + (m.on ? "在用" : "已停") + '</span></div>';
+        });
+      }
+    }
+    lanes += '<div class="det2' + (pr.open ? " open" : "") + '">' + db + '</div>';
+  });
+
+  const diseases = probs.filter(p => !p.acute).map(p => esc(p.term)).join(" · ");
+  const onMeds = [], offMeds = [];
+  probs.forEach(p => (p.meds || []).forEach(m => (m.on ? onMeds : offMeds).push(esc(m.name))));
+  const medsLine = onMeds.join(" · ") + (offMeds.length ? ' <span style="color:#94a3b8">(' + offMeds.join("、") + "已停)</span>" : "");
+  const allerg = (sm.allergies || []).map(a => esc(a.substance) + (a.reaction ? "(" + esc(a.reaction) + ")" : "")).join("、");
+  const emrText = buildEMRFromSummary(sm, patient);
+
+  let h = '<div class="sum"><div class="sum-top"><div class="sum-card">';
+  if (diseases) h += '<div class="sum-row"><span class="sum-lab">在治疾病</span><span>' + diseases + '</span></div>';
+  if (onMeds.length || offMeds.length) h += '<div class="sum-row"><span class="sum-lab">当前用药</span><span>' + medsLine + '</span></div>';
+  if (allerg) h += '<div class="sum-row"><span class="sum-lab">过敏史</span><span class="sum-bad">' + allerg + '</span></div>';
+  h += '<button class="sum-copy" type="button">📋 复制为病历文本(可直接粘进你的病历)</button>'
+    + '<details class="sum-emr"><summary>预览要复制的文本 ▾</summary><pre id="sum-emr-text">' + esc(emrText) + '</pre></details></div>';
+  if ((sm.notable_changes || []).length)
+    h += '<div class="sum-card sum-changes"><div class="sum-h">近期变化</div><ul>' + sm.notable_changes.map(c => '<li>' + esc(c) + '</li>').join("") + '</ul></div>';
+  h += '</div>';
+  h += '<div class="sum-hint">点击任一疾病条 → 展示该病细节(化验趋势与用药)。自上而下 = 发病由早到晚。</div>';
+  h += '<div class="sum-chips"><button class="sum-chip on" type="button" data-f="all">全部</button><button class="sum-chip" type="button" data-f="active">只看在治</button><button class="sum-chip" type="button" data-f="abn">只看异常</button></div>';
+  h += '<div class="sum-card sum-tl"><div class="sum-tl-h">病程时间轴</div>';
+  h += '<div class="sum-legend"><span><i class="lg2 bar ok"></i>慢病病程 · 稳定</span><span><i class="lg2 bar warn"></i>需关注</span><span><i class="lg2 dotev"></i>急性事件 / 已愈</span><span><i class="lg2 pt"></i>一次化验&nbsp;<i class="lg2 pt bad"></i>异常值</span></div>';
+  h += '<div class="sum-axis"><div></div><div class="sum-axtrack">' + axis + '</div></div>' + lanes + '</div></div>';
+  return h;
+}
+
+function wireSummary(app) {
+  const chips = [...app.querySelectorAll(".sum-chip")];
+  const lanes = [...app.querySelectorAll(".lane2")];
+  function applyF(f) {
+    let z = 0;
+    lanes.forEach(l => {
+      const acute = l.dataset.acute === "1", warn = l.dataset.warn === "1";
+      const show = f === "all" || (f === "active" && !acute) || (f === "abn" && warn);
+      l.classList.toggle("hide", !show);
+      const det = l.nextElementSibling;
+      if (!show) { l.classList.remove("open"); if (det && det.classList.contains("det2")) det.classList.remove("open"); }
+      l.classList.toggle("zebra", show && (z++ % 2 === 1));
+    });
+  }
+  chips.forEach(c => c.addEventListener("click", () => { chips.forEach(x => x.classList.toggle("on", x === c)); applyF(c.dataset.f); }));
+  lanes.forEach(l => l.addEventListener("click", ev => {
+    if (ev.target.closest(".ev2")) return;
+    const det = l.nextElementSibling; if (!det || !det.classList.contains("det2")) return;
+    const o = det.classList.toggle("open"); l.classList.toggle("open", o);
+  }));
+  app.querySelectorAll(".ev2").forEach(e => e.addEventListener("click", ev => {
+    ev.stopPropagation();
+    const t = document.getElementById("rec-" + e.dataset.ev);
+    if (t) { t.scrollIntoView({ behavior: "smooth", block: "start" }); const o = t.style.background; t.style.transition = "background .25s"; t.style.background = "#fffbeb"; setTimeout(() => { t.style.background = o; }, 1300); }
+  }));
+  const cp = app.querySelector(".sum-copy");
+  if (cp) cp.addEventListener("click", async () => {
+    const el = app.querySelector("#sum-emr-text"); const txt = el ? el.textContent : "";
+    try { await navigator.clipboard.writeText(txt); cp.textContent = "✓ 已复制,可粘进病历"; setTimeout(() => { cp.textContent = "📋 复制为病历文本(可直接粘进你的病历)"; }, 1800); }
+    catch (e) { cp.textContent = "⚠ 复制受限,请展开下方预览手动选中"; }
+  });
+  applyF("all");
+}
+
 function render(payload) {
   const app = document.getElementById("app");
   const p = payload.patient || {};
@@ -650,6 +882,13 @@ function render(payload) {
     html += '<div style="margin:0 0 14px;padding:10px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;color:#92400e;font-size:13px;line-height:1.6">' + msg + '</div>';
   }
 
+  // 医生视图 summary(#37):有则在原始报告之上渲染疾病泳道时间轴 + 趋势;无则跳过(回退纯列表)。
+  const hasSummary = payload.summary && (payload.summary.problems || []).length;
+  if (hasSummary) {
+    html += renderSummary(payload.summary, payload.generated, payload.patient);
+    html += '<div class="sum-recs-h">原始报告(逐份,趋势数值即取自这里)</div>';
+  }
+
   const records = payload.records || [];
   for (let ri = 0; ri < records.length; ri++) {
     const r = records[ri];
@@ -661,7 +900,7 @@ function render(payload) {
     if (r.doc_date && r.doc_date_end && r.doc_date !== r.doc_date_end) dateStr = r.doc_date + " → " + r.doc_date_end;
     else if (r.doc_date) dateStr = r.doc_date;
 
-    html += '<section class="record"><div class="record-head">';
+    html += '<section class="record" id="rec-' + ri + '"><div class="record-head">';
     html += '<span class="badge" style="background:' + bc[0] + ";color:" + bc[1] + '">' + esc(label) + "</span>";
     html += "<h2>" + esc(title) + '</h2><span class="date">' + esc(dateStr) + "</span></div>";
     html += '<div class="content">' + renderContent(r.text || "", type);
@@ -690,6 +929,8 @@ function render(payload) {
   app.innerHTML = html;
   document.getElementById("gate").style.display = "none";
   app.style.display = "block";
+
+  if (hasSummary) wireSummary(app); // 泳道筛选/展开/证据回溯/复制病历接线
 
   // 阅片按钮:点开时才把 base64 帧解成 Uint8Array 交给查看器(关闭即释放,内存有界)。
   app.querySelectorAll("[data-dcm]").forEach(btn => {
@@ -777,6 +1018,41 @@ async function submit() {
 }
 document.getElementById("go").addEventListener("click", submit);
 pw.addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
+
+// ── QA / 评审用示例(#37)──────────────────────────────────────────────
+// 打开 index.html?demo 用内置示例数据直接渲染医生视图(无网络、无真实 PHI、不解密)。
+// 仅演示 summary 泳道时间轴 + 趋势 + 证据回溯;真实分享走上面的解密流程,不受影响。
+const DEMO_PAYLOAD = {
+  patient: { name: "张建国", gender: "男", age: "58", record_count: 3 },
+  generated: "2026-07-05",
+  summary: {
+    allergies: [{ substance: "青霉素", reaction: "皮疹" }],
+    notable_changes: ["糖化血红蛋白 7.8 → 7.2%(在降,仍偏高)", "新增诊断 高脂血症,已加他汀", "阿司匹林 2024-03 停用"],
+    problems: [
+      { term: "高血压", onset: "2019-03", status: "稳定", warn: false, evidence: [1],
+        labs: [{ name: "收缩压 SBP", short: "SBP", unit: "mmHg", refHigh: 140, pts: [["2024-06", 148], ["2025-06", 138], ["2026-06", 132]], evidence: [0] }],
+        meds: [{ name: "氨氯地平", dose: "5mg qd", on: true, span: "自 2020", evidence: [1] }, { name: "阿司匹林", dose: "100mg qd", on: false, span: "2020 → 2024-03 停用", evidence: [1] }] },
+      { term: "2型糖尿病", onset: "2021-05", status: "控制中", warn: false, open: true, evidence: [0],
+        labs: [
+          { name: "糖化血红蛋白 HbA1c", short: "HbA1c", unit: "%", refHigh: 6.5, pts: [["2024-06", 7.9], ["2024-12", 8.1], ["2025-06", 7.8], ["2025-12", 7.5], ["2026-06", 7.2]], evidence: [0] },
+          { name: "空腹血糖 GLU", short: "空腹血糖", unit: "mmol/L", refHigh: 6.1, pts: [["2025-06", 7.4], ["2026-06", 6.9]], evidence: [0] }
+        ],
+        meds: [{ name: "二甲双胍", dose: "0.5g bid", on: true, span: "自 2021", evidence: [1] }] },
+      { term: "急性肺炎", onset: "2022-11", end: "2022-12", status: "已愈", acute: true, evidence: [2] },
+      { term: "高脂血症", onset: "2024-06", status: "需关注", warn: true, evidence: [0],
+        labs: [{ name: "低密度脂蛋白 LDL-C", short: "LDL-C", unit: "mmol/L", refHigh: 3.4, pts: [["2024-06", 3.1], ["2025-06", 3.4], ["2026-06", 3.6]], evidence: [0] }],
+        meds: [{ name: "阿托伐他汀", dose: "20mg qn", on: true, span: "自 2024-06", evidence: [1] }] },
+      { term: "贫血(轻度)", onset: "2025-01", status: "需关注", warn: true, evidence: [0],
+        labs: [{ name: "血红蛋白 Hb", short: "Hb", unit: "g/L", refLow: 130, pts: [["2024-06", 132], ["2025-06", 118], ["2026-06", 109]], evidence: [0] }] }
+    ]
+  },
+  records: [
+    { doc_type: "lab_report", title: "生化 + 血常规 化验报告", doc_date: "2026-06-15", text: "项目  结果  参考\n糖化血红蛋白  7.2  <6.5\n空腹血糖  6.9  <6.1\nLDL-C  3.6  <3.4\n血红蛋白  109  130-175" },
+    { doc_type: "prescription", title: "内分泌门诊 处方", doc_date: "2026-06-15", text: "二甲双胍 0.5g bid\n阿托伐他汀 20mg qn\n氨氯地平 5mg qd" },
+    { doc_type: "discharge_summary", title: "急性肺炎 出院小结", doc_date: "2022-12-02", text: "诊断:社区获得性肺炎。经抗感染治疗后好转出院,建议随访。" }
+  ]
+};
+if (/[?&]demo(=|&|$)/.test(location.search)) { try { render(DEMO_PAYLOAD); } catch (e) { console.error(e); } }
 </script>
 </body>
 </html>
