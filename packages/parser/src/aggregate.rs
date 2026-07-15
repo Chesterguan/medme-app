@@ -59,6 +59,10 @@ pub struct AnalyteSeries {
     /// Display/grouping label: canonical name if resolved, else the raw name.
     pub group_name: String,
     pub loinc: Option<String>,
+    /// Reference range, taken from the most recent observation in the group that
+    /// carried one (fallback: any). The viewer draws the normal band from these.
+    pub ref_low: Option<f64>,
+    pub ref_high: Option<f64>,
     /// Chronological; `None`-dated points sort last, preserving input order.
     pub points: Vec<LabPoint>,
     /// True if any point is flagged "H" or "L".
@@ -163,6 +167,11 @@ struct LabBuilder {
     loinc: Option<String>,
     /// Whether `group_name`/`loinc` were taken from a matched observation yet.
     meta_from_match: bool,
+    /// Reference range of the mention currently winning "most recent ref".
+    ref_low: Option<f64>,
+    ref_high: Option<f64>,
+    ref_date: Option<NaiveDate>,
+    has_ref: bool,
     points: Vec<LabPoint>,
     any_abnormal: bool,
 }
@@ -214,6 +223,10 @@ pub fn aggregate(docs: &[SourceDoc<'_>]) -> AggregatedClinical {
                 group_name: obs.raw_name.clone(),
                 loinc: None,
                 meta_from_match: false,
+                ref_low: None,
+                ref_high: None,
+                ref_date: None,
+                has_ref: false,
                 points: Vec::new(),
                 any_abnormal: false,
             });
@@ -224,6 +237,25 @@ pub fn aggregate(docs: &[SourceDoc<'_>]) -> AggregatedClinical {
                 }
                 b.loinc = obs.loinc.clone();
                 b.meta_from_match = true;
+            }
+            // Keep the ref range of the most-recently-dated mention that carried
+            // one; ties/undated keep the first seen (stable). Fallback: any.
+            if obs.ref_low.is_some() || obs.ref_high.is_some() {
+                let replace = if !b.has_ref {
+                    true
+                } else {
+                    match (doc.date, b.ref_date) {
+                        (Some(m), Some(cur)) => m > cur,
+                        (Some(_), None) => true,
+                        (None, _) => false,
+                    }
+                };
+                if replace {
+                    b.ref_low = obs.ref_low;
+                    b.ref_high = obs.ref_high;
+                    b.ref_date = doc.date;
+                    b.has_ref = true;
+                }
             }
             b.any_abnormal |= abnormal;
             b.points.push(point);
@@ -303,6 +335,8 @@ pub fn aggregate(docs: &[SourceDoc<'_>]) -> AggregatedClinical {
                 analyte_key: b.analyte_key,
                 group_name: b.group_name,
                 loinc: b.loinc,
+                ref_low: b.ref_low,
+                ref_high: b.ref_high,
                 points: b.points,
                 any_abnormal: b.any_abnormal,
             }

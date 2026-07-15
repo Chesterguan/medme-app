@@ -212,7 +212,22 @@ pub fn build_encrypted_share(
         );
     }
 
-    let payload = serde_json::json!({
+    // ── 医生视图 summary(#37,slice ④)──
+    // 确定性装配疾病泳道 + 趋势。`SourceDoc::index` 必须与 `records_json` 里的下标
+    // 对齐(records 与 records_json 在同一循环里同序推入),证据链才能跳对原件。
+    // 临床日期取文档 doc_date 的 naive 日期(无则 None)。
+    let docs: Vec<parser::SourceDoc> = records
+        .iter()
+        .enumerate()
+        .map(|(i, rec)| parser::SourceDoc {
+            index: i,
+            date: rec.doc.doc_date.map(|dt| dt.date_naive()),
+            text: &rec.text,
+        })
+        .collect();
+    let summary = parser::assemble_summary(&docs);
+
+    let mut payload = serde_json::json!({
         "generated": generated.to_rfc3339(),
         "expires": expires.to_rfc3339(),
         "patient": {
@@ -224,6 +239,14 @@ pub fn build_encrypted_share(
         "records": records_json,
         "degraded": degraded,
     });
+
+    // 仅当确有 problem 时挂上 summary;否则省略,查看器回退纯文档列表(老分享/空保险箱不受影响)。
+    if summary["problems"]
+        .as_array()
+        .is_some_and(|a| !a.is_empty())
+    {
+        payload["summary"] = summary;
+    }
     let plaintext = serde_json::to_vec(&payload).map_err(|e| format!("serialize payload: {e}"))?;
 
     // ── AES-256-GCM 加密 ──
@@ -680,6 +703,103 @@ mod tests {
         assert!(
             !html.contains("<!--SHARE_DATA_SLOT-->"),
             "SHARE_DATA_SLOT 注入点应已被替换"
+        );
+    }
+
+    /// 解密生成分享的 payload(与浏览器查看器同路径),供 summary 断言复用。
+    fn decrypt_payload(html: &str, pass: &str) -> serde_json::Value {
+        let stripped: String = pass.chars().filter(|c| !c.is_whitespace()).collect();
+        let key = B64URL.decode(stripped).unwrap();
+        let blob = B64.decode(extract_blob_b64(html)).unwrap();
+        let cipher = Aes256Gcm::new_from_slice(&key).unwrap();
+        let pt = cipher
+            .decrypt(
+                Nonce::from_slice(&blob[..12]),
+                Payload {
+                    msg: &blob[12..],
+                    aad: SHARE_AAD,
+                },
+            )
+            .unwrap();
+        serde_json::from_slice(&pt).unwrap()
+    }
+
+    /// slice ④:含临床内容(诊断 + 化验 + 用药)的分享应带上确定性 summary,
+    /// 且 problems 非空并把糖化血红蛋白/二甲双胍归到「2型糖尿病」下。
+    #[test]
+    fn share_includes_summary_for_clinical_records() {
+        use core_model::{DocType, NewDocument, NewOcr, OcrBackendKind};
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Vault::open(dir.path()).unwrap();
+        let imp = vault.import("门诊.txt", "text/plain", b"data").unwrap();
+        let doc = vault
+            .add_document(NewDocument {
+                source_file_id: imp.source_file.id,
+                doc_type: DocType::ClinicalNote,
+                doc_date: Some(chrono::Utc::now()),
+                doc_date_end: None,
+                title: Some("内分泌门诊".into()),
+                language: Some("zh".into()),
+                page_count: 1,
+            })
+            .unwrap();
+        vault
+            .add_ocr(NewOcr {
+                document_id: doc.id,
+                page_no: 1,
+                backend: OcrBackendKind::Native,
+                model_version: "text-layer".into(),
+                text: "诊断:2型糖尿病\n糖化血红蛋白 7.9 % 4-6.5\n二甲双胍 0.5g bid".into(),
+                confidence: None,
+            })
+            .unwrap();
+
+        let (html, pass, _n) =
+            build_encrypted_share(&vault, 5, &crate::render_dicom_png_in_process).unwrap();
+        let payload = decrypt_payload(&html, &pass);
+        let problems = payload["summary"]["problems"]
+            .as_array()
+            .expect("summary.problems 应存在");
+        assert!(!problems.is_empty());
+        assert!(problems.iter().any(|p| p["term"] == "2型糖尿病"));
+    }
+
+    /// slice ④:纯非临床记录(无诊断/化验/用药)不产出任何 problem,故 payload 里
+    /// 不应有 summary 键——查看器回退纯文档列表,老分享/空保险箱不受影响。
+    #[test]
+    fn share_omits_summary_for_non_clinical_records() {
+        use core_model::{DocType, NewDocument, NewOcr, OcrBackendKind};
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Vault::open(dir.path()).unwrap();
+        let imp = vault.import("须知.txt", "text/plain", b"data").unwrap();
+        let doc = vault
+            .add_document(NewDocument {
+                source_file_id: imp.source_file.id,
+                doc_type: DocType::Other,
+                doc_date: Some(chrono::Utc::now()),
+                doc_date_end: None,
+                title: Some("复诊须知".into()),
+                language: Some("zh".into()),
+                page_count: 1,
+            })
+            .unwrap();
+        vault
+            .add_ocr(NewOcr {
+                document_id: doc.id,
+                page_no: 1,
+                backend: OcrBackendKind::Native,
+                model_version: "text-layer".into(),
+                text: "复诊须知:请按时到内分泌科随访,携带既往病历。".into(),
+                confidence: None,
+            })
+            .unwrap();
+
+        let (html, pass, _n) =
+            build_encrypted_share(&vault, 5, &crate::render_dicom_png_in_process).unwrap();
+        let payload = decrypt_payload(&html, &pass);
+        assert!(
+            payload.get("summary").is_none(),
+            "非临床分享不应带 summary 键"
         );
     }
 }

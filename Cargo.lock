@@ -3825,6 +3825,7 @@ dependencies = [
  "chrono",
  "core-model",
  "dicom",
+ "parser",
  "pipeline",
  "rand 0.8.6",
  "serde_json",
@@ -4817,6 +4818,8 @@ dependencies = [
  "core-model",
  "pdf-extract",
  "regex",
+ "serde",
+ "serde_json",
  "tempfile",
  "terminology",
 ]

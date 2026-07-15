@@ -1,0 +1,176 @@
+[
+  {
+    "disease": "2型糖尿病",
+    "icd10": "E11",
+    "labs": [
+      {"name": "糖化血红蛋白", "loinc": "4548-4", "source": "中国糖尿病防治指南(2024版) 综合控制目标与血糖监测章节"},
+      {"name": "空腹血糖", "loinc": "14749-6", "source": "中国糖尿病防治指南(2024版) 诊断与分型章节(FPG诊断切点)"},
+      {"name": "餐后2小时血糖", "loinc": "14761-1", "source": "中国糖尿病防治指南(2024版) 诊断与分型章节(OGTT 2hPG)"},
+      {"name": "C肽", "loinc": "1986-9", "source": "中国糖尿病防治指南(2024版) 分型与胰岛功能评估章节"},
+      {"name": "胰岛素", "loinc": "20448-7", "source": "中国糖尿病防治指南(2024版) 分型与胰岛功能评估章节"},
+      {"name": "尿白蛋白肌酐比", "loinc": "14959-1", "source": "中国糖尿病防治指南(2024版) 糖尿病肾脏病筛查章节(UACR)"},
+      {"name": "低密度脂蛋白胆固醇", "loinc": "22748-8", "source": "中国糖尿病防治指南(2024版) 心血管危险因素综合管理章节"}
+    ],
+    "drugs": [
+      {"class": "双胍类", "atc": "A10BA", "source": "ATC A10BA — Biguanides (A10 Drugs used in diabetes)"},
+      {"class": "磺脲类", "atc": "A10BB", "source": "ATC A10BB — Sulfonylureas"},
+      {"class": "格列奈类", "atc": "A10BX", "source": "ATC A10BX — Other blood glucose lowering drugs (repaglinide/nateglinide)"},
+      {"class": "α-葡萄糖苷酶抑制剂", "atc": "A10BF", "source": "ATC A10BF — Alpha glucosidase inhibitors"},
+      {"class": "噻唑烷二酮类", "atc": "A10BG", "source": "ATC A10BG — Thiazolidinediones"},
+      {"class": "DPP-4抑制剂", "atc": "A10BH", "source": "ATC A10BH — Dipeptidyl peptidase 4 (DPP-4) inhibitors"},
+      {"class": "GLP-1受体激动剂", "atc": "A10BJ", "source": "ATC A10BJ — Glucagon-like peptide-1 (GLP-1) analogues"},
+      {"class": "SGLT2抑制剂", "atc": "A10BK", "source": "ATC A10BK — Sodium-glucose co-transporter 2 (SGLT2) inhibitors"},
+      {"class": "胰岛素及类似物", "atc": "A10A", "source": "ATC A10A — Insulins and analogues"}
+    ]
+  },
+  {
+    "disease": "高血压",
+    "icd10": "I10",
+    "labs": [
+      {"name": "收缩压", "loinc": "8480-6", "source": "中国高血压防治指南(2024年修订版) 血压测量与诊断标准(诊室/家庭/动态血压)"},
+      {"name": "舒张压", "loinc": "8462-4", "source": "中国高血压防治指南(2024年修订版) 血压测量与诊断标准"},
+      {"name": "血钾", "loinc": "2823-3", "source": "中国高血压防治指南(2024年修订版) 基本实验室检查与继发性高血压筛查"},
+      {"name": "肌酐", "loinc": "14682-9", "source": "中国高血压防治指南(2024年修订版) 靶器官损害评估(肾功能)"},
+      {"name": "估算肾小球滤过率", "loinc": "33914-3", "source": "中国高血压防治指南(2024年修订版) 靶器官损害评估(eGFR)"},
+      {"name": "尿白蛋白肌酐比", "loinc": "14959-1", "source": "中国高血压防治指南(2024年修订版) 靶器官损害评估(尿白蛋白)"},
+      {"name": "尿酸", "loinc": "14933-6", "source": "中国高血压防治指南(2024年修订版) 心血管危险因素评估"}
+    ],
+    "drugs": [
+      {"class": "血管紧张素转换酶抑制剂(ACEI)", "atc": "C09A", "source": "ATC C09A — ACE inhibitors, plain (C09 Agents acting on the renin-angiotensin system)"},
+      {"class": "血管紧张素II受体拮抗剂(ARB)", "atc": "C09C", "source": "ATC C09C — Angiotensin II receptor blockers (ARBs), plain"},
+      {"class": "二氢吡啶类钙通道阻滞剂", "atc": "C08CA", "source": "ATC C08CA — Dihydropyridine derivatives (C08 Calcium channel blockers)"},
+      {"class": "β受体阻滞剂", "atc": "C07A", "source": "ATC C07A — Beta blocking agents (C07)"},
+      {"class": "噻嗪类/噻嗪样利尿剂", "atc": "C03A", "source": "ATC C03A — Low-ceiling diuretics, thiazides (C03 Diuretics); 吲达帕胺 C03BA"},
+      {"class": "醛固酮受体拮抗剂", "atc": "C03DA", "source": "ATC C03DA — Aldosterone antagonists (螺内酯, 用于难治性高血压)"}
+    ]
+  },
+  {
+    "disease": "高脂血症(血脂异常)",
+    "icd10": "E78",
+    "labs": [
+      {"name": "低密度脂蛋白胆固醇", "loinc": "22748-8", "source": "中国血脂管理指南(2023年) 首要干预靶点LDL-C与危险分层目标值"},
+      {"name": "总胆固醇", "loinc": "14647-2", "source": "中国血脂管理指南(2023年) 血脂检测项目"},
+      {"name": "高密度脂蛋白胆固醇", "loinc": "14646-4", "source": "中国血脂管理指南(2023年) 血脂检测项目"},
+      {"name": "甘油三酯", "loinc": "14927-8", "source": "中国血脂管理指南(2023年) 血脂检测项目"}
+    ],
+    "drugs": [
+      {"class": "他汀类(HMG-CoA还原酶抑制剂)", "atc": "C10AA", "source": "ATC C10AA — HMG CoA reductase inhibitors (C10 Lipid modifying agents)"},
+      {"class": "胆固醇吸收抑制剂", "atc": "C10AX09", "source": "ATC C10AX09 — Ezetimibe (依折麦布)"},
+      {"class": "PCSK9抑制剂", "atc": "C10AX", "source": "ATC C10AX13/C10AX14 — Evolocumab/Alirocumab (PCSK9单抗)"},
+      {"class": "贝特类", "atc": "C10AB", "source": "ATC C10AB — Fibrates (以高甘油三酯血症为主)"}
+    ]
+  },
+  {
+    "disease": "冠心病",
+    "icd10": "I25",
+    "labs": [
+      {"name": "低密度脂蛋白胆固醇", "loinc": "22748-8", "source": "中国血脂管理指南(2023年) ASCVD二级预防LDL-C目标(<1.4 mmol/L)"},
+      {"name": "糖化血红蛋白", "loinc": "4548-4", "source": "中国血脂管理指南(2023年) ASCVD危险因素综合管理(合并糖尿病)"},
+      {"name": "肌钙蛋白I", "loinc": "10839-9", "source": "急性冠脉综合征诊断用心肌损伤标志物(事件性检查,非慢性监测)"},
+      {"name": "肌钙蛋白T", "loinc": "6598-7", "source": "急性冠脉综合征诊断用心肌损伤标志物(事件性检查,非慢性监测)"},
+      {"name": "氨基末端脑钠肽前体", "loinc": "33762-6", "source": "合并心力衰竭时的评估用生物标志物"}
+    ],
+    "drugs": [
+      {"class": "抗血小板药", "atc": "B01AC", "source": "ATC B01AC — Platelet aggregation inhibitors excl. heparin (阿司匹林/氯吡格雷/替格瑞洛)"},
+      {"class": "他汀类", "atc": "C10AA", "source": "ATC C10AA — HMG CoA reductase inhibitors (ASCVD二级预防)"},
+      {"class": "β受体阻滞剂", "atc": "C07A", "source": "ATC C07A — Beta blocking agents"},
+      {"class": "ACEI/ARB", "atc": "C09", "source": "ATC C09 — Agents acting on the renin-angiotensin system"},
+      {"class": "硝酸酯类", "atc": "C01DA", "source": "ATC C01DA — Organic nitrates (抗心绞痛)"}
+    ]
+  },
+  {
+    "disease": "慢性肾脏病(CKD)",
+    "icd10": "N18",
+    "labs": [
+      {"name": "估算肾小球滤过率", "loinc": "33914-3", "source": "KDIGO 2024 CKD指南 GFR分级(G1-G5); 中国慢性肾脏病早期评价与管理指南"},
+      {"name": "尿白蛋白肌酐比", "loinc": "14959-1", "source": "KDIGO 2024 CKD指南 白蛋白尿分级(A1-A3, UACR); 中国慢性肾脏病早期评价与管理指南"},
+      {"name": "肌酐", "loinc": "14682-9", "source": "KDIGO 2024 CKD指南 以血肌酐估算eGFR"},
+      {"name": "胱抑素C", "loinc": "33863-2", "source": "KDIGO 2024 CKD指南 eGFRcr-cys(可用时联合胱抑素C估算)"},
+      {"name": "尿素", "loinc": "22664-7", "source": "中国慢性肾脏病早期评价与管理指南 肾功能评估"},
+      {"name": "血钾", "loinc": "2823-3", "source": "KDIGO 2024 CKD指南 代谢并发症监测(电解质)"},
+      {"name": "钙", "loinc": "2000-8", "source": "KDIGO 2024 CKD指南 CKD-矿物质与骨代谢紊乱(CKD-MBD)"},
+      {"name": "无机磷", "loinc": "14879-1", "source": "KDIGO 2024 CKD指南 CKD-矿物质与骨代谢紊乱(CKD-MBD)"},
+      {"name": "血红蛋白", "loinc": "718-7", "source": "KDIGO 2024 CKD指南 肾性贫血监测"}
+    ],
+    "drugs": [
+      {"class": "ACEI/ARB(RAAS阻断)", "atc": "C09", "source": "ATC C09 — Agents acting on the renin-angiotensin system (蛋白尿肾脏保护)"},
+      {"class": "SGLT2抑制剂", "atc": "A10BK", "source": "ATC A10BK — SGLT2 inhibitors (KDIGO 2024推荐用于CKD延缓进展)"},
+      {"class": "利尿剂", "atc": "C03", "source": "ATC C03 — Diuretics (容量与血压管理)"},
+      {"class": "铁剂/促红细胞生成素", "atc": "B03", "source": "ATC B03 — Antianemic preparations (肾性贫血, 含B03A铁剂/B03XA EPO)"}
+    ]
+  },
+  {
+    "disease": "甲状腺功能减退症",
+    "icd10": "E03",
+    "labs": [
+      {"name": "促甲状腺激素", "loinc": "3016-3", "source": "甲状腺功能减退症基层诊疗指南(2019年) 诊断与治疗监测(TSH首选)"},
+      {"name": "游离甲状腺素", "loinc": "14920-3", "source": "甲状腺功能减退症基层诊疗指南(2019年) 诊断(FT4)"},
+      {"name": "游离三碘甲状腺原氨酸", "loinc": "14928-6", "source": "甲状腺功能减退症基层诊疗指南(2019年) 甲状腺功能评估(FT3)"},
+      {"name": "甲状腺过氧化物酶抗体", "loinc": "8099-4", "source": "甲状腺功能减退症基层诊疗指南(2019年) 病因诊断(自身免疫性甲状腺炎, TPOAb)"},
+      {"name": "甲状腺球蛋白抗体", "loinc": "8098-6", "source": "甲状腺功能减退症基层诊疗指南(2019年) 病因诊断(TgAb)"}
+    ],
+    "drugs": [
+      {"class": "甲状腺激素替代(左甲状腺素)", "atc": "H03AA", "source": "ATC H03AA — Thyroid hormones (H03A Thyroid preparations; 左甲状腺素 H03AA01)"}
+    ]
+  },
+  {
+    "disease": "甲状腺功能亢进症",
+    "icd10": "E05",
+    "labs": [
+      {"name": "促甲状腺激素", "loinc": "3016-3", "source": "中国甲状腺功能亢进症和其他原因所致甲状腺毒症诊治指南(2022) 诊断(TSH抑制)"},
+      {"name": "游离甲状腺素", "loinc": "14920-3", "source": "中国甲状腺功能亢进症和其他原因所致甲状腺毒症诊治指南(2022) 诊断指标(FT4)"},
+      {"name": "游离三碘甲状腺原氨酸", "loinc": "14928-6", "source": "中国甲状腺功能亢进症和其他原因所致甲状腺毒症诊治指南(2022) 诊断指标(FT3)"},
+      {"name": "甲状腺过氧化物酶抗体", "loinc": "8099-4", "source": "中国甲状腺功能亢进症和其他原因所致甲状腺毒症诊治指南(2022) 病因鉴别(自身免疫)"}
+    ],
+    "drugs": [
+      {"class": "抗甲状腺药物", "atc": "H03B", "source": "ATC H03B — Antithyroid preparations (甲巯咪唑 H03BB, 丙硫氧嘧啶 H03BA)"},
+      {"class": "β受体阻滞剂", "atc": "C07A", "source": "ATC C07A — Beta blocking agents (甲亢症状控制, 指南推荐)"}
+    ]
+  },
+  {
+    "disease": "贫血",
+    "icd10": "D64",
+    "labs": [
+      {"name": "血红蛋白", "loinc": "718-7", "source": "WHO Haemoglobin concentrations for the diagnosis of anaemia and assessment of severity (2011, WHO/NMH/NHD/MNM/11.1) 贫血定义切点"},
+      {"name": "平均红细胞体积", "loinc": "787-2", "source": "WHO 2011 贫血分类(小/正/大细胞); 缺铁性贫血形态学分型"},
+      {"name": "红细胞分布宽度", "loinc": "788-0", "source": "缺铁性贫血形态学评估(RDW)"},
+      {"name": "红细胞压积", "loinc": "4544-3", "source": "WHO 2011 / 血常规贫血评估"},
+      {"name": "铁蛋白", "loinc": "2276-4", "source": "缺铁性贫血病因诊断(铁储备, SF<20~30 μg/L提示铁缺乏)"},
+      {"name": "血清铁", "loinc": "14798-3", "source": "缺铁性贫血病因诊断(铁代谢)"},
+      {"name": "维生素B12", "loinc": "14685-2", "source": "巨幼细胞性贫血病因诊断(维生素B12缺乏)"},
+      {"name": "叶酸", "loinc": "14732-2", "source": "巨幼细胞性贫血病因诊断(叶酸缺乏)"}
+    ],
+    "drugs": [
+      {"class": "铁剂", "atc": "B03A", "source": "ATC B03A — Iron preparations (缺铁性贫血)"},
+      {"class": "维生素B12与叶酸", "atc": "B03B", "source": "ATC B03B — Vitamin B12 and folic acid (巨幼细胞性贫血)"},
+      {"class": "促红细胞生成素", "atc": "B03XA", "source": "ATC B03XA — Other antianemic preparations (肾性贫血/慢性病贫血)"}
+    ]
+  },
+  {
+    "disease": "痛风/高尿酸血症",
+    "icd10": "M10",
+    "labs": [
+      {"name": "尿酸", "loinc": "14933-6", "source": "中国高尿酸血症与痛风诊疗指南(2019) 诊断与降尿酸目标(无合并症<420, 有合并症<360 μmol/L)"},
+      {"name": "肌酐", "loinc": "14682-9", "source": "中国高尿酸血症与痛风诊疗指南(2019) 肾功能评估(影响降尿酸药选择与剂量)"},
+      {"name": "估算肾小球滤过率", "loinc": "33914-3", "source": "中国高尿酸血症与痛风诊疗指南(2019) eGFR<30时优先非布司他"}
+    ],
+    "drugs": [
+      {"class": "黄嘌呤氧化酶抑制剂(抑制尿酸生成)", "atc": "M04AA", "source": "ATC M04AA — Preparations inhibiting uric acid production (别嘌醇 M04AA01, 非布司他 M04AA03)"},
+      {"class": "促尿酸排泄药", "atc": "M04AB", "source": "ATC M04AB — Preparations increasing uric acid excretion (苯溴马隆 M04AB03)"},
+      {"class": "秋水仙碱", "atc": "M04AC01", "source": "ATC M04AC01 — Colchicine (急性痛风发作)"}
+    ]
+  },
+  {
+    "disease": "代谢相关(非酒精性)脂肪性肝病",
+    "icd10": "K76.0",
+    "labs": [
+      {"name": "谷丙转氨酶", "loinc": "1742-6", "source": "代谢相关(非酒精性)脂肪性肝病防治指南(2024年版) 肝损伤评估(ALT)"},
+      {"name": "谷草转氨酶", "loinc": "1920-8", "source": "代谢相关(非酒精性)脂肪性肝病防治指南(2024年版) 肝损伤评估(AST); AST/ALT比值提示纤维化"},
+      {"name": "γ-谷氨酰转肽酶", "loinc": "2324-2", "source": "代谢相关(非酒精性)脂肪性肝病防治指南(2024年版) 肝功能评估(GGT)"},
+      {"name": "血小板", "loinc": "777-3", "source": "代谢相关(非酒精性)脂肪性肝病防治指南(2024年版) 进展性肝纤维化无创评估(FIB-4/APRI计算)"},
+      {"name": "甘油三酯", "loinc": "14927-8", "source": "代谢相关(非酒精性)脂肪性肝病防治指南(2024年版) 代谢危险因素评估"},
+      {"name": "糖化血红蛋白", "loinc": "4548-4", "source": "代谢相关(非酒精性)脂肪性肝病防治指南(2024年版) 代谢危险因素评估(合并糖代谢异常)"}
+    ],
+    "drugs": []
+  }
+]
