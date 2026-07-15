@@ -134,12 +134,21 @@ fn normalize_dose_unit(u: &str) -> String {
 }
 
 /// Parse the first dose token: `(number, canonical_unit, byte_start_of_token)`.
+/// Skips matches that are actually a **concentration** unit (the unit is followed
+/// by `/`, e.g. `132 g/L`, `12 mg/L`, `7.4 mmol/L`) — those are lab results, not
+/// drug doses. Without this a lab row like `血红蛋白 132 g/L` would be mis-parsed
+/// as a med with dose `132g` and leak into 用药.
 fn parse_dose(line: &str) -> Option<(f64, String, usize)> {
-    let caps = dose_re().captures(line)?;
-    let whole = caps.get(0)?;
-    let num: f64 = caps.get(1)?.as_str().parse().ok()?;
-    let unit = normalize_dose_unit(caps.get(2)?.as_str());
-    Some((num, unit, whole.start()))
+    for caps in dose_re().captures_iter(line) {
+        let whole = caps.get(0)?;
+        if line[whole.end()..].starts_with('/') {
+            continue; // 浓度单位(g/L、mg/L…),不是剂量
+        }
+        let num: f64 = caps.get(1)?.as_str().parse().ok()?;
+        let unit = normalize_dose_unit(caps.get(2)?.as_str());
+        return Some((num, unit, whole.start()));
+    }
+    None
 }
 
 /// Parse the frequency: `(code, raw_substring, byte_start)`. First priority-order
@@ -309,5 +318,17 @@ mod tests {
         assert_eq!(o.dose_unit.as_deref(), Some("U"));
         assert_eq!(o.frequency.as_deref(), Some("tid ac"));
         assert_eq!(o.frequency_raw.as_deref(), Some("三餐前"));
+    }
+
+    #[test]
+    fn concentration_unit_lab_row_not_mistaken_for_dose() {
+        // 化验行(浓度单位 g/L、mg/L + 参考范围)不应被当成用药——否则化验会漏进「用药」。
+        assert!(extract_meds("血红蛋白 132 g/L 130-175").is_empty());
+        assert!(extract_meds("神秘指标XYZ 12 mg/L 0-5").is_empty());
+        // 真实剂量(单位不跟 /)仍正常解析。
+        assert_eq!(
+            extract_meds("二甲双胍 0.5g bid")[0].dose_unit.as_deref(),
+            Some("g")
+        );
     }
 }

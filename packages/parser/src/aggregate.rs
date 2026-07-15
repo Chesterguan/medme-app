@@ -35,6 +35,13 @@ pub struct SourceDoc<'a> {
     pub index: usize,
     pub date: Option<NaiveDate>,
     pub text: &'a str,
+    /// The record's `doc_type` as a lowercased string (e.g. `"imaging_report"`),
+    /// used by the summary to route imaging docs; `None` when unknown. `aggregate`
+    /// itself ignores this — it only feeds doctor-summary routing (slice ④).
+    pub doc_type: Option<String>,
+    /// The record's title (e.g. `"胸部CT"`); helps derive an imaging group label.
+    /// `None` when unknown. Ignored by `aggregate`.
+    pub title: Option<String>,
 }
 
 /// One measured value of an analyte, tagged with the document it came from.
@@ -59,6 +66,10 @@ pub struct AnalyteSeries {
     /// Display/grouping label: canonical name if resolved, else the raw name.
     pub group_name: String,
     pub loinc: Option<String>,
+    /// Reference range, taken from the most recent observation in the group that
+    /// carried one (fallback: any). The viewer draws the normal band from these.
+    pub ref_low: Option<f64>,
+    pub ref_high: Option<f64>,
     /// Chronological; `None`-dated points sort last, preserving input order.
     pub points: Vec<LabPoint>,
     /// True if any point is flagged "H" or "L".
@@ -163,6 +174,11 @@ struct LabBuilder {
     loinc: Option<String>,
     /// Whether `group_name`/`loinc` were taken from a matched observation yet.
     meta_from_match: bool,
+    /// Reference range of the mention currently winning "most recent ref".
+    ref_low: Option<f64>,
+    ref_high: Option<f64>,
+    ref_date: Option<NaiveDate>,
+    has_ref: bool,
     points: Vec<LabPoint>,
     any_abnormal: bool,
 }
@@ -214,6 +230,10 @@ pub fn aggregate(docs: &[SourceDoc<'_>]) -> AggregatedClinical {
                 group_name: obs.raw_name.clone(),
                 loinc: None,
                 meta_from_match: false,
+                ref_low: None,
+                ref_high: None,
+                ref_date: None,
+                has_ref: false,
                 points: Vec::new(),
                 any_abnormal: false,
             });
@@ -224,6 +244,25 @@ pub fn aggregate(docs: &[SourceDoc<'_>]) -> AggregatedClinical {
                 }
                 b.loinc = obs.loinc.clone();
                 b.meta_from_match = true;
+            }
+            // Keep the ref range of the most-recently-dated mention that carried
+            // one; ties/undated keep the first seen (stable). Fallback: any.
+            if obs.ref_low.is_some() || obs.ref_high.is_some() {
+                let replace = if !b.has_ref {
+                    true
+                } else {
+                    match (doc.date, b.ref_date) {
+                        (Some(m), Some(cur)) => m > cur,
+                        (Some(_), None) => true,
+                        (None, _) => false,
+                    }
+                };
+                if replace {
+                    b.ref_low = obs.ref_low;
+                    b.ref_high = obs.ref_high;
+                    b.ref_date = doc.date;
+                    b.has_ref = true;
+                }
             }
             b.any_abnormal |= abnormal;
             b.points.push(point);
@@ -303,6 +342,8 @@ pub fn aggregate(docs: &[SourceDoc<'_>]) -> AggregatedClinical {
                 analyte_key: b.analyte_key,
                 group_name: b.group_name,
                 loinc: b.loinc,
+                ref_low: b.ref_low,
+                ref_high: b.ref_high,
                 points: b.points,
                 any_abnormal: b.any_abnormal,
             }
@@ -367,16 +408,22 @@ mod tests {
         let docs = vec![
             SourceDoc {
                 index: 0,
+                doc_type: None,
+                title: None,
                 date: d(2023, 6, 1),
                 text: "肌酐 96 μmol/L 59-104",
             },
             SourceDoc {
                 index: 1,
+                doc_type: None,
+                title: None,
                 date: d(2022, 1, 1),
                 text: "肌酐 88 μmol/L 59-104",
             },
             SourceDoc {
                 index: 2,
+                doc_type: None,
+                title: None,
                 date: d(2023, 1, 1),
                 text: "肌酐 120 μmol/L 59-104", // > 104 -> H
             },
@@ -400,11 +447,15 @@ mod tests {
         let docs = vec![
             SourceDoc {
                 index: 0,
+                doc_type: None,
+                title: None,
                 date: d(2024, 1, 1),
                 text: "肌酐 88 μmol/L 59-104",
             },
             SourceDoc {
                 index: 1,
+                doc_type: None,
+                title: None,
                 date: d(2024, 2, 1),
                 text: "神秘指标XYZ 12.3 mg/L 0-5",
             },
@@ -432,11 +483,15 @@ mod tests {
         let docs = vec![
             SourceDoc {
                 index: 3,
+                doc_type: None,
+                title: None,
                 date: d(2023, 1, 1),
                 text: "二甲双胍 0.5g bid",
             },
             SourceDoc {
                 index: 7,
+                doc_type: None,
+                title: None,
                 date: d(2024, 3, 1),
                 text: "二甲双胍 0.85g tid",
             },
@@ -458,11 +513,15 @@ mod tests {
         let docs = vec![
             SourceDoc {
                 index: 0,
+                doc_type: None,
+                title: None,
                 date: d(2024, 5, 1),
                 text: "出院诊断:2型糖尿病",
             },
             SourceDoc {
                 index: 1,
+                doc_type: None,
+                title: None,
                 date: d(2023, 2, 1),
                 text: "入院诊断:2型糖尿病",
             },
@@ -480,11 +539,15 @@ mod tests {
         let docs = vec![
             SourceDoc {
                 index: 0,
+                doc_type: None,
+                title: None,
                 date: None,
                 text: "肌酐 88 μmol/L 59-104",
             },
             SourceDoc {
                 index: 1,
+                doc_type: None,
+                title: None,
                 date: d(2024, 1, 1),
                 text: "肌酐 90 μmol/L 59-104",
             },
@@ -503,6 +566,8 @@ mod tests {
         // Labs ordered by group_name, meds by name, conditions by onset then text.
         let docs = vec![SourceDoc {
             index: 0,
+            doc_type: None,
+            title: None,
             date: d(2024, 1, 1),
             text: "\
 肌酐 88 μmol/L 59-104

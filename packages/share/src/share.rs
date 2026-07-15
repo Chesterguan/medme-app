@@ -20,12 +20,11 @@ use base64::engine::general_purpose::{STANDARD as B64, URL_SAFE_NO_PAD as B64URL
 use base64::Engine as _;
 use core_model::Vault;
 use rand::RngCore;
-use sha2::{Digest, Sha256};
 
-/// 对给定字节求 sha256,返回标准 base64——用于 CSP 的 `'sha256-<b64>'` 脚本哈希。
-fn sha256_b64(bytes: &[u8]) -> String {
-    B64.encode(Sha256::digest(bytes))
-}
+/// 唯一查看器源:自包含分享文件与托管查看器共用同一份 HTML(去重,见 #55)。
+/// index.html 已内联 dicom-parser + 查看器 JS + CSP(script-src 的 sha256 已在其中固化),
+/// 并自检 #share-data 切换自包含/托管模式。生成分享文件 = 取此 HTML + 注入 blob 数据节点。
+const CANONICAL_VIEWER: &str = include_str!("../../../web/hosted-viewer/index.html");
 
 /// AES-GCM 的固定关联数据(AAD)。绑定后可抵御格式/版本混淆:任何解密端都必须传入
 /// 逐字节相同的 AAD 才能解密成功。互操作三处必须一致——Rust 加密、内嵌查看器 JS
@@ -213,7 +212,24 @@ pub fn build_encrypted_share(
         );
     }
 
-    let payload = serde_json::json!({
+    // ── 医生视图 summary(#37,slice ④)──
+    // 确定性装配疾病泳道 + 趋势。`SourceDoc::index` 必须与 `records_json` 里的下标
+    // 对齐(records 与 records_json 在同一循环里同序推入),证据链才能跳对原件。
+    // 临床日期取文档 doc_date 的 naive 日期(无则 None)。
+    let docs: Vec<parser::SourceDoc> = records
+        .iter()
+        .enumerate()
+        .map(|(i, rec)| parser::SourceDoc {
+            index: i,
+            date: rec.doc.doc_date.map(|dt| dt.date_naive()),
+            text: &rec.text,
+            doc_type: Some(rec.doc.doc_type.as_str().to_lowercase()),
+            title: rec.doc.title.clone(),
+        })
+        .collect();
+    let summary = parser::assemble_summary(&docs);
+
+    let mut payload = serde_json::json!({
         "generated": generated.to_rfc3339(),
         "expires": expires.to_rfc3339(),
         "patient": {
@@ -225,6 +241,14 @@ pub fn build_encrypted_share(
         "records": records_json,
         "degraded": degraded,
     });
+
+    // 仅当确有 problem 时挂上 summary;否则省略,查看器回退纯文档列表(老分享/空保险箱不受影响)。
+    if summary["problems"]
+        .as_array()
+        .is_some_and(|a| !a.is_empty())
+    {
+        payload["summary"] = summary;
+    }
     let plaintext = serde_json::to_vec(&payload).map_err(|e| format!("serialize payload: {e}"))?;
 
     // ── AES-256-GCM 加密 ──
@@ -265,751 +289,17 @@ pub fn build_encrypted_share(
         return Err("share-data 数据节点意外包含 '<'(可能 </script> 越界)".into());
     }
 
-    // 对两段内联脚本「将写进 <script>…</script> 之间的逐字节内容」求 sha256、标准
-    // base64 后写进 CSP。哈希与下面拼接用的是同一常量,二者永不漂移。
-    let script_src = format!(
-        "'sha256-{}' 'sha256-{}'",
-        sha256_b64(DICOM_PARSER_JS.as_bytes()),
-        sha256_b64(VIEWER_JS.as_bytes()),
-    );
-    // 先内联 dicom-parser(浏览器全局 dicomParser),再内联查看器逻辑;两者顺序无
-    // 副作用。数据节点放最前,查看器在文件末尾运行时其已就位。
-    let scripts = format!(
-        "<script type=\"application/json\" id=\"share-data\">{share_data}</script>\n\
-         <script>{DICOM_PARSER_JS}</script>\n\
-         <script>{VIEWER_JS}</script>"
-    );
-    let html = format!(
-        "{}{}{}",
-        VIEWER_HEAD.replace("__CSP_SCRIPT_SRC__", &script_src),
-        scripts,
-        VIEWER_TAIL,
-    );
+    // 非执行 JSON 数据节点(type=application/json,不受 CSP script-src 约束,与旧逻辑同)。
+    let data_node =
+        format!("<script type=\"application/json\" id=\"share-data\">{share_data}</script>");
+    let marker = "<!--SHARE_DATA_SLOT-->";
+    if !CANONICAL_VIEWER.contains(marker) {
+        return Err("查看器模板缺少 SHARE_DATA_SLOT 注入点".into());
+    }
+    let html = CANONICAL_VIEWER.replacen(marker, &data_node, 1);
 
     Ok((html, passphrase_grouped, record_count))
 }
-
-/// 内联的 dicom-parser(UMD 版,浏览器全局 `dicomParser`)。随源码 vendored 进
-/// 仓库,`include_str!` 在编译期嵌入 —— 不依赖 node_modules 即可构建。
-const DICOM_PARSER_JS: &str = include_str!("vendor/dicomParser.min.js");
-
-/// 查看器 HTML 外壳(头部 + 口令闸门 + 空 app 容器)。生成时 `__CSP_SCRIPT_SRC__`
-/// 被替换成两段内联脚本的 `'sha256-…'` 哈希;脚本体与结尾 `</body></html>` 分别是
-/// `VIEWER_JS` / `VIEWER_TAIL` 常量,在生成时拼接 —— 保证内联脚本逐字节固定、可被
-/// CSP 哈希收录(移除 script-src 'unsafe-inline')。无任何外部引用,严格离线可用。
-const VIEWER_HEAD: &str = r####"<!doctype html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src __CSP_SCRIPT_SRC__; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MedMe 加密病历分享</title>
-<style>
-  * { box-sizing: border-box; }
-  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Segoe UI", sans-serif; color: #1e293b; margin: 0; padding: 0; background: #f8fafc; }
-  .wrap { max-width: 900px; margin-inline: auto; padding: 24px; }
-  /* 口令输入屏 */
-  .gate { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
-  .gate-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 32px; max-width: 420px; width: 100%; box-shadow: 0 8px 30px rgba(15,23,42,.06); }
-  .gate-card h1 { font-size: 20px; color: #1d4ed8; margin: 0 0 6px; }
-  .gate-card p { font-size: 13px; color: #64748b; line-height: 1.6; margin: 0 0 18px; }
-  .gate-card label { display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 6px; }
-  .gate-card input { width: 100%; font-size: 15px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; padding: 11px 12px; border: 1px solid #cbd5e1; border-radius: 10px; letter-spacing: .5px; }
-  .gate-card input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
-  .gate-card button { width: 100%; margin-top: 14px; font-size: 15px; font-weight: 600; color: #fff; background: #2563eb; border: none; border-radius: 10px; padding: 12px; cursor: pointer; }
-  .gate-card button:hover { background: #1d4ed8; }
-  .gate-err { color: #be123c; font-size: 13px; margin-top: 12px; min-height: 18px; }
-  /* 头部 */
-  .doc-header { border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 20px; }
-  .doc-header h1 { font-size: 22px; color: #1d4ed8; margin: 0 0 6px; }
-  .patient { font-size: 14px; color: #334155; }
-  .generated { font-size: 12px; color: #94a3b8; margin-top: 4px; }
-  .privacy-note { font-size: 12px; color: #475569; background: #eff6ff; border: 1px solid #dbeafe; border-radius: 10px; padding: 10px 12px; margin-bottom: 20px; line-height: 1.6; }
-  /* 记录卡片 */
-  .record { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; page-break-inside: avoid; }
-  .record-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
-  .record-head h2 { font-size: 16px; margin: 0; color: #0f172a; flex: 1; min-width: 120px; }
-  .badge { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 2px 10px; }
-  .date { font-size: 12px; color: #64748b; font-variant-numeric: tabular-nums; }
-  .content { font-size: 15px; line-height: 1.7; color: #334155; }
-  .content > * + * { margin-top: 10px; }
-  .content table { width: 100%; border-collapse: collapse; font-size: 13px; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
-  .content thead tr { background: #f8fafc; color: #64748b; font-size: 12px; }
-  .content th { text-align: left; font-weight: 600; padding: 7px 12px; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
-  .content td { padding: 6px 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
-  .content tr.high td { color: #b45309; }
-  .content tr.low td { color: #1d4ed8; }
-  .content tr.normal td { color: #334155; }
-  .content .section { font-weight: 600; color: #0f172a; padding-top: 2px; }
-  .content .label { font-weight: 600; color: #0f172a; }
-  .content .para { white-space: pre-wrap; word-break: break-word; }
-  /* 处方 */
-  .meds { display: flex; flex-direction: column; gap: 8px; }
-  .med { display: flex; gap: 12px; background: #ecfdf5; border: 1px solid #d1fae5; border-radius: 12px; padding: 12px; }
-  .med .n { width: 26px; height: 26px; border-radius: 8px; background: #d1fae5; color: #047857; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 700; font-size: 13px; }
-  .med .name { font-weight: 600; color: #1e293b; }
-  .med .usage { font-size: 13px; color: #64748b; line-height: 1.6; }
-  .meds-label { font-size: 11px; font-family: ui-monospace, monospace; color: #94a3b8; letter-spacing: .15em; text-transform: uppercase; }
-  .img { max-width: 100%; max-height: 480px; display: block; margin: 8px 0; border: 1px solid #e2e8f0; border-radius: 8px; }
-  /* 影像检查:缩略卡 + 说明 */
-  .imaging-card { margin: 10px 0; }
-  .imaging-open { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; background: #0f172a; color: #fff; border: none; border-radius: 10px; padding: 10px 16px; font-size: 14px; font-weight: 600; }
-  .pdf-dl { display: inline-flex; align-items: center; gap: 6px; margin: 8px 0; text-decoration: none; background: #1789c1; color: #fff; border-radius: 10px; padding: 9px 14px; font-size: 13px; font-weight: 600; }
-  .pdf-dl:hover { background: #1560a8; }
-  .imaging-open:hover { background: #1e293b; }
-  .imaging-open .ico { font-size: 16px; }
-  .imaging-meta { font-size: 12px; color: #64748b; margin-top: 6px; line-height: 1.6; }
-  .imaging-png { max-width: 100%; max-height: 480px; display: block; margin: 8px 0; background: #000; border: 1px solid #e2e8f0; border-radius: 8px; }
-  .imaging-note { font-size: 12px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 10px; margin-top: 6px; line-height: 1.6; }
-  /* 全屏阅片 overlay(移植桌面端 lightbox 观感)*/
-  .dcm-overlay { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.9); display: flex; flex-direction: column; }
-  .dcm-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; background: rgba(0,0,0,.6); color: rgba(255,255,255,.85); }
-  .dcm-bar .name { font-family: ui-monospace, Menlo, monospace; font-size: 13px; margin-right: auto; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .dcm-btn { font-size: 12px; padding: 6px 12px; border-radius: 8px; background: rgba(255,255,255,.1); color: rgba(255,255,255,.85); border: none; cursor: pointer; }
-  .dcm-btn:hover { background: rgba(255,255,255,.2); }
-  .dcm-doctor { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: #fcd34d; }
-  .dcm-sep { width: 1px; height: 16px; background: rgba(255,255,255,.2); }
-  .dcm-idx { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: rgba(255,255,255,.7); }
-  .dcm-hintbar { font-size: 11px; color: rgba(255,255,255,.7); margin-left: auto; }
-  .dcm-stage { position: relative; flex: 1; min-height: 0; background: #000; overflow: hidden; }
-  .dcm-stage canvas { display: block; touch-action: none; }
-  .dcm-notice { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.75); color: rgba(255,255,255,.9); font-size: 12px; padding: 8px 16px; border-radius: 8px; max-width: 80%; text-align: center; pointer-events: none; }
-  .dcm-floathint { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.75); color: #fff; font-size: 14px; padding: 10px 20px; border-radius: 999px; pointer-events: none; }
-  .statement { text-align: center; font-size: 11px; color: #94a3b8; margin-top: 24px; padding-top: 12px; border-top: 1px solid #e2e8f0; }
-  .expired { max-width: 480px; margin: 80px auto; text-align: center; background: #fff; border: 1px solid #fecdd3; border-radius: 16px; padding: 40px 28px; }
-  .expired h1 { font-size: 18px; color: #be123c; margin: 0 0 10px; }
-  .expired p { font-size: 14px; color: #64748b; line-height: 1.7; margin: 0; }
-  @media print {
-    body { background: #fff; }
-    .record { border: 1px solid #cbd5e1; box-shadow: none; }
-    .privacy-note { background: #fff; }
-    @page { margin: 16mm 14mm; }
-  }
-</style>
-</head>
-<body>
-<div id="gate" class="gate">
-  <div class="gate-card">
-    <h1>MedMe 加密病历</h1>
-    <p>这份文件已端到端加密。请输入本人另行告知的<b>口令</b>,浏览器将在本地解密并显示病历,数据不会上传任何服务器。</p>
-    <label for="pw">口令</label>
-    <input id="pw" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴或输入口令">
-    <button id="go" type="button">解密查看</button>
-    <div id="err" class="gate-err"></div>
-  </div>
-</div>
-<div id="app" class="wrap" style="display:none"></div>
-"####;
-
-/// 查看器逻辑(纯静态,无任何 per-share 插值)。生成时以 `<script>{VIEWER_JS}</script>`
-/// 拼接,并对其逐字节求 sha256 写进 CSP —— 因此加密 blob 只能来自「非执行」的
-/// `#share-data` JSON 数据节点,绝不内联进本脚本。
-const VIEWER_JS: &str = r####"
-const EMBEDDED_BLOB = JSON.parse(document.getElementById("share-data").textContent).blob;
-
-const TYPE_LABEL = { lab_report:"化验", imaging_report:"检查", discharge_summary:"出院", prescription:"处方", clinical_note:"病历", pathology:"病理", surgery:"手术", other:"其他", unknown:"未分类" };
-// bg | color(与桌面端 TYPE_BADGE 一致)
-const TYPE_BADGE = {
-  lab_report:      ["#eff6ff","#1d4ed8"],
-  imaging_report:  ["#fffbeb","#b45309"],
-  discharge_summary:["#eef2ff","#4338ca"],
-  prescription:    ["#ecfdf5","#047857"],
-  clinical_note:   ["#f0f9ff","#0369a1"],
-  pathology:       ["#fff1f2","#be123c"],
-  surgery:         ["#faf5ff","#7e22ce"],
-  other:           ["#f1f5f9","#475569"],
-  unknown:         ["#f1f5f9","#475569"],
-};
-
-function b64ToBytes(b64) {
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-function b64urlToBytes(s) {
-  let t = s.replace(/-/g, "+").replace(/_/g, "/");
-  while (t.length % 4) t += "=";
-  return b64ToBytes(t);
-}
-function esc(s) {
-  return String(s).replace(/[&<>"']/g, c =>
-    ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
-}
-
-// SECURITY: only accept a data: image URI that strictly matches an allowlisted
-// base64 image shape before putting it in `<img src>`. A value that doesn't match —
-// e.g. one carrying a `"` to break out of the attribute and inject markup / exfil PHI —
-// is skipped, never string-concatenated raw.
-function isDataImage(s) {
-  return typeof s === "string" &&
-    /^data:image\/(png|jpe?g|tiff);base64,[A-Za-z0-9+\/=\s]+$/.test(s);
-}
-// PDF 原件下载锚点的 href 校验:只接受我们自己生成的 data:application/pdf base64
-// (base64 字母表不含 '<' / '"',放进 href 安全)。
-function isDataPdf(s) {
-  return typeof s === "string" &&
-    /^data:application\/pdf;base64,[A-Za-z0-9+\/=\s]+$/.test(s);
-}
-
-// ── 内容解析(移植 ReportContent.tsx)──
-function splitCells(line) { return line.trim().split(/\s{2,}|\t/).filter(c => c.length > 0); }
-function isTableHeader(line) {
-  const keys = ["项目","结果","单位","参考","提示","名称","缩写"];
-  return keys.filter(k => line.includes(k)).length >= 2 && splitCells(line).length >= 3;
-}
-function isDataRow(line) { return splitCells(line).length >= 3 && /\d/.test(line); }
-function rowStatus(cells) {
-  const j = cells.join(" ");
-  if (cells.includes("↑") || /↑|偏高|升高/.test(j)) return "high";
-  if (cells.includes("↓") || /↓|偏低|降低|减低/.test(j)) return "low";
-  if (/正常/.test(j)) return "normal";
-  return "";
-}
-function parseBlocks(text) {
-  const lines = text.split(/\r?\n/);
-  const blocks = [];
-  let i = 0;
-  while (i < lines.length) {
-    const trimmed = lines[i].trim();
-    if (!trimmed) { i++; continue; }
-    if (isTableHeader(trimmed) || isDataRow(trimmed)) {
-      const start = i;
-      const header = isTableHeader(trimmed) ? splitCells(trimmed) : null;
-      if (header) i++;
-      const rows = [];
-      while (i < lines.length && lines[i].trim() && isDataRow(lines[i])) {
-        rows.push(splitCells(lines[i])); i++;
-      }
-      if (rows.length >= 2) { blocks.push({ kind:"table", header, rows }); continue; }
-      i = start;
-    }
-    if (/^[【[].+[】\]]$/.test(trimmed) || (trimmed.length <= 14 && /[:：]$/.test(trimmed))) {
-      blocks.push({ kind:"section", text: trimmed });
-    } else {
-      blocks.push({ kind:"para", text: lines[i] });
-    }
-    i++;
-  }
-  return blocks;
-}
-const LABEL_RE = /^([一-龥A-Za-z]{2,10})([:：])(.*)$/;
-function renderPara(text) {
-  const t = text.replace(/\s+$/, "");
-  const m = t.match(LABEL_RE);
-  if (m && m[3].trim().length > 0) {
-    return '<div class="para"><span class="label">' + esc(m[1]) + esc(m[2]) + "</span>" + esc(m[3]) + "</div>";
-  }
-  return '<div class="para">' + esc(text) + "</div>";
-}
-function renderBlocks(blocks) {
-  let html = "";
-  for (const b of blocks) {
-    if (b.kind === "table") {
-      const cols = Math.max(b.header ? b.header.length : 0, ...b.rows.map(r => r.length));
-      html += '<div style="overflow-x:auto"><table>';
-      if (b.header) {
-        html += "<thead><tr>";
-        for (const h of b.header) html += "<th>" + esc(h) + "</th>";
-        html += "</tr></thead>";
-      }
-      html += "<tbody>";
-      for (const r of b.rows) {
-        const st = rowStatus(r);
-        html += '<tr class="' + st + '">';
-        for (let c = 0; c < cols; c++) html += "<td>" + esc(r[c] || "") + "</td>";
-        html += "</tr>";
-      }
-      html += "</tbody></table></div>";
-    } else if (b.kind === "section") {
-      html += '<div class="section">' + esc(b.text) + "</div>";
-    } else {
-      html += renderPara(b.text);
-    }
-  }
-  return html;
-}
-// ── 处方:用药清单(移植 parseMeds)──
-function parseMeds(text) {
-  const lines = text.split(/\r?\n/);
-  const meds = [], intro = [], footer = [];
-  let cur = null, started = false, ended = false;
-  for (const raw of lines) {
-    const line = raw.trim();
-    const numbered = line.match(/^(\d+)\s*[.、)]\s*(.+)/);
-    if (numbered) {
-      started = true; ended = false;
-      if (cur) meds.push(cur);
-      cur = { name: numbered[2].trim(), usage: [] };
-      continue;
-    }
-    if (/^(医师|药师|审核|备注|Rp\.?|处方)/.test(line)) {
-      if (cur) { meds.push(cur); cur = null; }
-      if (started) ended = true;
-      if (line && !/^Rp\.?$/.test(line)) { if (started) footer.push(line); else intro.push(line); }
-      continue;
-    }
-    if (cur && line) { cur.usage.push(line); continue; }
-    if (line) { if (!started) intro.push(line); else if (ended) footer.push(line); }
-  }
-  if (cur) meds.push(cur);
-  return meds.length ? { intro, meds, footer } : null;
-}
-function renderContent(text, docType) {
-  if (!text || !text.trim()) return '<div style="color:#94a3b8;font-size:14px">无文本内容。</div>';
-  if (docType === "prescription") {
-    const p = parseMeds(text);
-    if (p) {
-      let html = "";
-      if (p.intro.length) html += p.intro.map(renderPara).join("");
-      html += '<div class="meds-label">用药</div><div class="meds">';
-      p.meds.forEach((m, i) => {
-        html += '<div class="med"><div class="n">' + (i + 1) + '</div><div><div class="name">' + esc(m.name) + "</div>";
-        html += m.usage.map(u => '<div class="usage">' + esc(u) + "</div>").join("");
-        html += "</div></div>";
-      });
-      html += "</div>";
-      if (p.footer.length) html += '<div style="color:#64748b;font-size:13px">' + p.footer.map(renderPara).join("") + "</div>";
-      return html;
-    }
-  }
-  return renderBlocks(parseBlocks(text));
-}
-
-// ══ 交互式 DICOM 阅片器(移植 DicomViewer.tsx 的解码逻辑到纯 JS + canvas)══
-// 纯 dicom-parser + canvas,无 Cornerstone / worker / WASM。按需解码 + 有界缓存,
-// 几百帧也只常驻几十 MB(014 §5 大数据顾虑)。
-const DCM_TS_UNCOMPRESSED = new Set(["1.2.840.10008.1.2","1.2.840.10008.1.2.1","1.2.840.10008.1.2.1.99"]);
-const DCM_TS_JPEG_BASELINE = new Set(["1.2.840.10008.1.2.4.50","1.2.840.10008.1.2.4.51"]);
-const DCM_PRESETS = [
-  { label:"默认", center:null, width:null },
-  { label:"脑窗", center:40, width:80 },
-  { label:"骨窗", center:500, width:2000 },
-  { label:"肺窗", center:-600, width:1500 },
-  { label:"软组织", center:40, width:400 },
-];
-const DCM_CACHE_MAX = 7; // 当前帧 + 邻近几帧;超出按离当前最远淘汰。
-
-function dcmNum(ds, tag, def) { const v = ds.uint16(tag); return v === undefined ? def : v; }
-function dcmFloat(ds, tag) { const v = ds.floatString(tag); return (v === undefined || Number.isNaN(v)) ? null : v; }
-
-// 解析每张切片 → 展平成 frames[](NumberOfFrames>1 的多帧展开)。解析失败的切片跳过。
-function dcmBuildFrames(slices) {
-  const frames = [];
-  for (const bytes of slices) {
-    let ds;
-    try { ds = dicomParser.parseDicom(bytes); } catch (e) { continue; }
-    const rows = dcmNum(ds, "x00280010", 0);
-    const columns = dcmNum(ds, "x00280011", 0);
-    if (!rows || !columns) continue;
-    const bitsAllocated = dcmNum(ds, "x00280100", 16);
-    const pixelRepresentation = dcmNum(ds, "x00280103", 0);
-    const samplesPerPixel = dcmNum(ds, "x00280002", 1);
-    const planarConfiguration = dcmNum(ds, "x00280006", 0);
-    const photometric = (ds.string("x00280004") || "MONOCHROME2").trim().toUpperCase();
-    const transferSyntax = (ds.string("x00020010") || "1.2.840.10008.1.2").trim();
-    const nFrames = parseInt(ds.string("x00280008") || "1", 10) || 1;
-    const defaultCenter = dcmFloat(ds, "x00281050");
-    const defaultWidth = dcmFloat(ds, "x00281051");
-    for (let f = 0; f < nFrames; f++) {
-      frames.push({ dataSet: ds, frameIndex: f, rows, columns, bitsAllocated, pixelRepresentation,
-        samplesPerPixel, planarConfiguration, photometric, invert: photometric === "MONOCHROME1",
-        color: samplesPerPixel >= 3, transferSyntax, defaultCenter, defaultWidth });
-    }
-  }
-  return frames;
-}
-
-// 未压缩灰度:读原始像素 → modality rescale(v = raw*slope + intercept)。
-function dcmReadGray(fm) {
-  const ds = fm.dataSet;
-  const pd = ds.elements.x7fe00010;
-  const byteArray = ds.byteArray;
-  const bytesPerPixel = fm.bitsAllocated <= 8 ? 1 : 2;
-  const pxCount = fm.rows * fm.columns;
-  const frameLength = pxCount * bytesPerPixel;
-  const absStart = byteArray.byteOffset + pd.dataOffset + fm.frameIndex * frameLength;
-  const buf = byteArray.buffer.slice(absStart, absStart + frameLength); // 对齐副本
-  const slope = dcmFloat(ds, "x00281053") ?? 1;
-  const intercept = dcmFloat(ds, "x00281052") ?? 0;
-  const out = new Float32Array(pxCount);
-  if (bytesPerPixel === 1) {
-    const raw = new Uint8Array(buf);
-    for (let i = 0; i < pxCount; i++) out[i] = raw[i] * slope + intercept;
-  } else if (fm.pixelRepresentation === 1) {
-    const raw = new Int16Array(buf);
-    for (let i = 0; i < pxCount; i++) out[i] = raw[i] * slope + intercept;
-  } else {
-    const raw = new Uint16Array(buf);
-    for (let i = 0; i < pxCount; i++) out[i] = raw[i] * slope + intercept;
-  }
-  return out;
-}
-
-// 未压缩彩色(RGB)→ ImageData。处理 PlanarConfiguration 0 交错 / 1 平面。
-function dcmReadColor(fm) {
-  const ds = fm.dataSet;
-  const pd = ds.elements.x7fe00010;
-  const byteArray = ds.byteArray;
-  const pxCount = fm.rows * fm.columns;
-  const frameLength = pxCount * 3;
-  const absStart = byteArray.byteOffset + pd.dataOffset + fm.frameIndex * frameLength;
-  const src = new Uint8Array(byteArray.buffer, absStart, frameLength);
-  const img = new ImageData(fm.columns, fm.rows);
-  const d = img.data;
-  if (fm.planarConfiguration === 1) {
-    const plane = pxCount;
-    for (let i = 0; i < pxCount; i++) { d[i*4]=src[i]; d[i*4+1]=src[plane+i]; d[i*4+2]=src[2*plane+i]; d[i*4+3]=255; }
-  } else {
-    for (let i = 0; i < pxCount; i++) { d[i*4]=src[i*3]; d[i*4+1]=src[i*3+1]; d[i*4+2]=src[i*3+2]; d[i*4+3]=255; }
-  }
-  return img;
-}
-
-async function dcmDecodeFrame(fm) {
-  try {
-    const ts = fm.transferSyntax;
-    if (DCM_TS_UNCOMPRESSED.has(ts)) {
-      if (fm.color) return { kind:"rgba", data: dcmReadColor(fm) };
-      return { kind:"gray", values: dcmReadGray(fm), rows: fm.rows, cols: fm.columns, invert: fm.invert };
-    }
-    if (DCM_TS_JPEG_BASELINE.has(ts)) {
-      const pd = fm.dataSet.elements.x7fe00010;
-      // 空 BOT(如超声动态多帧)→ 按 fragment 下标读;有 BOT → 按帧读。
-      const bot = pd.basicOffsetTable;
-      const encoded = (bot && bot.length > 0)
-        ? dicomParser.readEncapsulatedImageFrame(fm.dataSet, pd, fm.frameIndex)
-        : dicomParser.readEncapsulatedPixelDataFromFragments(fm.dataSet, pd, fm.frameIndex);
-      const copy = encoded.slice();
-      const blob = new Blob([copy], { type: "image/jpeg" });
-      const bitmap = await createImageBitmap(blob);
-      return { kind:"bitmap", bitmap, rows: bitmap.height, cols: bitmap.width };
-    }
-    return { kind:"unsupported" }; // JPEG2000 / JPEG-LS / RLE 等此轻量器不解
-  } catch (e) {
-    console.error("DICOM 帧解码失败", e);
-    return { kind:"error" };
-  }
-}
-
-function dcmDefaultWindow(fm, dec) {
-  if (fm.defaultCenter != null && fm.defaultWidth != null && fm.defaultWidth > 0)
-    return { center: fm.defaultCenter, width: fm.defaultWidth };
-  if (dec.kind === "gray") {
-    let mn = Infinity, mx = -Infinity;
-    const v = dec.values;
-    for (let i = 0; i < v.length; i++) { if (v[i] < mn) mn = v[i]; if (v[i] > mx) mx = v[i]; }
-    if (!Number.isFinite(mn) || !Number.isFinite(mx) || mx <= mn) return { center: 128, width: 256 };
-    return { center: (mn + mx) / 2, width: mx - mn };
-  }
-  return { center: 128, width: 256 };
-}
-
-// 打开一个全屏阅片 overlay。slices: Uint8Array[]。返回后自动释放。
-function openDicomViewer(slices, name) {
-  const frames = dcmBuildFrames(slices);
-  const overlay = document.createElement("div");
-  overlay.className = "dcm-overlay";
-  overlay.innerHTML =
-    '<div class="dcm-bar">' +
-      '<span class="name"></span>' +
-      '<button class="dcm-btn" data-z="in">放大</button>' +
-      '<button class="dcm-btn" data-z="out">缩小</button>' +
-      '<span class="dcm-sep"></span>' +
-      '<span class="dcm-doctor" title="窗宽窗位:医生调明暗看不同组织的专业工具">🩺 医生 · 窗位</span>' +
-      DCM_PRESETS.map((p,i)=>'<button class="dcm-btn" data-p="'+i+'">'+esc(p.label)+'</button>').join("") +
-      '<span class="dcm-sep"></span>' +
-      '<button class="dcm-btn" data-reset="1">重置</button>' +
-      '<span class="dcm-idx"></span>' +
-      '<span class="dcm-hintbar"></span>' +
-      '<button class="dcm-btn" data-close="1">关闭 · ESC</button>' +
-    '</div>' +
-    '<div class="dcm-stage"><canvas></canvas>' +
-      '<div class="dcm-notice" style="display:none"></div>' +
-      '<div class="dcm-floathint" style="display:none"></div>' +
-    '</div>';
-  overlay.querySelector(".name").textContent = name || "";
-  document.body.appendChild(overlay);
-
-  const canvas = overlay.querySelector("canvas");
-  const stage = overlay.querySelector(".dcm-stage");
-  const idxEl = overlay.querySelector(".dcm-idx");
-  const hintBar = overlay.querySelector(".dcm-hintbar");
-  const noticeEl = overlay.querySelector(".dcm-notice");
-  const floatHint = overlay.querySelector(".dcm-floathint");
-
-  const cache = new Map();
-  let drawToken = 0;
-  let win = { center: 40, width: 400 };
-  let view = { zoom: 1, panX: 0, panY: 0 };
-  let curIdx = 0;
-  let drag = null;
-  const total = frames.length;
-
-  hintBar.textContent = total > 1 ? "↕ 滚轮翻看每一层 · 左键调明暗 · Ctrl+滚轮缩放" : "左键调明暗 · Ctrl+滚轮缩放";
-
-  function setNotice(t) { if (t) { noticeEl.textContent = t; noticeEl.style.display = "block"; } else noticeEl.style.display = "none"; }
-  function setIdx() { idxEl.textContent = total > 1 ? ("第 " + (curIdx+1) + " / 共 " + total + " 张") : ""; }
-
-  function paint(dec) {
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const cw = stage.clientWidth, ch = stage.clientHeight;
-    const dpr = window.devicePixelRatio || 1;
-    if (canvas.width !== Math.round(cw*dpr) || canvas.height !== Math.round(ch*dpr)) {
-      canvas.width = Math.round(cw*dpr); canvas.height = Math.round(ch*dpr);
-      canvas.style.width = cw+"px"; canvas.style.height = ch+"px";
-    }
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-    ctx.fillStyle = "#000"; ctx.fillRect(0,0,cw,ch);
-    if (!dec || dec.kind === "unsupported" || dec.kind === "error") return;
-    let srcCols, srcRows, source;
-    if (dec.kind === "bitmap") { srcCols = dec.cols; srcRows = dec.rows; source = dec.bitmap; }
-    else if (dec.kind === "rgba") {
-      srcCols = dec.data.width; srcRows = dec.data.height;
-      const off = document.createElement("canvas"); off.width = srcCols; off.height = srcRows;
-      off.getContext("2d").putImageData(dec.data, 0, 0); source = off;
-    } else {
-      srcCols = dec.cols; srcRows = dec.rows;
-      const w = win.width <= 0 ? 1 : win.width; const low = win.center - w/2;
-      const img = new ImageData(srcCols, srcRows); const d = img.data; const vals = dec.values;
-      for (let i = 0; i < vals.length; i++) {
-        let out = ((vals[i]-low)/w)*255; out = out<0?0:out>255?255:out;
-        if (dec.invert) out = 255-out;
-        const o = i*4; d[o]=d[o+1]=d[o+2]=out; d[o+3]=255;
-      }
-      const off = document.createElement("canvas"); off.width = srcCols; off.height = srcRows;
-      off.getContext("2d").putImageData(img, 0, 0); source = off;
-    }
-    const fit = Math.min(cw/srcCols, ch/srcRows);
-    const dw = srcCols*fit*view.zoom, dh = srcRows*fit*view.zoom;
-    const dx = (cw-dw)/2 + view.panX, dy = (ch-dh)/2 + view.panY;
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(source, dx, dy, dw, dh);
-  }
-
-  function evict(current) {
-    while (cache.size > DCM_CACHE_MAX) {
-      let far = -1, farDist = -1;
-      for (const k of cache.keys()) { const dist = Math.abs(k-current); if (dist > farDist) { farDist = dist; far = k; } }
-      if (far < 0) break;
-      const ent = cache.get(far); if (ent && ent.kind === "bitmap") ent.bitmap.close();
-      cache.delete(far);
-    }
-  }
-  function redraw() { const dec = cache.get(curIdx); if (dec) paint(dec); }
-  function prefetch(idx) {
-    for (const j of [idx+1, idx-1]) {
-      if (j < 0 || j >= frames.length || cache.has(j)) continue;
-      dcmDecodeFrame(frames[j]).then(d => {
-        if (cache.has(j)) { if (d.kind === "bitmap") d.bitmap.close(); return; }
-        cache.set(j, d); evict(curIdx);
-      });
-    }
-  }
-  async function showFrame(idx, resetWindow) {
-    if (idx < 0 || idx >= frames.length) return;
-    curIdx = idx; setIdx(); setNotice(null);
-    const token = ++drawToken;
-    const fm = frames[idx];
-    let dec = cache.get(idx);
-    if (!dec) {
-      dec = await dcmDecodeFrame(fm);
-      if (token !== drawToken) { if (dec.kind === "bitmap") dec.bitmap.close(); return; }
-      cache.set(idx, dec); evict(idx);
-    }
-    if (token !== drawToken) return;
-    if (dec.kind === "unsupported") setNotice("此压缩格式暂不支持交互查看(见卡片关键切片)");
-    if (dec.kind === "error") setNotice("影像加载失败");
-    if (resetWindow) win = dcmDefaultWindow(fm, dec);
-    paint(dec); prefetch(idx);
-  }
-
-  // 交互:滚轮翻层 / Ctrl+滚轮缩放;左键调窗位(灰度)否则平移;右键缩放;中键平移。
-  function onWheel(e) {
-    e.preventDefault();
-    if (e.ctrlKey) { const f = e.deltaY>0?0.9:1.1; view.zoom = Math.min(20, Math.max(0.2, view.zoom*f)); redraw(); return; }
-    if (floatHint) floatHint.style.display = "none";
-    const next = curIdx + (e.deltaY>0?1:-1);
-    if (next < 0 || next >= frames.length) return;
-    showFrame(next);
-  }
-  function onDown(e) { drag = { button: e.button, x: e.clientX, y: e.clientY }; }
-  function onMove(e) {
-    if (!drag) return;
-    const dx = e.clientX-drag.x, dy = e.clientY-drag.y; drag.x = e.clientX; drag.y = e.clientY;
-    const dec = cache.get(curIdx);
-    if (drag.button === 0) {
-      if (dec && dec.kind === "gray") { win.width = Math.max(1, win.width + dx*2); win.center = win.center + dy*2; redraw(); }
-      else { view.panX += dx; view.panY += dy; redraw(); }
-    } else if (drag.button === 2) { const f = Math.exp(-dy*0.005); view.zoom = Math.min(20, Math.max(0.2, view.zoom*f)); redraw(); }
-    else { view.panX += dx; view.panY += dy; redraw(); }
-  }
-  function onUp() { drag = null; }
-  function applyPreset(i) {
-    const p = DCM_PRESETS[i]; const fm = frames[curIdx]; const dec = cache.get(curIdx);
-    if (!fm || !dec) return;
-    win = (p.center == null || p.width == null) ? dcmDefaultWindow(fm, dec) : { center: p.center, width: p.width };
-    redraw();
-  }
-  function reset() {
-    view = { zoom: 1, panX: 0, panY: 0 };
-    const fm = frames[curIdx]; const dec = cache.get(curIdx);
-    if (fm && dec) win = dcmDefaultWindow(fm, dec);
-    redraw();
-  }
-
-  canvas.addEventListener("wheel", onWheel, { passive: false });
-  canvas.addEventListener("mousedown", onDown);
-  canvas.addEventListener("mousemove", onMove);
-  canvas.addEventListener("mouseup", onUp);
-  canvas.addEventListener("mouseleave", onUp);
-  canvas.addEventListener("contextmenu", e => e.preventDefault());
-  const ro = new ResizeObserver(() => redraw()); ro.observe(stage);
-
-  overlay.addEventListener("click", e => {
-    const t = e.target;
-    if (t.dataset && t.dataset.close) { close(); return; }
-    if (t.dataset && t.dataset.reset) { reset(); return; }
-    if (t.dataset && t.dataset.z) { const f = t.dataset.z === "in" ? 1.2 : 1/1.2; view.zoom = Math.min(20, Math.max(0.2, view.zoom*f)); redraw(); return; }
-    if (t.dataset && t.dataset.p != null && t.dataset.p !== "") { applyPreset(parseInt(t.dataset.p,10)); return; }
-  });
-  function onKey(e) { if (e.key === "Escape") close(); }
-  document.addEventListener("keydown", onKey);
-
-  function close() {
-    drawToken++;
-    ro.disconnect();
-    document.removeEventListener("keydown", onKey);
-    for (const ent of cache.values()) if (ent.kind === "bitmap") ent.bitmap.close();
-    cache.clear();
-    overlay.remove();
-  }
-
-  setIdx();
-  if (frames.length === 0) { setNotice("影像加载失败"); return; }
-  if (total > 1) { floatHint.textContent = "↕ 滚轮上下翻看每一层(共 " + total + " 张)"; floatHint.style.display = "block";
-    setTimeout(() => { floatHint.style.display = "none"; }, 4500); }
-  showFrame(0, true);
-}
-
-function render(payload) {
-  const app = document.getElementById("app");
-  const p = payload.patient || {};
-  const parts = [];
-  if (p.name) parts.push(esc(p.name));
-  if (p.gender) parts.push(esc(p.gender));
-  if (p.age) parts.push(esc(p.age) + "岁");
-  const patientLine = parts.length ? parts.join(" · ") : "(未识别到患者基本信息)";
-  const gen = (payload.generated || "").slice(0, 10);
-
-  let html = '<header class="doc-header"><h1>MedMe 医我 · 加密病历分享</h1>';
-  html += '<div class="patient">' + patientLine + "</div>";
-  html += '<div class="generated">生成时间:' + esc(gen) + " · 共 " + (p.record_count || 0) + " 份记录</div></header>";
-  html += '<div class="privacy-note">本页由 MedMe 端到端加密分享生成,数据在您的浏览器本地解密,未上传任何服务器。不构成医疗建议,以原件为准。</div>';
-
-  // 复阅期限:仅为分享方给出的非强制提醒,绝不阻断查看(文件持有者始终可解密)。
-  const adviseUntil = (payload.expires || "").slice(0, 10);
-  if (adviseUntil) {
-    const past = payload.expires && Date.now() > Date.parse(payload.expires);
-    const msg = past
-      ? '分享方建议的复阅期限(' + esc(adviseUntil) + ')已过 · 文件仍可正常查看,如需最新记录请自行向本人确认。'
-      : '分享方建议的复阅期限:' + esc(adviseUntil) + '(仅为提醒,过后文件仍可查看,请自行向本人确认是否为最新)。';
-    html += '<div style="margin:0 0 14px;padding:10px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;color:#92400e;font-size:13px;line-height:1.6">' + msg + '</div>';
-  }
-
-  const records = payload.records || [];
-  for (let ri = 0; ri < records.length; ri++) {
-    const r = records[ri];
-    const type = r.doc_type || "unknown";
-    const label = TYPE_LABEL[type] || TYPE_LABEL.unknown;
-    const bc = TYPE_BADGE[type] || TYPE_BADGE.unknown;
-    const title = r.title || label;
-    let dateStr = "无日期";
-    if (r.doc_date && r.doc_date_end && r.doc_date !== r.doc_date_end) dateStr = r.doc_date + " → " + r.doc_date_end;
-    else if (r.doc_date) dateStr = r.doc_date;
-
-    html += '<section class="record"><div class="record-head">';
-    html += '<span class="badge" style="background:' + bc[0] + ";color:" + bc[1] + '">' + esc(label) + "</span>";
-    html += "<h2>" + esc(title) + '</h2><span class="date">' + esc(dateStr) + "</span></div>";
-    html += '<div class="content">' + renderContent(r.text || "", type);
-    for (const img of (r.images || [])) {
-      if (isDataImage(img)) html += '<img class="img" src="' + img + '" alt="原件">';
-    }
-    // PDF 原件:下载锚点(download 属性触发下载,不是导航,故不受严格 CSP 影响,
-    // 任意浏览器都能下)。医生下载后可比对识别文字与原件。
-    if (isDataPdf(r.pdf)) html += '<a class="pdf-dl" download="原件.pdf" href="' + r.pdf + '">⬇ 下载原件 PDF(核对识别文字)</a>';
-    // 影像检查:诊断档(交互阅片)或降级档(关键切片 PNG + 说明)。
-    const dcm = r.dicom;
-    if (dcm && dcm.mode === "interactive") {
-      const n = dcm.count || (dcm.frames ? dcm.frames.length : 0);
-      html += '<div class="imaging-card">';
-      html += '<button class="imaging-open" data-dcm="' + ri + '"><span class="ico">🎞</span> 打开影像阅片器' + (n > 1 ? "(共 " + n + " 张,可滚轮翻层)" : "") + '</button>';
-      html += '<div class="imaging-meta">诊断档:完整序列已端到端加密内嵌 · 滚轮翻层 · 左键调窗位 · 窗宽窗位预设</div>';
-      html += '</div>';
-    } else if (dcm && dcm.mode === "png") {
-      html += '<div class="imaging-card">';
-      if (isDataImage(dcm.png)) html += '<img class="imaging-png" src="' + dcm.png + '" alt="影像关键切片">';
-      if (dcm.note) html += '<div class="imaging-note">' + esc(dcm.note) + '</div>';
-      html += '</div>';
-    }
-    html += "</div></section>";
-  }
-  html += '<footer class="statement">本页由 MedMe 端到端加密分享生成 · 数据以原件为准 · 不构成医疗建议</footer>';
-  app.innerHTML = html;
-  document.getElementById("gate").style.display = "none";
-  app.style.display = "block";
-
-  // 阅片按钮:点开时才把 base64 帧解成 Uint8Array 交给查看器(关闭即释放,内存有界)。
-  app.querySelectorAll("[data-dcm]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const rec = records[parseInt(btn.getAttribute("data-dcm"), 10)];
-      if (!rec || !rec.dicom || !rec.dicom.frames) return;
-      const slices = rec.dicom.frames.map(f => b64ToBytes(f));
-      openDicomViewer(slices, rec.title || "影像检查");
-    });
-  });
-}
-
-async function decryptAndRender(passphrase) {
-  const blob = b64ToBytes(EMBEDDED_BLOB);
-  const iv = blob.slice(0, 12);
-  const data = blob.slice(12);
-  // 仅去空白/换行还原分组;不可去 "-",因为它是 base64url 字母表的一部分。
-  const keyBytes = b64urlToBytes(passphrase.replace(/\s+/g, ""));
-  const key = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, ["decrypt"]);
-  // AAD 必须与 Rust 加密端 SHARE_AAD 逐字节一致(ASCII "medme-share-v1")。
-  const aad = new TextEncoder().encode("medme-share-v1");
-  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv, additionalData: aad }, key, data); // 口令错误则抛异常
-  const payload = JSON.parse(new TextDecoder().decode(pt));
-  // 注:expires 只是分享方建议的“复阅期限”,是一条礼貌提醒——文件本身不会失效、不会自毁,
-  // 持有文件与口令者始终可离线解密。渲染时以非强制横幅展示,绝不阻断查看。
-  render(payload);
-}
-
-const pw = document.getElementById("pw");
-const errEl = document.getElementById("err");
-async function submit() {
-  errEl.textContent = "";
-  const val = pw.value.trim();
-  if (!val) { errEl.textContent = "请输入口令。"; return; }
-  try {
-    await decryptAndRender(val);
-    pw.value = ""; // 成功后清空口令输入,避免明文口令滞留 DOM
-  } catch (e) {
-    errEl.textContent = "口令错误,无法解密。请核对本人告知的口令。";
-  }
-}
-document.getElementById("go").addEventListener("click", submit);
-pw.addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
-pw.focus();
-"####;
-
-/// 查看器结尾:闭合 `</body></html>`。与 `VIEWER_JS` 分开,便于对脚本体单独哈希。
-const VIEWER_TAIL: &str = r####"
-</body>
-</html>
-"####;
 
 #[cfg(test)]
 mod tests {
@@ -1139,15 +429,11 @@ mod tests {
             "script-src 仍含 unsafe-inline: {script_src}"
         );
         assert!(
-            script_src.contains("sha256-"),
+            script_src.contains("'sha256-"),
             "script-src 缺少 sha256 哈希: {script_src}"
         );
-        // 哈希须与实际内联脚本逐字节一致(证明生成与哈希永不漂移)。
-        assert!(script_src.contains(&format!(
-            "'sha256-{}'",
-            sha256_b64(DICOM_PARSER_JS.as_bytes())
-        )));
-        assert!(script_src.contains(&format!("'sha256-{}'", sha256_b64(VIEWER_JS.as_bytes()))));
+        // 哈希正确性现由唯一查看器源 web/hosted-viewer/index.html 固化并自测,不在此重复;
+        // 这里只断言分享文件确实沿用了该 CSP(script-src 已用 sha256 收录内联脚本)。
 
         // 导航/表单/框架锁定,阻断潜在注入的外泄路径。
         assert!(
@@ -1388,39 +674,181 @@ mod tests {
         assert_eq!(decoded, key);
     }
 
+    /// 去重后的装配契约(#55):生成的分享文件 = 唯一查看器源 index.html + 注入的
+    /// `#share-data` 数据节点。断言 (a) blob 落进非执行数据节点,(b) 确实用了那份
+    /// canonical 查看器(MedMe 标识 + CSP 已 sha256 收录内联脚本),(c) 注入标记已消费。
     #[test]
-    fn vendored_dicom_parser_matches_known_good_sha256() {
-        // 供应链完整性:vendored dicom-parser 被 `include_str!` 内联进每一份
-        // 生成的分享查看器,却没有校验和 —— 谁悄悄改了这个文件(如恶意 PR),
-        // 就把 JS 注进了所有未来的查看器而无人察觉。这里把它按 SHA-256 钉死,
-        // 文件漂移哪怕一个字节,CI 就红。更新库版本时,连带更新下方常量与
-        // `vendor/README.md` 里记录的哈希。
-        //
-        // 上游:cornerstonejs/dicom-parser v1.8.12
-        //   https://github.com/cornerstonejs/dicomParser
-        //   （UMD 构建 dist/dicomParser.min.js)
-        const DICOM_PARSER_JS_SHA256: &str =
-            "2b990e92de021a9c0d58f7dca693c95fa76be6398648b68441df9423de284a2b";
+    fn share_html_is_canonical_viewer_with_injected_data_node() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Vault::open(dir.path()).unwrap();
+        vault.import("a.txt", "text/plain", b"x").unwrap();
+        let (html, _pass, _n) =
+            build_encrypted_share(&vault, 5, &crate::render_dicom_png_in_process).unwrap();
 
-        use sha2::{Digest, Sha256};
-        // 与第 240 行的 `include_str!` 同一相对路径,校验编译期真正嵌入的字节。
-        let bytes = include_bytes!("vendor/dicomParser.min.js");
-        let digest = Sha256::digest(bytes);
-        assert_eq!(
-            hex_lower(&digest),
-            DICOM_PARSER_JS_SHA256,
-            "vendored dicom-parser 的 SHA-256 与已知良好值不符 —— \
-             文件被改动过?若确为有意升级,请同步更新常量与 vendor/README.md。"
+        // (a) blob 在非执行 JSON 数据节点里,且可解析出 blob 字段。
+        assert!(html.contains("id=\"share-data\""));
+        let blob_b64 = extract_blob_b64(&html);
+        assert!(!blob_b64.is_empty(), "数据节点应含非空 blob");
+        assert!(B64.decode(&blob_b64).is_ok(), "blob 应为合法标准 base64");
+
+        // (b) 沿用了唯一查看器源:MedMe 标识 + CSP 用 sha256 收录内联脚本(非本地重算)。
+        assert!(
+            html.contains("MedMe"),
+            "应为 canonical 查看器(缺 MedMe 标识)"
+        );
+        assert!(
+            html.contains("script-src 'sha256-"),
+            "应沿用 index.html 的 CSP(script-src 已用 sha256 收录)"
+        );
+
+        // (c) 注入标记已被消费,不残留在成品里。
+        assert!(
+            !html.contains("<!--SHARE_DATA_SLOT-->"),
+            "SHARE_DATA_SLOT 注入点应已被替换"
         );
     }
 
-    /// 把字节切片转成小写十六进制字符串(仅测试用,避免引入额外依赖)。
-    fn hex_lower(bytes: &[u8]) -> String {
-        use std::fmt::Write as _;
-        let mut s = String::with_capacity(bytes.len() * 2);
-        for b in bytes {
-            let _ = write!(s, "{b:02x}");
-        }
-        s
+    /// 解密生成分享的 payload(与浏览器查看器同路径),供 summary 断言复用。
+    fn decrypt_payload(html: &str, pass: &str) -> serde_json::Value {
+        let stripped: String = pass.chars().filter(|c| !c.is_whitespace()).collect();
+        let key = B64URL.decode(stripped).unwrap();
+        let blob = B64.decode(extract_blob_b64(html)).unwrap();
+        let cipher = Aes256Gcm::new_from_slice(&key).unwrap();
+        let pt = cipher
+            .decrypt(
+                Nonce::from_slice(&blob[..12]),
+                Payload {
+                    msg: &blob[12..],
+                    aad: SHARE_AAD,
+                },
+            )
+            .unwrap();
+        serde_json::from_slice(&pt).unwrap()
+    }
+
+    /// slice ④:含临床内容(诊断 + 化验 + 用药)的分享应带上确定性 summary,
+    /// 且 problems 非空并把糖化血红蛋白/二甲双胍归到「2型糖尿病」下。
+    #[test]
+    fn share_includes_summary_for_clinical_records() {
+        use core_model::{DocType, NewDocument, NewOcr, OcrBackendKind};
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Vault::open(dir.path()).unwrap();
+        let imp = vault.import("门诊.txt", "text/plain", b"data").unwrap();
+        let doc = vault
+            .add_document(NewDocument {
+                source_file_id: imp.source_file.id,
+                doc_type: DocType::ClinicalNote,
+                doc_date: Some(chrono::Utc::now()),
+                doc_date_end: None,
+                title: Some("内分泌门诊".into()),
+                language: Some("zh".into()),
+                page_count: 1,
+            })
+            .unwrap();
+        vault
+            .add_ocr(NewOcr {
+                document_id: doc.id,
+                page_no: 1,
+                backend: OcrBackendKind::Native,
+                model_version: "text-layer".into(),
+                text: "诊断:2型糖尿病\n糖化血红蛋白 7.9 % 4-6.5\n二甲双胍 0.5g bid".into(),
+                confidence: None,
+            })
+            .unwrap();
+
+        let (html, pass, _n) =
+            build_encrypted_share(&vault, 5, &crate::render_dicom_png_in_process).unwrap();
+        let payload = decrypt_payload(&html, &pass);
+        let problems = payload["summary"]["problems"]
+            .as_array()
+            .expect("summary.problems 应存在");
+        assert!(!problems.is_empty());
+        assert!(problems.iter().any(|p| p["term"] == "2型糖尿病"));
+    }
+
+    /// slice ④:纯非临床记录(无诊断/化验/用药)不产出任何 problem,故 payload 里
+    /// 不应有 summary 键——查看器回退纯文档列表,老分享/空保险箱不受影响。
+    #[test]
+    fn share_omits_summary_for_non_clinical_records() {
+        use core_model::{DocType, NewDocument, NewOcr, OcrBackendKind};
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Vault::open(dir.path()).unwrap();
+        let imp = vault.import("须知.txt", "text/plain", b"data").unwrap();
+        let doc = vault
+            .add_document(NewDocument {
+                source_file_id: imp.source_file.id,
+                doc_type: DocType::Other,
+                doc_date: Some(chrono::Utc::now()),
+                doc_date_end: None,
+                title: Some("复诊须知".into()),
+                language: Some("zh".into()),
+                page_count: 1,
+            })
+            .unwrap();
+        vault
+            .add_ocr(NewOcr {
+                document_id: doc.id,
+                page_no: 1,
+                backend: OcrBackendKind::Native,
+                model_version: "text-layer".into(),
+                text: "复诊须知:请按时到内分泌科随访,携带既往病历。".into(),
+                confidence: None,
+            })
+            .unwrap();
+
+        let (html, pass, _n) =
+            build_encrypted_share(&vault, 5, &crate::render_dicom_png_in_process).unwrap();
+        let payload = decrypt_payload(&html, &pass);
+        assert!(
+            payload.get("summary").is_none(),
+            "非临床分享不应带 summary 键"
+        );
+    }
+
+    /// 影像:含 ImagingReport 记录的分享,其 summary 应带 `imaging` 段,把该检查
+    /// 归入「胸部CT」组并抄回报告自身的「结论」段作 finding。(summary 挂载仍受
+    /// problems 非空门禁约束,故报告里含一条临床诊断以触发挂载。)
+    #[test]
+    fn share_includes_imaging_summary() {
+        use core_model::{DocType, NewDocument, NewOcr, OcrBackendKind};
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Vault::open(dir.path()).unwrap();
+        let imp = vault.import("胸部CT.txt", "text/plain", b"data").unwrap();
+        let doc = vault
+            .add_document(NewDocument {
+                source_file_id: imp.source_file.id,
+                doc_type: DocType::ImagingReport,
+                doc_date: Some(chrono::Utc::now()),
+                doc_date_end: None,
+                title: Some("胸部CT".into()),
+                language: Some("zh".into()),
+                page_count: 1,
+            })
+            .unwrap();
+        vault
+            .add_ocr(NewOcr {
+                document_id: doc.id,
+                page_no: 1,
+                backend: OcrBackendKind::Native,
+                model_version: "text-layer".into(),
+                text:
+                    "临床诊断:肺结节\n影像所见:右肺上叶见小结节影。\n结论:右肺上叶小结节,建议随访。"
+                        .into(),
+                confidence: None,
+            })
+            .unwrap();
+
+        let (html, pass, _n) =
+            build_encrypted_share(&vault, 5, &crate::render_dicom_png_in_process).unwrap();
+        let payload = decrypt_payload(&html, &pass);
+        let imaging = payload["summary"]["imaging"]
+            .as_array()
+            .expect("summary.imaging 应存在");
+        assert_eq!(imaging.len(), 1);
+        assert_eq!(imaging[0]["group"], "胸部CT");
+        let studies = imaging[0]["studies"].as_array().expect("studies");
+        assert_eq!(studies.len(), 1);
+        assert_eq!(studies[0]["finding"], "右肺上叶小结节,建议随访。");
+        assert_eq!(studies[0]["evidence"], serde_json::json!([0]));
     }
 }

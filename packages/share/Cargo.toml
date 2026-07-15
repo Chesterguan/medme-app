@@ -10,6 +10,7 @@ name = "medme_share"
 [dependencies]
 core-model = { path = "../core-model" }
 pipeline = { path = "../pipeline" }
+parser = { path = "../parser" }
 # `render_png` compiles without the C/C++ `codecs` feature (it just supports
 # fewer transfer syntaxes at runtime, and share already degrades unsupported
 # ones to a text line). Desktop re-enables codecs via its direct `dicom` dep;
