@@ -12,15 +12,18 @@
 //!   with that disease. Unmapped conditions still become problems (empty labs).
 //! - **No fuzzy disease matching.** [`match_disease`] is a plain bidirectional
 //!   substring test against the 10 mapped names — no synonym table, no ICD lookup.
-//! - **Imaging / pathology impressions are out of scope here** (a later slice);
-//!   the viewer's optional `imaging`/`pathology`/`care_facility` EMR fields are
-//!   left unset. Only problems / labs / meds / allergies / notable_changes.
+//! - **Imaging is grouped, not interpreted.** [`imaging_impression`] copies the
+//!   report's own 所见/结论 section verbatim (no radiology reasoning); an unknown
+//!   modality is *not* guessed — the study still lists under the title/影像检查.
+//!   Pathology impressions and the viewer's `care_facility` field stay out of
+//!   scope. Only problems / labs / meds / allergies / notable_changes / imaging.
 
 use crate::aggregate::{aggregate, AnalyteSeries, MedSpan, SourceDoc};
 use chrono::NaiveDate;
+use regex::Regex;
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 
 /// One lab row in the problem map (only the LOINC is load-bearing here).
@@ -197,6 +200,199 @@ fn parse_allergy_item(item: &str) -> Option<(String, String)> {
     Some((item.to_string(), String::new()))
 }
 
+/// An imaging report's section-label line: optional list marker, one of the
+/// recognized 所见/结论 labels, a colon, then the (possibly empty) inline
+/// remainder. Labels start with distinct characters, so alternation order is not
+/// load-bearing; longest variants are listed first regardless.
+fn imaging_label_re() -> &'static Regex {
+    static R: OnceLock<Regex> = OnceLock::new();
+    R.get_or_init(|| {
+        Regex::new(
+            r"^\s*(?:\d+\s*[.、)）]|[\u{2460}-\u{2473}]|[-•*·])?\s*(影像所见|检查所见|超声所见|诊断意见|影像诊断|超声提示|影像提示|检查提示|印象|结论|意见|所见)\s*[:：]\s*(.*)$",
+        )
+        .expect("imaging label re")
+    })
+}
+
+/// Whether a label names an *impression/conclusion* (preferred) vs a raw 所见
+/// finding (fallback). Both are copied verbatim — neither is interpreted.
+fn is_impression_label(label: &str) -> bool {
+    matches!(
+        label,
+        "诊断意见"
+            | "影像诊断"
+            | "超声提示"
+            | "影像提示"
+            | "检查提示"
+            | "印象"
+            | "结论"
+            | "意见"
+    )
+}
+
+/// Lines that end an impression/findings block even without a blank separator:
+/// the follow-up 建议 and the report's signature footer. Kept small and explicit
+/// so an impression never bleeds into the 建议/签名 tail.
+fn is_impression_terminator(line: &str) -> bool {
+    const TERMS: &[&str] = &[
+        "建议",
+        "报告医师",
+        "审核医师",
+        "检查医师",
+        "记录医师",
+        "诊断医师",
+        "医师签名",
+        "签名",
+        "医师:",
+        "医师：",
+    ];
+    TERMS.iter().any(|k| line.starts_with(k))
+}
+
+/// Pull the impression/findings paragraph out of an imaging report's OCR text.
+///
+/// Recognizes the labeled sections in [`imaging_label_re`] (line starts, optional
+/// list number, then `:`/`：`); the block is the inline remainder plus following
+/// non-empty lines up to a blank line or the next labeled section. An
+/// impression/结论/诊断意见 label wins over a raw 所见 when both are present.
+/// Returns the trimmed text, or `None` if no labeled section carried content.
+///
+/// NOT handled (kept honest): unlabeled prose findings; non-imaging section
+/// headers between labels are not treated as boundaries (a stray `检查方法:` line
+/// after 所见 would be swallowed) — reports put 结论 last, so this is rare.
+fn imaging_impression(text: &str) -> Option<String> {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut impression: Option<String> = None;
+    let mut findings: Option<String> = None;
+    let mut i = 0;
+    while i < lines.len() {
+        let Some(caps) = imaging_label_re().captures(lines[i]) else {
+            i += 1;
+            continue;
+        };
+        let label = caps.get(1).expect("label group").as_str();
+        let inline = caps.get(2).map(|m| m.as_str()).unwrap_or("").trim();
+
+        let mut parts: Vec<String> = Vec::new();
+        if !inline.is_empty() {
+            parts.push(inline.to_string());
+        }
+        let mut j = i + 1;
+        while j < lines.len() {
+            let t = lines[j].trim();
+            if t.is_empty() {
+                // pdf-extract 常在每行之间插入空行(见 normalize_cjk_radicals 同源
+                // 的排版失真),空行不作段落边界,否则「诊断意见:」下一行是空行就
+                // 会把整段结论漏掉。
+                j += 1;
+                continue;
+            }
+            if imaging_label_re().is_match(lines[j]) || is_impression_terminator(t) {
+                break;
+            }
+            parts.push(t.to_string());
+            j += 1;
+        }
+        let block = parts.join("\n").trim().to_string();
+        if !block.is_empty() {
+            if is_impression_label(label) {
+                impression.get_or_insert(block);
+            } else {
+                findings.get_or_insert(block);
+            }
+        }
+        i = j.max(i + 1);
+    }
+    impression.or(findings)
+}
+
+/// Detect the imaging **modality** from a title/text fragment, returning a stable
+/// canonical label. `None` if no known keyword is present. Latin tokens are
+/// matched case-insensitively; more specific modalities are tested first so
+/// `PET-CT` reads as PET and `磁共振/MR` collapse to MRI.
+fn detect_modality(s: &str) -> Option<&'static str> {
+    let up = s.to_uppercase();
+    if s.contains("磁共振") || up.contains("MRI") || up.contains("MR") {
+        Some("MRI")
+    } else if s.contains("超声") || s.contains("彩超") || s.contains("B超") || up.contains("US")
+    {
+        Some("超声")
+    } else if s.contains("钼靶") {
+        Some("钼靶")
+    } else if up.contains("PET") {
+        Some("PET")
+    } else if s.contains("造影") {
+        Some("造影")
+    } else if s.contains("胃镜") || s.contains("肠镜") || s.contains("内镜") {
+        Some("内镜")
+    } else if s.contains("X线")
+        || s.contains("胸片")
+        || s.contains("平片")
+        || up.contains("DR")
+        || up.contains("CR")
+    {
+        Some("X线")
+    } else if up.contains("CT") {
+        Some("CT")
+    } else {
+        None
+    }
+}
+
+/// Detect the imaging **body part** from a title/text fragment. `None` if no
+/// known keyword is present. Compound/specific parts are tested before broad
+/// stems (e.g. 甲状腺/颈部 before the spine group, 心脏 before 胸).
+fn detect_body_part(s: &str) -> Option<&'static str> {
+    if s.contains("头颅") || s.contains("颅脑") || s.contains("脑") {
+        Some("头颅")
+    } else if s.contains("甲状腺") || s.contains("颈部") {
+        Some("颈部")
+    } else if s.contains("脊柱") || s.contains("腰椎") || s.contains("颈椎") {
+        Some("脊柱")
+    } else if s.contains("乳腺") {
+        Some("乳腺")
+    } else if s.contains("心脏") {
+        Some("心脏")
+    } else if s.contains("盆腔") {
+        Some("盆腔")
+    } else if s.contains("泌尿") || s.contains("肾") || s.contains("膀胱") {
+        Some("泌尿")
+    } else if s.contains("胸") || s.contains("肺") {
+        Some("胸部")
+    } else if s.contains("腹")
+        || s.contains("肝")
+        || s.contains("胆")
+        || s.contains("胰")
+        || s.contains("脾")
+    {
+        Some("腹部")
+    } else {
+        None
+    }
+}
+
+/// Derive a stable "部位+类型" group label (e.g. `"胸部CT"`, `"腹部超声"`).
+/// Detection prefers `title`, falling back to `text`. If the modality is unknown
+/// the title is used as-is; if both are unknown, `"影像检查"`.
+fn imaging_group(title: Option<&str>, text: &str) -> String {
+    let modality = title
+        .and_then(detect_modality)
+        .or_else(|| detect_modality(text));
+    let body = title
+        .and_then(detect_body_part)
+        .or_else(|| detect_body_part(text));
+    if let Some(m) = modality {
+        return match body {
+            Some(b) => format!("{b}{m}"),
+            None => m.to_string(),
+        };
+    }
+    match title.map(str::trim).filter(|t| !t.is_empty()) {
+        Some(t) => t.to_string(),
+        None => "影像检查".to_string(),
+    }
+}
+
 /// Assemble the deterministic doctor-summary `Value` the viewer consumes.
 /// See the module header for scope. `docs[i].index` must equal the record's
 /// index in the viewer's `records[]` so evidence chips jump to the right doc.
@@ -319,11 +515,59 @@ pub fn assemble_summary(docs: &[SourceDoc<'_>]) -> Value {
         }
     }
 
-    json!({
+    // ── imaging: group studies by 部位+类型, sorted by date within each group ──
+    // Qualify ONLY on doc_type == imaging_report (the classifier's job). Sniffing
+    // a modality out of arbitrary text is far too greedy — a lab report's "Cr"
+    // (肌酐/creatinine) reads as "CR"→X线, "肾"→泌尿 — so a whole lab panel would
+    // masquerade as imaging. Group label detection (below) may still consult the
+    // report's own text, but only genuine imaging reports ever reach it.
+    let mut imaging_groups: BTreeMap<String, Vec<(Option<NaiveDate>, Value)>> = BTreeMap::new();
+    for doc in docs {
+        let ty_imaging = doc
+            .doc_type
+            .as_deref()
+            .is_some_and(|t| t.contains("imaging"));
+        if !ty_imaging {
+            continue;
+        }
+        let group = imaging_group(doc.title.as_deref(), doc.text);
+        let study = json!({
+            "date": doc.date.map(|d| d.format("%Y-%m").to_string()),
+            "finding": imaging_impression(doc.text),
+            "evidence": [doc.index],
+        });
+        imaging_groups
+            .entry(group)
+            .or_default()
+            .push((doc.date, study));
+    }
+    // BTreeMap keys give group order; within a group, sort by date (None last).
+    let imaging: Vec<Value> = imaging_groups
+        .into_iter()
+        .map(|(group, mut studies)| {
+            studies.sort_by(|a, b| match (a.0, b.0) {
+                (Some(x), Some(y)) => x.cmp(&y),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => std::cmp::Ordering::Equal,
+            });
+            json!({
+                "group": group,
+                "studies": studies.into_iter().map(|(_, v)| v).collect::<Vec<_>>(),
+            })
+        })
+        .collect();
+
+    let mut summary = json!({
         "problems": problems,
         "allergies": allergies,
         "notable_changes": notable_changes,
-    })
+    });
+    // Attach imaging only when present (老分享/无影像 keeps the key absent).
+    if !imaging.is_empty() {
+        summary["imaging"] = json!(imaging);
+    }
+    summary
 }
 
 #[cfg(test)]
@@ -352,16 +596,22 @@ mod tests {
         let docs = vec![
             SourceDoc {
                 index: 0,
+                doc_type: None,
+                title: None,
                 date: d(2024, 6, 1),
                 text: "生化检验报告单\n糖化血红蛋白 7.9 % 4-6.5\n神秘指标XYZ 12.3 mg/L 0-5",
             },
             SourceDoc {
                 index: 1,
+                doc_type: None,
+                title: None,
                 date: d(2026, 6, 1),
                 text: "生化检验报告单\n糖化血红蛋白 7.2 % 4-6.5",
             },
             SourceDoc {
                 index: 2,
+                doc_type: None,
+                title: None,
                 date: d(2021, 5, 1),
                 text: "门诊病历\n诊断:2型糖尿病\n二甲双胍 0.5g bid\n过敏史:青霉素(皮疹)",
             },
@@ -423,6 +673,8 @@ mod tests {
     fn unmapped_condition_still_becomes_a_problem_without_groups() {
         let docs = vec![SourceDoc {
             index: 0,
+            doc_type: None,
+            title: None,
             date: d(2022, 12, 1),
             text: "出院诊断:社区获得性肺炎",
         }];
@@ -447,5 +699,134 @@ mod tests {
         assert_eq!(pairs.len(), 2);
         assert_eq!(pairs[0], ("磺胺".to_string(), String::new()));
         assert_eq!(pairs[1], ("头孢".to_string(), "荨麻疹".to_string()));
+    }
+
+    #[test]
+    fn imaging_impression_prefers_conclusion_over_raw_findings() {
+        let text = "\
+胸部CT平扫\n\
+检查方法:胸部CT平扫\n\
+影像所见:\n\
+两肺纹理增多,右肺上叶见小结节影。\n\
+纵隔内未见肿大淋巴结。\n\
+\n\
+结论:右肺上叶小结节,建议随访。\n\
+\n\
+医师:李四\n";
+        let imp = imaging_impression(text).expect("impression found");
+        // 结论 (impression) wins over the raw 影像所见 block.
+        assert_eq!(imp, "右肺上叶小结节,建议随访。");
+
+        // With only a 所见 section, the findings block is returned (both lines).
+        let only_findings = "超声所见:肝内未见明显占位。\n胆囊壁毛糙。\n";
+        let f = imaging_impression(only_findings).expect("findings found");
+        assert_eq!(f, "肝内未见明显占位。\n胆囊壁毛糙。");
+
+        // No labeled section → None.
+        assert!(imaging_impression("普通门诊记录,无影像。").is_none());
+    }
+
+    #[test]
+    fn imaging_impression_real_report_blank_lines_and_advice_terminator() {
+        // 张建国真实头颅MRI报告(pdf-extract 逐行插空行的真实排版):结论段与标签
+        // 之间、各条之间均有空行,且以「建议:」「报告医师:」收尾。impression 必须
+        // 跨空行抓到完整「诊断意见」两条,且不吞入「建议」与签名。
+        let mri = "\
+放射科 头颅 MRI 检查报告\n\
+\n\
+影像所见:\n\
+\n\
+左侧基底节区见小片状 T1WI 低信号、T2WI/FLAIR 高信号影,DWI 未见明显弥散受限。\n\
+\n\
+诊断意见:\n\
+\n\
+1. 左侧基底节区陈旧性脑梗死软化灶,病灶稳定,未见新发梗死。\n\
+\n\
+2. 脑白质轻度缺血性改变(Fazekas 1 级)。\n\
+\n\
+建议:继续规律控制血压血糖血脂,神经内科定期随访。\n\
+\n\
+报告医师:张敏    审核医师:陈刚\n";
+        let imp = imaging_impression(mri).expect("impression found");
+        assert_eq!(
+            imp,
+            "1. 左侧基底节区陈旧性脑梗死软化灶,病灶稳定,未见新发梗死。\n2. 脑白质轻度缺血性改变(Fazekas 1 级)。"
+        );
+
+        // 腹部超声用「超声提示:」作结论标签(同样跨空行、以「建议」收尾)。
+        let us = "超声所见:\n\n肝内回声增强,提示脂肪浸润。\n\n超声提示:\n\n1. 脂肪肝(中度)。\n\n2. 胆囊未见明显异常。\n\n建议:控制体重及血脂。\n";
+        assert_eq!(
+            imaging_impression(us).expect("us impression"),
+            "1. 脂肪肝(中度)。\n2. 胆囊未见明显异常。"
+        );
+    }
+
+    #[test]
+    fn imaging_group_from_title_and_text() {
+        assert_eq!(imaging_group(Some("胸部CT"), ""), "胸部CT");
+        // Detection falls back to text when the title lacks keywords.
+        assert_eq!(
+            imaging_group(Some("检查报告"), "胸部CT平扫,两肺纹理增多"),
+            "胸部CT"
+        );
+        assert_eq!(imaging_group(Some("腹部彩超"), ""), "腹部超声");
+        // Modality unknown → title as-is; both unknown → 影像检查.
+        assert_eq!(imaging_group(Some("某项检查"), "无关键词"), "某项检查");
+        assert_eq!(imaging_group(None, "无关键词"), "影像检查");
+    }
+
+    #[test]
+    fn assemble_summary_groups_imaging_by_part_over_time() {
+        let docs = vec![
+            SourceDoc {
+                index: 0,
+                doc_type: Some("imaging_report".into()),
+                title: Some("胸部CT".into()),
+                date: d(2024, 3, 1),
+                text: "结论:两肺未见明显异常。",
+            },
+            SourceDoc {
+                index: 1,
+                doc_type: Some("imaging_report".into()),
+                title: Some("胸部CT".into()),
+                date: d(2025, 1, 1),
+                text: "结论:右肺上叶小结节,较前稳定。",
+            },
+            // A non-imaging doc contributes nothing to imaging.
+            SourceDoc {
+                index: 2,
+                doc_type: Some("clinical_note".into()),
+                title: Some("门诊病历".into()),
+                date: d(2024, 6, 1),
+                text: "诊断:2型糖尿病",
+            },
+        ];
+        let sm = assemble_summary(&docs);
+        let imaging = sm["imaging"].as_array().expect("imaging present");
+        assert_eq!(imaging.len(), 1, "one 胸部CT group");
+        let g = &imaging[0];
+        assert_eq!(g["group"], "胸部CT");
+        let studies = g["studies"].as_array().expect("studies");
+        assert_eq!(studies.len(), 2);
+        // Sorted by date ascending.
+        assert_eq!(studies[0]["date"], "2024-03");
+        assert_eq!(studies[0]["finding"], "两肺未见明显异常。");
+        assert_eq!(studies[0]["evidence"], json!([0]));
+        assert_eq!(studies[1]["date"], "2025-01");
+        assert_eq!(studies[1]["finding"], "右肺上叶小结节,较前稳定。");
+        assert_eq!(studies[1]["evidence"], json!([1]));
+    }
+
+    #[test]
+    fn assemble_summary_omits_imaging_when_none() {
+        let docs = vec![SourceDoc {
+            index: 0,
+            doc_type: Some("lab_report".into()),
+            title: Some("血常规".into()),
+            date: d(2024, 1, 1),
+            text: "白细胞 10.5",
+        }];
+        let sm = assemble_summary(&docs);
+        assert!(sm.get("imaging").is_none(), "no imaging key when empty");
     }
 }

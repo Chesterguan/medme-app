@@ -12,7 +12,7 @@
         a=d.find(o,i)
         if a<0:break
         a+=len(o);b=d.find(c,a);print(base64.b64encode(hashlib.sha256(d[a:b].encode()).digest()).decode());i=b" -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-7Z0+4VB3CnpMGP9NdEXdG4wifm/kpyirE2yqr+CEnyc=' 'sha256-qY/vKvojCUxoaplqhRJYu4NBgbiVv2LAoWgJvbukjCM='; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-7Z0+4VB3CnpMGP9NdEXdG4wifm/kpyirE2yqr+CEnyc=' 'sha256-3a6Y5ekbPWpBXTjD/CaFtyUziKX/3cfsmb23lLRa47c='; style-src 'unsafe-inline'; img-src data:; font-src data:; frame-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MedMe 加密分享查看器</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%201024%201024%22%3E%0A%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%232bc0d2%22%2F%3E%3Cstop%20offset%3D%220.52%22%20stop-color%3D%22%231789c1%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%231560a8%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%0A%3Crect%20width%3D%221024%22%20height%3D%221024%22%20rx%3D%22232%22%20fill%3D%22url%28%23g%29%22%2F%3E%0A%3Cpath%20transform%3D%22translate%2885.76%2C804.70%29%20scale%280.82760%2C-0.82760%29%22%20d%3D%22M326%20640C320%20672%20323%20688%20335%20688C431%20690%20535%20708%20650%20741C668%20748%20687%20734%20704%20699C720%20664%20716%20650%20691%20658C672%20666%20641%20663%20600%20651C557%20639%20509%20631%20458%20627C405%20623%20371%20615%20355%20605C342%20596%20332%20606%20326%20640ZM212%20393C226%20508%20234%20570%20236%20582C234%20600%20241%20605%20259%20600C274%20594%20292%20586%20310%20578C325%20568%20326%20555%20314%20537C283%20459%20266%20368%20260%20267C252%20165%20254%20101%20266%2075C271%2062%20321%2063%20413%2079C503%2095%20582%20104%20650%20106C717%20108%20757%20111%20772%20115C777%20117%20786%20110%20796%2095C804%2078%20813%2065%20822%2057C830%2047%20832%2034%20829%2020C825%204%20814%200%20798%2010C698%2035%20597%2043%20494%2033C391%2023%20324%2013%20296%203C267%20-6%20246%20-9%20234%20-4C229%20-1%20226%203%20226%2011C226%2018%20220%2040%20210%2077C196%20172%20196%20277%20212%20393ZM567%20292C558%20302%20561%20306%20578%20306C639%20287%20691%20265%20736%20237C740%20234%20741%20219%20737%20189C731%20160%20724%20144%20716%20140C706%20136%20699%20138%20695%20146C689%20154%20683%20165%20675%20179C628%20228%20593%20265%20567%20292ZM761%20328C702%20338%20636%20336%20561%20323C555%20322%20550%20321%20546%20321C538%20294%20525%20267%20509%20240C497%20216%20483%20198%20468%20188C450%20176%20444%20165%20449%20157C451%20149%20434%20142%20397%20135C358%20126%20331%20126%20315%20134C298%20142%20300%20148%20322%20154C324%20154%20335%20159%20355%20169C372%20178%20393%20190%20414%20208C434%20225%20453%20249%20471%20281C473%20291%20476%20300%20480%20309C429%20297%20387%20284%20355%20271C348%20266%20335%20274%20319%20298C302%20321%20310%20330%20342%20324C385%20338%20436%20352%20494%20367C498%20395%20499%20419%20497%20440C489%20438%20480%20435%20471%20431C457%20424%20450%20429%20449%20444C447%20454%20444%20463%20441%20473C422%20448%20400%20427%20377%20408C357%20396%20344%20391%20336%20393C326%20395%20329%20403%20346%20419C385%20473%20409%20513%20421%20540C433%20566%20438%20584%20439%20594C441%20611%20452%20613%20472%20601C489%20587%20502%20577%20511%20571C519%20565%20517%20559%20505%20552C497%20548%20490%20541%20484%20531C480%20525%20475%20517%20467%20507C504%20511%20537%20518%20566%20527C596%20537%20620%20543%20640%20546C649%20547%20656%20538%20660%20520C662%20500%20658%20488%20648%20485C619%20473%20592%20461%20568%20450C564%20449%20563%20448%20562%20447C558%20430%20555%20407%20554%20382C554%20382%20556%20382%20559%20383C598%20391%20635%20396%20671%20402C706%20406%20728%20409%20734%20413C740%20416%20745%20413%20750%20403C754%20394%20760%20387%20768%20383C773%20379%20777%20367%20778%20348C778%20328%20772%20321%20761%20328Z%22%20fill%3D%22%23ffffff%22%2F%3E%0A%3C%2Fsvg%3E">
@@ -75,6 +75,38 @@
   .imaging-meta { font-size: 12px; color: #64748b; margin-top: 6px; line-height: 1.6; }
   .imaging-png { max-width: 100%; max-height: 480px; display: block; margin: 8px 0; background: #000; border: 1px solid #e2e8f0; border-radius: 8px; }
   .imaging-note { font-size: 12px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 10px; margin-top: 6px; line-height: 1.6; }
+  /* 影像检查 · 按时间(医生视图 section:按部位分组,跨时间看变化,点开看诊断级原件)*/
+  .imgsec { margin: 22px 0 8px; }
+  .imgsec-h { font-size: 13px; font-weight: 700; color: #64748b; letter-spacing: .04em; margin: 0 0 12px; }
+  .imgsec-grp { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(30,41,59,.05); }
+  .imgsec-grp-t { font-weight: 700; font-size: 14px; color: #0f172a; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .imgsec-grp-t .cnt { font-size: 11px; font-weight: 700; color: #1560a8; background: #e6f6fa; border-radius: 999px; padding: 1px 8px; }
+  .imgsec-study { display: grid; grid-template-columns: 84px 1fr auto; gap: 12px; align-items: start; padding: 9px 0; border-top: 1px solid #f1f5f9; }
+  .imgsec-study:first-of-type { border-top: 0; }
+  .imgsec-date { font-size: 12.5px; font-weight: 700; color: #1560a8; font-variant-numeric: tabular-nums; padding-top: 3px; }
+  .imgsec-find { font-size: 13.5px; color: #334155; line-height: 1.6; min-width: 0; word-break: break-word; }
+  .imgsec-find.empty { color: #94a3b8; }
+  .imgsec-open { flex-shrink: 0; white-space: nowrap; cursor: pointer; background: #0f172a; color: #fff; border: none; border-radius: 9px; padding: 7px 13px; font-size: 12.5px; font-weight: 600; font-family: inherit; }
+  .imgsec-open:hover { background: #1e293b; }
+  /* 证据跳转后的浮动「返回」按钮 */
+  .back-jump { position: fixed; right: 18px; bottom: 22px; z-index: 55; display: none; align-items: center; gap: 6px; background: #0f172a; color: #fff; border: none; border-radius: 999px; padding: 11px 18px; font-size: 13.5px; font-weight: 600; font-family: inherit; cursor: pointer; box-shadow: 0 4px 16px rgba(15,23,42,.3); }
+  .back-jump:hover { background: #1e293b; }
+  /* 全部原件折叠(有 summary 时默认收起,医生先看泳道 + 影像)*/
+  details.allrecs { margin-top: 8px; }
+  details.allrecs > summary { font-size: 13px; font-weight: 700; color: #64748b; letter-spacing: .04em; margin: 22px 0 12px; cursor: pointer; list-style: none; }
+  details.allrecs > summary::-webkit-details-marker { display: none; }
+  details.allrecs > summary::before { content: "▸ "; color: #94a3b8; }
+  details.allrecs[open] > summary::before { content: "▾ "; }
+  /* 全屏原件灯箱(手机照片 / 关键切片 PNG:全分辨率可平移,保证诊断可读性)*/
+  .lb-overlay { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.92); display: flex; flex-direction: column; }
+  .lb-bar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(0,0,0,.6); color: rgba(255,255,255,.85); }
+  .lb-bar .lb-name { font-size: 13px; margin-right: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lb-stage { flex: 1; min-height: 0; background: #000; }
+  .lb-stage.fit { overflow: hidden; display: flex; align-items: center; justify-content: center; }
+  .lb-stage.fit img { max-width: 100%; max-height: 100%; display: block; }
+  .lb-stage.full { overflow: auto; }
+  .lb-stage.full img { max-width: none; max-height: none; display: block; margin: auto; }
+  .lb-pdf { flex: 1; min-height: 0; width: 100%; border: 0; background: #fff; }
   /* 全屏阅片 overlay(移植桌面端 lightbox 观感)*/
   .dcm-overlay { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.9); display: flex; flex-direction: column; }
   .dcm-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; background: rgba(0,0,0,.6); color: rgba(255,255,255,.85); }
@@ -872,8 +904,7 @@ function wireSummary(app) {
   }));
   app.querySelectorAll(".ev2").forEach(e => e.addEventListener("click", ev => {
     ev.stopPropagation();
-    const t = document.getElementById("rec-" + e.dataset.ev);
-    if (t) { t.scrollIntoView({ behavior: "smooth", block: "start" }); const o = t.style.background; t.style.transition = "background .25s"; t.style.background = "#fffbeb"; setTimeout(() => { t.style.background = o; }, 1300); }
+    jumpToRecord(e.dataset.ev | 0); // 泳道证据跳转:先展开「全部原件」再滚到该份
   }));
   const cp = app.querySelector(".sum-copy");
   if (cp) cp.addEventListener("click", async () => {
@@ -882,6 +913,120 @@ function wireSummary(app) {
     catch (e) { cp.textContent = "⚠ 复制受限,请展开下方预览手动选中"; }
   });
   applyF("all");
+}
+
+// 跳到某份原件:先展开折叠的「全部原件」,再平滑滚动 + 高亮(泳道证据 + 影像兜底共用)。
+let backReturnY = 0;
+// 跳转后浮出「↑ 返回」,一键平滑滚回跳转前的位置(医生看完原件不用手动往回翻)。
+function showBackButton(fromY) {
+  backReturnY = fromY;
+  let b = document.getElementById("back-jump");
+  if (!b) {
+    b = document.createElement("button");
+    b.id = "back-jump"; b.className = "back-jump"; b.type = "button";
+    b.textContent = "↑ 返回时间轴";
+    b.addEventListener("click", () => { window.scrollTo({ top: backReturnY, behavior: "smooth" }); b.style.display = "none"; });
+    document.body.appendChild(b);
+  }
+  b.style.display = "inline-flex";
+}
+
+function jumpToRecord(idx) {
+  const t = document.getElementById("rec-" + idx);
+  if (!t) return;
+  const fromY = window.scrollY; // 记住跳转前位置,供「返回」用
+  const dt = t.closest("details.allrecs"); if (dt) dt.open = true;
+  t.scrollIntoView({ behavior: "smooth", block: "start" });
+  showBackButton(fromY);
+  const o = t.style.background; t.style.transition = "background .25s"; t.style.background = "#fffbeb";
+  setTimeout(() => { t.style.background = o; }, 1300);
+}
+
+// 全屏原件灯箱:照片 / DICOM 关键切片 PNG。默认适应屏幕,可切原始分辨率(滚动平移),保证诊断可读。
+function openImageViewer(src, name) {
+  const ov = document.createElement("div");
+  ov.className = "lb-overlay";
+  ov.innerHTML = '<div class="lb-bar"><span class="lb-name"></span>'
+    + '<button class="dcm-btn" data-fit="1">原始分辨率</button>'
+    + '<button class="dcm-btn" data-close="1">关闭 · ESC</button></div>'
+    + '<div class="lb-stage fit"><img alt="原件"></div>';
+  ov.querySelector(".lb-name").textContent = name || "原件";
+  const stage = ov.querySelector(".lb-stage");
+  ov.querySelector("img").src = src;
+  const fitBtn = ov.querySelector("[data-fit]");
+  fitBtn.addEventListener("click", () => {
+    const full = stage.classList.toggle("full"); stage.classList.toggle("fit", !full);
+    fitBtn.textContent = full ? "适应屏幕" : "原始分辨率";
+  });
+  function close() { ov.remove(); document.removeEventListener("keydown", onKey); }
+  function onKey(e) { if (e.key === "Escape") close(); }
+  ov.querySelector("[data-close]").addEventListener("click", close);
+  ov.addEventListener("click", e => { if (e.target === ov || e.target === stage) close(); });
+  document.addEventListener("keydown", onKey);
+  document.body.appendChild(ov);
+}
+
+// 全屏 PDF 原件预览:直接用浏览器内置(沙箱化)PDF 阅读器内嵌显示 data: PDF,
+// 不再触发下载(下载留给底下「全部原件」核对)。data: 源不联网,CSP 仅放行 frame-src data:。
+function openPdfViewer(src, name) {
+  const ov = document.createElement("div");
+  ov.className = "lb-overlay";
+  ov.innerHTML = '<div class="lb-bar"><span class="lb-name"></span>'
+    + '<a class="dcm-btn" download="原件.pdf">⬇ 下载</a>'
+    + '<button class="dcm-btn" data-close="1">关闭 · ESC</button></div>'
+    + '<iframe class="lb-pdf" title="原件 PDF"></iframe>';
+  ov.querySelector(".lb-name").textContent = name || "原件";
+  ov.querySelector("iframe").src = src;
+  ov.querySelector("a[download]").href = src;
+  function close() { ov.remove(); document.removeEventListener("keydown", onKey); }
+  function onKey(e) { if (e.key === "Escape") close(); }
+  ov.querySelector("[data-close]").addEventListener("click", close);
+  document.addEventListener("keydown", onKey);
+  document.body.appendChild(ov);
+}
+
+// 打开某份原件的诊断级视图:DICOM→阅片器,PNG/照片→灯箱,PDF→内嵌预览,无可视原件→跳到文字记录。
+function openOriginal(rec, idx) {
+  if (!rec) return;
+  const d = rec.dicom;
+  if (d && d.mode === "interactive" && d.frames) { openDicomViewer(d.frames.map(f => b64ToBytes(f)), rec.title || "影像检查"); return; }
+  if (d && d.mode === "png" && isDataImage(d.png)) { openImageViewer(d.png, rec.title || "影像检查"); return; }
+  const img = (rec.images || []).find(isDataImage);
+  if (img) { openImageViewer(img, rec.title || "原件"); return; }
+  if (isDataPdf(rec.pdf)) { openPdfViewer(rec.pdf, rec.title || "原件"); return; }
+  jumpToRecord(idx);
+}
+
+function openLabel(rec) {
+  const d = rec.dicom;
+  if (d && d.mode === "interactive") return "🎞 打开阅片器";
+  if ((d && d.mode === "png" && isDataImage(d.png)) || (rec.images || []).some(isDataImage)) return "🔍 查看原件";
+  if (isDataPdf(rec.pdf)) return "📄 查看原件";
+  return "查看该份";
+}
+
+// 影像检查 · 按时间(#37 最终版):按部位+类型分组,组内按时间列出每次检查的结论 + 打开诊断级原件。
+function renderImaging(imaging, records) {
+  const groups = (imaging || []).filter(g => g && (g.studies || []).length);
+  if (!groups.length) return "";
+  let h = '<div class="imgsec"><div class="imgsec-h">影像检查 · 按时间(同部位跨时间看变化 · 点开为诊断级原件)</div>';
+  groups.forEach(g => {
+    const studies = g.studies || [];
+    h += '<div class="imgsec-grp"><div class="imgsec-grp-t">' + esc(g.group || "影像检查")
+      + '<span class="cnt">' + studies.length + ' 次</span></div>';
+    studies.forEach(s => {
+      const ev = (s.evidence && s.evidence.length) ? (s.evidence[0] | 0) : -1;
+      const rec = (ev >= 0 && ev < records.length) ? records[ev] : null;
+      const find = (s.finding || "").trim();
+      h += '<div class="imgsec-study">'
+        + '<div class="imgsec-date">' + esc(s.date || "无日期") + '</div>'
+        + '<div class="imgsec-find' + (find ? '' : ' empty') + '">' + (find ? esc(find) : "(原件未提取到结论文字,点右侧查看原件)") + '</div>'
+        + (rec ? '<button class="imgsec-open" type="button" data-rec="' + ev + '">' + openLabel(rec) + '</button>' : '<span></span>')
+        + '</div>';
+    });
+    h += '</div>';
+  });
+  return h + '</div>';
 }
 
 function render(payload) {
@@ -911,14 +1056,17 @@ function render(payload) {
     html += '<div style="margin:0 0 14px;padding:10px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;color:#92400e;font-size:13px;line-height:1.6">' + msg + '</div>';
   }
 
-  // 医生视图 summary(#37):有则在原始报告之上渲染疾病泳道时间轴 + 趋势;无则跳过(回退纯列表)。
+  // 医生视图 summary(#37):有则在原始报告之上渲染疾病泳道时间轴 + 趋势 + 影像分区;无则跳过(回退纯列表)。
+  const records = payload.records || [];
   const hasSummary = payload.summary && (payload.summary.problems || []).length;
   if (hasSummary) {
     html += renderSummary(payload.summary, payload.generated, payload.patient);
-    html += '<div class="sum-recs-h">原始报告(逐份,趋势数值即取自这里)</div>';
+    html += renderImaging(payload.summary.imaging, records); // 影像检查 · 按部位/时间
   }
 
-  const records = payload.records || [];
+  // 全部原件:有 summary 时默认折叠(医生先看泳道 + 影像,原件按需展开);无 summary 时展开(唯一视图)。
+  html += '<details class="allrecs"' + (hasSummary ? '' : ' open') + '>'
+    + '<summary>查看全部原件(' + records.length + ' 份 · 逐份核对,趋势数值即取自这里)</summary>';
   for (let ri = 0; ri < records.length; ri++) {
     const r = records[ri];
     const type = r.doc_type || "unknown";
@@ -954,6 +1102,7 @@ function render(payload) {
     }
     html += "</div></section>";
   }
+  html += '</details>';
   html += '<footer class="statement">本页由 MedMe 端到端加密分享生成 · 数据以原件为准 · 不构成医疗建议</footer>';
   app.innerHTML = html;
   document.getElementById("gate").style.display = "none";
@@ -970,6 +1119,12 @@ function render(payload) {
       openDicomViewer(slices, rec.title || "影像检查");
     });
   });
+
+  // 影像分区「打开原件」:按 evidence 记录内容路由到阅片器 / 灯箱 / PDF。
+  app.querySelectorAll(".imgsec-open").forEach(btn => btn.addEventListener("click", () => {
+    const i = parseInt(btn.getAttribute("data-rec"), 10);
+    openOriginal(records[i], i);
+  }));
 }
 
 async function decryptAndRender(passphrase) {

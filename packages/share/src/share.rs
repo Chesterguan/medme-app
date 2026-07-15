@@ -223,6 +223,8 @@ pub fn build_encrypted_share(
             index: i,
             date: rec.doc.doc_date.map(|dt| dt.date_naive()),
             text: &rec.text,
+            doc_type: Some(rec.doc.doc_type.as_str().to_lowercase()),
+            title: rec.doc.title.clone(),
         })
         .collect();
     let summary = parser::assemble_summary(&docs);
@@ -801,5 +803,52 @@ mod tests {
             payload.get("summary").is_none(),
             "非临床分享不应带 summary 键"
         );
+    }
+
+    /// 影像:含 ImagingReport 记录的分享,其 summary 应带 `imaging` 段,把该检查
+    /// 归入「胸部CT」组并抄回报告自身的「结论」段作 finding。(summary 挂载仍受
+    /// problems 非空门禁约束,故报告里含一条临床诊断以触发挂载。)
+    #[test]
+    fn share_includes_imaging_summary() {
+        use core_model::{DocType, NewDocument, NewOcr, OcrBackendKind};
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Vault::open(dir.path()).unwrap();
+        let imp = vault.import("胸部CT.txt", "text/plain", b"data").unwrap();
+        let doc = vault
+            .add_document(NewDocument {
+                source_file_id: imp.source_file.id,
+                doc_type: DocType::ImagingReport,
+                doc_date: Some(chrono::Utc::now()),
+                doc_date_end: None,
+                title: Some("胸部CT".into()),
+                language: Some("zh".into()),
+                page_count: 1,
+            })
+            .unwrap();
+        vault
+            .add_ocr(NewOcr {
+                document_id: doc.id,
+                page_no: 1,
+                backend: OcrBackendKind::Native,
+                model_version: "text-layer".into(),
+                text:
+                    "临床诊断:肺结节\n影像所见:右肺上叶见小结节影。\n结论:右肺上叶小结节,建议随访。"
+                        .into(),
+                confidence: None,
+            })
+            .unwrap();
+
+        let (html, pass, _n) =
+            build_encrypted_share(&vault, 5, &crate::render_dicom_png_in_process).unwrap();
+        let payload = decrypt_payload(&html, &pass);
+        let imaging = payload["summary"]["imaging"]
+            .as_array()
+            .expect("summary.imaging 应存在");
+        assert_eq!(imaging.len(), 1);
+        assert_eq!(imaging[0]["group"], "胸部CT");
+        let studies = imaging[0]["studies"].as_array().expect("studies");
+        assert_eq!(studies.len(), 1);
+        assert_eq!(studies[0]["finding"], "右肺上叶小结节,建议随访。");
+        assert_eq!(studies[0]["evidence"], serde_json::json!([0]));
     }
 }

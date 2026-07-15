@@ -35,6 +35,13 @@ pub struct SourceDoc<'a> {
     pub index: usize,
     pub date: Option<NaiveDate>,
     pub text: &'a str,
+    /// The record's `doc_type` as a lowercased string (e.g. `"imaging_report"`),
+    /// used by the summary to route imaging docs; `None` when unknown. `aggregate`
+    /// itself ignores this — it only feeds doctor-summary routing (slice ④).
+    pub doc_type: Option<String>,
+    /// The record's title (e.g. `"胸部CT"`); helps derive an imaging group label.
+    /// `None` when unknown. Ignored by `aggregate`.
+    pub title: Option<String>,
 }
 
 /// One measured value of an analyte, tagged with the document it came from.
@@ -401,16 +408,22 @@ mod tests {
         let docs = vec![
             SourceDoc {
                 index: 0,
+                doc_type: None,
+                title: None,
                 date: d(2023, 6, 1),
                 text: "肌酐 96 μmol/L 59-104",
             },
             SourceDoc {
                 index: 1,
+                doc_type: None,
+                title: None,
                 date: d(2022, 1, 1),
                 text: "肌酐 88 μmol/L 59-104",
             },
             SourceDoc {
                 index: 2,
+                doc_type: None,
+                title: None,
                 date: d(2023, 1, 1),
                 text: "肌酐 120 μmol/L 59-104", // > 104 -> H
             },
@@ -434,11 +447,15 @@ mod tests {
         let docs = vec![
             SourceDoc {
                 index: 0,
+                doc_type: None,
+                title: None,
                 date: d(2024, 1, 1),
                 text: "肌酐 88 μmol/L 59-104",
             },
             SourceDoc {
                 index: 1,
+                doc_type: None,
+                title: None,
                 date: d(2024, 2, 1),
                 text: "神秘指标XYZ 12.3 mg/L 0-5",
             },
@@ -466,11 +483,15 @@ mod tests {
         let docs = vec![
             SourceDoc {
                 index: 3,
+                doc_type: None,
+                title: None,
                 date: d(2023, 1, 1),
                 text: "二甲双胍 0.5g bid",
             },
             SourceDoc {
                 index: 7,
+                doc_type: None,
+                title: None,
                 date: d(2024, 3, 1),
                 text: "二甲双胍 0.85g tid",
             },
@@ -492,11 +513,15 @@ mod tests {
         let docs = vec![
             SourceDoc {
                 index: 0,
+                doc_type: None,
+                title: None,
                 date: d(2024, 5, 1),
                 text: "出院诊断:2型糖尿病",
             },
             SourceDoc {
                 index: 1,
+                doc_type: None,
+                title: None,
                 date: d(2023, 2, 1),
                 text: "入院诊断:2型糖尿病",
             },
@@ -514,11 +539,15 @@ mod tests {
         let docs = vec![
             SourceDoc {
                 index: 0,
+                doc_type: None,
+                title: None,
                 date: None,
                 text: "肌酐 88 μmol/L 59-104",
             },
             SourceDoc {
                 index: 1,
+                doc_type: None,
+                title: None,
                 date: d(2024, 1, 1),
                 text: "肌酐 90 μmol/L 59-104",
             },
@@ -537,6 +566,8 @@ mod tests {
         // Labs ordered by group_name, meds by name, conditions by onset then text.
         let docs = vec![SourceDoc {
             index: 0,
+            doc_type: None,
+            title: None,
             date: d(2024, 1, 1),
             text: "\
 肌酐 88 μmol/L 59-104

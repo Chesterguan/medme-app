@@ -4822,6 +4822,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "terminology",
+ "unicode-normalization",
 ]
 
 [[package]]
