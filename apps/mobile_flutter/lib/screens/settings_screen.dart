@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:mobile_flutter/src/rust/api/dto.dart';
 import 'package:mobile_flutter/src/rust/api/vault.dart';
@@ -157,24 +159,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ),
-          _SectionLabel('iCloud 同步(实验性)'),
-          _SettingsGroup(
-            children: [
-              _SettingsRow(
-                icon: (_icloud?.enabled ?? false)
-                    ? Icons.cloud_done_outlined
-                    : Icons.cloud_outlined,
-                title: 'iCloud 同步',
-                subtitle: _icloudSubtitle(),
-                trailing: Switch(
-                  value: _icloud?.enabled ?? false,
-                  onChanged: (_busy || !_icloudAvailable)
-                      ? null
-                      : _toggleIcloud,
+          // iCloud 同步是 iOS 原生能力(苹果设备间同步),安卓无 iCloud——不显示这一节,
+          // 否则安卓用户会看到一个永远开不了、还叫他「去系统设置登录 iCloud」的死开关。
+          // 与 OCR 一样,属于「各平台用自己的原生方案」的有意差异(安卓云同步见路线图 1.3)。
+          if (Platform.isIOS) ...[
+            _SectionLabel('iCloud 同步(实验性)'),
+            _SettingsGroup(
+              children: [
+                _SettingsRow(
+                  icon: (_icloud?.enabled ?? false)
+                      ? Icons.cloud_done_outlined
+                      : Icons.cloud_outlined,
+                  title: 'iCloud 同步',
+                  subtitle: _icloudSubtitle(),
+                  trailing: Switch(
+                    value: _icloud?.enabled ?? false,
+                    onChanged: (_busy || !_icloudAvailable)
+                        ? null
+                        : _toggleIcloud,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
           _SectionLabel('关于'),
           _SettingsGroup(
             children: [
