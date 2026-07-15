@@ -4,6 +4,9 @@ use regex::Regex;
 use std::path::Path;
 use std::sync::OnceLock;
 
+mod labs;
+pub use labs::{extract_labs, LabObservation};
+
 pub struct Extracted {
     pub text: String,
     pub page_count: i32,

@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 core-model = { path = "../core-model" }
+terminology = { path = "../terminology" }
 chrono.workspace = true
 anyhow.workspace = true
 pdf-extract.workspace = true

@@ -4818,6 +4818,7 @@ dependencies = [
  "pdf-extract",
  "regex",
  "tempfile",
+ "terminology",
 ]
 
 [[package]]
