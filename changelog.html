@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="light only" />
+<title>更新日志 · MedMe 医我</title>
+<meta name="description" content="MedMe 医我 各版本更新记录,实时取自 GitHub Releases,永远与最新发布一致。" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%201024%201024%22%3E%3Crect%20width%3D%221024%22%20height%3D%221024%22%20rx%3D%22232%22%20fill%3D%22%231789c1%22%2F%3E%3C%2Fsvg%3E" />
+<style>
+  :root{ color-scheme:light; --bg:#f8fafc; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --blue:#1789c1; --blue-50:#e6f6fa; --card:#ffffff; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:30px 20px 72px}
+  header{display:flex;align-items:center;gap:11px;padding:4px 0 20px;border-bottom:1px solid var(--line);margin-bottom:26px}
+  header .logo{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#2bc0d2,#1789c1,#1560a8);flex-shrink:0}
+  header h1{font-size:19px;font-weight:800;letter-spacing:-.01em}
+  header .home{margin-left:auto;font-size:13px;color:var(--blue);text-decoration:none;font-weight:700}
+  .lead{color:var(--muted);font-size:13.5px;margin:-8px 0 22px}
+  .rel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(15,23,42,.04)}
+  .rel-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:9px}
+  .rel-tag{font-size:17px;font-weight:800;color:var(--blue);font-variant-numeric:tabular-nums}
+  .rel-latest{font-size:11px;font-weight:700;color:#fff;background:var(--blue);border-radius:999px;padding:1px 9px}
+  .rel-date{font-size:12px;color:var(--muted);margin-left:auto;font-variant-numeric:tabular-nums}
+  .rel-body{font-size:14px;color:#334155;white-space:pre-wrap;word-break:break-word}
+  .rel-body b{color:var(--ink);font-weight:650}
+  .rel-body code{background:#f1f5f9;border-radius:5px;padding:1px 5px;font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .rel-link{display:inline-block;margin-top:10px;font-size:12.5px;color:var(--blue);text-decoration:none;font-weight:600}
+  .rel-link:hover{text-decoration:underline}
+  .state{color:var(--muted);font-size:14px;text-align:center;padding:44px 0}
+  .foot{font-size:12px;color:var(--muted);margin-top:22px;text-align:center}
+  .foot a{color:var(--blue)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="logo"></span>
+    <h1>MedMe 医我 · 更新日志</h1>
+    <a class="home" href="index.html">← 回主页</a>
+  </header>
+  <p class="lead">各版本更新记录 —— 实时取自 GitHub Releases,永远与最新发布一致。下载见<a href="index.html#start" style="color:var(--blue);font-weight:700">主页</a>。</p>
+  <div id="list"><div class="state">加载中…</div></div>
+  <p class="foot">数据来源 · <a href="https://github.com/Chesterguan/medme/releases" target="_blank" rel="noopener">GitHub Releases</a></p>
+</div>
+<script>
+  function esc(s){ return (s||"").replace(/[&<>]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c]; }); }
+  // 极简 markdown:转义后处理 **加粗** 与 `代码`;换行由 white-space:pre-wrap 保留。
+  function md(s){ return esc(s).replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>").replace(/`([^`]+)`/g,"<code>$1</code>"); }
+  fetch("https://api.github.com/repos/Chesterguan/medme/releases?per_page=30")
+    .then(function(r){ return r.ok ? r.json() : []; })
+    .then(function(rels){
+      var box = document.getElementById("list");
+      rels = (rels || []).filter(function(r){ return !r.draft; });
+      if (!rels.length){ box.innerHTML = '<div class="state">暂无发布记录。</div>'; return; }
+      box.innerHTML = rels.map(function(r, i){
+        var date = (r.published_at || r.created_at || "").slice(0,10);
+        var latest = i === 0 ? '<span class="rel-latest">最新</span>' : "";
+        var body = (r.body && r.body.trim()) ? md(r.body.trim()) : '<span style="color:#94a3b8">(本版本无详细说明)</span>';
+        return '<div class="rel"><div class="rel-h"><span class="rel-tag">' + esc(r.tag_name || r.name || "") + '</span>' + latest +
+               '<span class="rel-date">' + esc(date) + '</span></div>' +
+               '<div class="rel-body">' + body + '</div>' +
+               '<a class="rel-link" href="' + esc(r.html_url || "#") + '" target="_blank" rel="noopener">在 GitHub 查看 · 下载资产 →</a></div>';
+      }).join("");
+    })
+    .catch(function(){
+      document.getElementById("list").innerHTML = '<div class="state">加载失败,请直接看 <a href="https://github.com/Chesterguan/medme/releases" style="color:#1789c1">GitHub Releases</a>。</div>';
+    });
+</script>
+</body>
+</html>
