@@ -54,6 +54,8 @@ jobs:
   android-release:
     if: github.event_name == 'workflow_dispatch' && (inputs.platform == 'android' || inputs.platform == 'both')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # 发布 APK 到 GitHub Release(落地页指向 releases/latest,防公开下载停在旧版)
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-java@v5 # TODO: SHA 钉版
@@ -90,6 +92,26 @@ jobs:
             ${{ env.WORKDIR }}/build/app/outputs/flutter-apk/app-release.apk
             ${{ env.WORKDIR }}/build/app/outputs/bundle/release/app-release.aab
           if-no-files-found: error
+      # ── 关键:把 APK 发布到 GitHub Release,资产名与落地页链接一致(MedMe-Android.apk)。──
+      # 落地页指向 releases/latest/download/MedMe-Android.apk,所以只要每次构建都更新 latest
+      # release 的这个资产,公开下载就永远是最新版 —— 堵住"官网下到旧版"的系统性缺口。
+      # 用 gh CLI(runner 自带),不引第三方 action;仅 workflow_dispatch 触发,PR 不发布。
+      - name: 发布 APK 到 GitHub Release(落地页取 latest)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cp "${WORKDIR}/build/app/outputs/flutter-apk/app-release.apk" MedMe-Android.apk
+          cp "${WORKDIR}/build/app/outputs/bundle/release/app-release.aab" MedMe-Android.aab
+          VER="$(grep '^version:' "${WORKDIR}/pubspec.yaml" | sed 's/version:[[:space:]]*//; s/+.*//')"
+          TAG="v${VER}"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "MedMe 医我 ${VER}" \
+              --notes "自动发布(workflow_dispatch)· 安卓 APK/AAB。桌面/iOS 见各自渠道。" --latest
+          fi
+          gh release upload "$TAG" MedMe-Android.apk MedMe-Android.aab --clobber
+          gh release edit "$TAG" --latest
+          echo "已发布 $TAG:MedMe-Android.apk(落地页 releases/latest 即刻指向本包)"
 
   # ── iOS release:archive + 导出 IPA(可选上传 TestFlight)。需配签名 secrets(见文末) ──
   ios-release:
