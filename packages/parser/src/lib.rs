@@ -4,8 +4,16 @@ use regex::Regex;
 use std::path::Path;
 use std::sync::OnceLock;
 
+mod aggregate;
+mod conditions;
 mod labs;
+mod meds;
+pub use aggregate::{
+    aggregate, AggregatedClinical, AggregatedCondition, AnalyteSeries, LabPoint, MedSpan, SourceDoc,
+};
+pub use conditions::{extract_conditions, ConditionMention};
 pub use labs::{extract_labs, LabObservation};
+pub use meds::{extract_meds, MedObservation};
 
 pub struct Extracted {
     pub text: String,
