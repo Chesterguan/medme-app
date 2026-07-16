@@ -65,17 +65,32 @@ fn row_re() -> &'static Regex {
     })
 }
 
+// Reference-range regexes match ANYWHERE in the trailing columns (not anchored),
+// and tolerate spaces around the comparator/dash. 真 corpus 把参考写成带空格的
+// `< 5.20`、`> 90`、`3.9 - 6.1` —— 逐 token 分类会把 `<` 和 `5.20` 拆成两个各自作废
+// 的 token,单边参考(LDL/TC/eGFR)与带空格的双边参考就全丢了(quality dim 4/5)。
 fn range_two_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
-    R.get_or_init(|| Regex::new(r"^(\d+(?:\.\d+)?)[-~](\d+(?:\.\d+)?)$").expect("range re"))
+    R.get_or_init(|| {
+        Regex::new(r"(\d+(?:\.\d+)?)\s*[-~]\s*(\d+(?:\.\d+)?)").expect("range re")
+    })
 }
 fn range_high_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
-    R.get_or_init(|| Regex::new(r"^[<≤]=?(\d+(?:\.\d+)?)$").expect("high re"))
+    R.get_or_init(|| Regex::new(r"[<≤]=?\s*(\d+(?:\.\d+)?)").expect("high re"))
 }
 fn range_low_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
-    R.get_or_init(|| Regex::new(r"^[>≥]=?(\d+(?:\.\d+)?)$").expect("low re"))
+    R.get_or_init(|| Regex::new(r"[>≥]=?\s*(\d+(?:\.\d+)?)").expect("low re"))
+}
+/// A dash-separated `YYYY-MM-DD` date. Only the dash form matters: the range regex
+/// keys on `[-~]`, so slash/dot dates never look like a range in the first place.
+/// A real reference range has a single dash (`3.9-6.1`); a date has two — so this
+/// blanks a trailing 采样/报告日期 (`… 2024-01-05`) without ever eating a range,
+/// stopping it from being misread as `2024-1` and fabricating a flag. Quality dim 4/5.
+fn date_re() -> &'static Regex {
+    static R: OnceLock<Regex> = OnceLock::new();
+    R.get_or_init(|| Regex::new(r"\d{2,4}-\d{1,2}-\d{1,2}").expect("date re"))
 }
 
 /// Fold the full-width comparison/range punctuation a report might use into the
@@ -92,30 +107,50 @@ fn fold_range_punct(tok: &str) -> String {
         .collect()
 }
 
-/// Parse one token as a reference range. Returns `(low, high)`:
-/// `59-104` → (Some, Some); `<6.5`/`≤6.5` → (None, Some); `>130`/`≥130` → (Some, None).
-/// Returns `None` when the token is not a range at all.
-fn parse_range(tok: &str) -> Option<(Option<f64>, Option<f64>)> {
-    let s = fold_range_punct(tok);
-    if let Some(c) = range_two_re().captures(&s) {
-        let lo = c.get(1)?.as_str().parse().ok()?;
-        let hi = c.get(2)?.as_str().parse().ok()?;
-        return Some((Some(lo), Some(hi)));
+/// Locate the reference range anywhere in the trailing columns. Returns
+/// `(low, high, byte_span_in_folded)`: `59-104`/`3.9 - 6.1` → both bounds;
+/// `< 5.20`/`≤6.5` → high only; `> 90`/`≥130` → low only. Two-sided wins over
+/// single-sided. `None` when no range is present. `folded` must already be
+/// punctuation-folded so `＜`/`～`/`－` read as `<`/`~`/`-`.
+fn find_range(folded: &str) -> Option<(Option<f64>, Option<f64>, (usize, usize))> {
+    if let Some(c) = range_two_re().captures(folded) {
+        let lo = c.get(1)?.as_str().parse().ok();
+        let hi = c.get(2)?.as_str().parse().ok();
+        let m = c.get(0)?;
+        return Some((lo, hi, (m.start(), m.end())));
     }
-    if let Some(c) = range_high_re().captures(&s) {
-        return Some((None, Some(c.get(1)?.as_str().parse().ok()?)));
+    if let Some(c) = range_high_re().captures(folded) {
+        let hi = c.get(1)?.as_str().parse().ok();
+        let m = c.get(0)?;
+        return Some((None, hi, (m.start(), m.end())));
     }
-    if let Some(c) = range_low_re().captures(&s) {
-        return Some((Some(c.get(1)?.as_str().parse().ok()?), None));
+    if let Some(c) = range_low_re().captures(folded) {
+        let lo = c.get(1)?.as_str().parse().ok();
+        let m = c.get(0)?;
+        return Some((lo, None, (m.start(), m.end())));
     }
     None
 }
 
-/// Parse the trailing `单位 参考范围 [↑/↓]` columns. Order-independent: every
-/// whitespace token is classified as flag / range / unit / (ignored label).
+/// Parse the trailing `单位 参考范围 [↑/↓]` columns. The reference range is matched
+/// on the whole (punctuation-folded) string first — so a spaced `< 5.20` or
+/// `3.9 - 6.1` parses as one range — then blanked out; unit and flag are read from
+/// what remains, order-independently.
 fn parse_rest(rest: &str) -> (Option<String>, Option<f64>, Option<f64>, Option<String>) {
-    let (mut unit, mut low, mut high, mut flag) = (None, None, None, None);
-    for raw in rest.split_whitespace() {
+    let folded = fold_range_punct(rest);
+    // Blank any embedded date so the unanchored range scan can't read it as a range.
+    let folded = date_re().replace_all(&folded, " ").into_owned();
+    let (mut low, mut high) = (None, None);
+    let mut scan = folded.clone();
+    if let Some((lo, hi, (s, e))) = find_range(&folded) {
+        low = lo;
+        high = hi;
+        // Blank the range so its digits can't be re-read as a unit token.
+        scan.replace_range(s..e, " ");
+    }
+
+    let (mut unit, mut flag) = (None, None);
+    for raw in scan.split_whitespace() {
         let tok =
             raw.trim_matches(|c| matches!(c, '(' | ')' | '（' | '）' | '[' | ']' | '【' | '】'));
         if tok.is_empty() {
@@ -128,15 +163,6 @@ fn parse_rest(rest: &str) -> (Option<String>, Option<f64>, Option<f64>, Option<S
         }
         if raw.contains('↓') || tok == "L" || tok == "低" || tok == "偏低" {
             flag = Some("L".to_string());
-            continue;
-        }
-        if let Some((lo, hi)) = parse_range(tok) {
-            if lo.is_some() {
-                low = lo;
-            }
-            if hi.is_some() {
-                high = hi;
-            }
             continue;
         }
         // Label noise inside inline `(参考 …)` / `正常范围` etc.
@@ -166,6 +192,15 @@ pub fn extract_labs(text: &str) -> Vec<LabObservation> {
         let raw_name = caps.name("name").expect("name group").as_str().trim();
         // Need a real name token — rejects date/number-only lines.
         if raw_name.is_empty() || !raw_name.chars().any(|c| c.is_alphabetic()) {
+            continue;
+        }
+        // A real analyte name has no *sentence* punctuation. This rejects narrative
+        // fragments that a mis-routed prose/imaging line would otherwise smuggle in
+        // as a "lab" (`右肺上叶尖段磨玻璃结节(GGN),大小约` value 8 …) — quality dim 3.
+        if raw_name
+            .chars()
+            .any(|c| matches!(c, '，' | ',' | '。' | '；' | ';' | '、'))
+        {
             continue;
         }
         let Ok(value_num) = caps
@@ -277,6 +312,46 @@ mod tests {
         assert_eq!(ldl.ref_high, Some(3.4));
         assert_eq!(ldl.ref_low, None);
         assert_eq!(ldl.flag.as_deref(), Some("H"));
+    }
+
+    #[test]
+    fn spaced_single_sided_and_two_sided_refs_parse() {
+        // 真 corpus 的写法:单边参考带空格 `< 5.20` / `> 90`,双边参考带空格 `3.9 - 6.1`。
+        // 过去逐 token 分类把它们拆碎全丢;现在都要解析出 refLow/refHigh。
+        let text = "\
+TC         总胆固醇 Cholesterol   6.05     mmol/L      < 5.20          ↑
+eGFR       估算肾小球滤过率      72       ml/min/1.73m2   > 90         ↓
+GLU        空腹血糖 Glucose       7.1      mmol/L      3.9 - 6.1       ↑
+";
+        let obs = extract_labs(text);
+        let tc = find(&obs, "cholesterol");
+        assert_eq!(tc.ref_high, Some(5.20));
+        assert_eq!(tc.ref_low, None);
+        assert_eq!(tc.unit_raw.as_deref(), Some("mmol/L"));
+        assert_eq!(tc.flag.as_deref(), Some("H"));
+        let egfr = find(&obs, "egfr");
+        assert_eq!(egfr.ref_low, Some(90.0));
+        assert_eq!(egfr.ref_high, None);
+        assert_eq!(egfr.flag.as_deref(), Some("L"));
+        let glu = find(&obs, "glucose");
+        assert_eq!(glu.ref_low, Some(3.9));
+        assert_eq!(glu.ref_high, Some(6.1));
+    }
+
+    #[test]
+    fn trailing_report_date_is_not_read_as_a_reference_range() {
+        // 行尾的采样/报告日期(`2024-01-05`)不得被无锚点的范围扫描当成参考范围
+        // `2024-1`,否则会伪造 refLow/refHigh 并派生出假异常 flag。
+        let obs = extract_labs("葡萄糖 Glucose 5.0 mmol/L 2024-01-05");
+        let glu = find(&obs, "glucose");
+        assert_eq!(glu.ref_low, None);
+        assert_eq!(glu.ref_high, None);
+        assert_eq!(glu.flag, None);
+        // 真参考范围与行尾日期并存时,仍解析出参考范围,且不被日期污染。
+        let obs2 = extract_labs("葡萄糖 Glucose 7.1 mmol/L 3.9 - 6.1 ↑ 2024-01-05");
+        let glu2 = find(&obs2, "glucose");
+        assert_eq!(glu2.ref_low, Some(3.9));
+        assert_eq!(glu2.ref_high, Some(6.1));
     }
 
     #[test]

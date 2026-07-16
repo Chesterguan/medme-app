@@ -149,6 +149,23 @@ fn max_date(cur: Option<NaiveDate>, new: Option<NaiveDate>) -> Option<NaiveDate>
     }
 }
 
+/// Whether this document should be mined for **labs**. Only lab reports —
+/// running `extract_labs` over prescriptions/imaging/prose mis-reads drug doses
+/// and sentence fragments as "labs" (`二甲双胍 0.5g` → analyte, CT text → analyte).
+/// `None`/unknown stays permissive so callers that don't classify still work
+/// (and to keep the low-level aggregate unit tests type-agnostic). Quality dim 3/4.
+fn wants_labs(doc_type: Option<&str>) -> bool {
+    doc_type.is_none_or(|t| t.contains("lab"))
+}
+
+/// Whether this document should be mined for **meds**. Only prescriptions —
+/// running `extract_meds` over lab reports/prose mis-reads lab rows and prose as
+/// "meds" (`肌酐 112 umol/L` → 112U, 病历散文 → 剂量). `None`/unknown stays
+/// permissive (see [`wants_labs`]). Quality dim 3/4.
+fn wants_meds(doc_type: Option<&str>) -> bool {
+    doc_type.is_none_or(|t| t.contains("prescription"))
+}
+
 /// Render a mention's dose + frequency, e.g. "0.5g bid". `None` if the mention
 /// carries neither a dose nor a frequency.
 fn dose_string(m: &MedObservation) -> Option<String> {
@@ -210,8 +227,12 @@ pub fn aggregate(docs: &[SourceDoc<'_>]) -> AggregatedClinical {
     let mut conds: HashMap<String, CondBuilder> = HashMap::new();
 
     for doc in docs {
-        // --- labs ---
-        for obs in extract_labs(doc.text) {
+        let dt = doc.doc_type.as_deref();
+        // --- labs (only from lab reports; see wants_labs) ---
+        for obs in wants_labs(dt)
+            .then(|| extract_labs(doc.text))
+            .unwrap_or_default()
+        {
             let matched = obs.analyte_key.is_some();
             let key = match &obs.analyte_key {
                 Some(k) => GroupKey::Matched(k.clone()),
@@ -268,8 +289,11 @@ pub fn aggregate(docs: &[SourceDoc<'_>]) -> AggregatedClinical {
             b.points.push(point);
         }
 
-        // --- meds ---
-        for obs in extract_meds(doc.text) {
+        // --- meds (only from prescriptions; see wants_meds) ---
+        for obs in wants_meds(dt)
+            .then(|| extract_meds(doc.text))
+            .unwrap_or_default()
+        {
             let matched = obs.drug_key.is_some();
             let key = match &obs.drug_key {
                 Some(k) => GroupKey::Matched(k.clone()),

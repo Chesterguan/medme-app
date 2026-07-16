@@ -141,8 +141,15 @@ fn normalize_dose_unit(u: &str) -> String {
 fn parse_dose(line: &str) -> Option<(f64, String, usize)> {
     for caps in dose_re().captures_iter(line) {
         let whole = caps.get(0)?;
-        if line[whole.end()..].starts_with('/') {
+        let after = &line[whole.end()..];
+        if after.starts_with('/') {
             continue; // 浓度单位(g/L、mg/L…),不是剂量
+        }
+        // 单位后紧跟字母 = 这个「单位」其实是更长词的前缀,不是剂量:化验行
+        // `肌酐 112 umol/L` 的 `112 u`(u 属于 umol)绝不能当成 112U 的剂量,否则化验
+        // 会漏进「用药」(quality dim 3/4)。
+        if after.starts_with(|c: char| c.is_ascii_alphabetic()) {
+            continue;
         }
         let num: f64 = caps.get(1)?.as_str().parse().ok()?;
         let unit = normalize_dose_unit(caps.get(2)?.as_str());
@@ -212,6 +219,21 @@ pub fn extract_meds(text: &str) -> Vec<MedObservation> {
         let name = strip_trailing_route(&cleaned[..name_end]);
         // Need a real name token (a letter or CJK char), else it's not a med line.
         if name.is_empty() || !name.chars().any(|c| c.is_alphabetic()) {
+            continue;
+        }
+        // 处方里的「剂量/用法说明行」不是药,却常带 dose+freq,过去被当未知药留下污染
+        // 「用药」(quality dim 3):
+        //  - `用法:口服,一次 1 片(0.5g),一日 2 次` → 名字含整句标点(:,,) → 弃。
+        //  - `一次1片 一日2次 随餐`(处方续行)→ 名字以说明词起头(一次/每次/用法…) → 弃。
+        // 真药名既不含整句标点,也不会以这些说明词开头。
+        if name
+            .chars()
+            .any(|c| matches!(c, '，' | ',' | '。' | '；' | ';' | '、' | '：' | ':'))
+        {
+            continue;
+        }
+        const USAGE_PREFIXES: &[&str] = &["用法", "用量", "一次", "每次", "服法", "Sig", "sig"];
+        if USAGE_PREFIXES.iter().any(|p| name.starts_with(p)) {
             continue;
         }
 
@@ -303,6 +325,23 @@ mod tests {
         assert_eq!(o.confidence, 0.0);
         assert_eq!(o.dose_num, Some(5.0));
         assert_eq!(o.frequency.as_deref(), Some("bid"));
+    }
+
+    #[test]
+    fn lab_umol_row_and_usage_lines_are_not_meds() {
+        // 化验行:`112 umol/L` 的 u 属于 umol,不得当成 112U 的剂量 → 不是药。
+        assert!(extract_meds("肌酐 Creatinine 112 umol/L 57 - 97").is_empty());
+        assert!(extract_meds("尿酸 UA 405 umol/L 208 - 428").is_empty());
+        // 处方说明/续行:虽带 dose+freq,但名字是说明词/整句碎片 → 不是药。
+        assert!(extract_meds("用法:口服,一次 1 片,一日 2 次(餐后)").is_empty());
+        assert!(extract_meds("  一次1片 一日2次 随餐").is_empty());
+        // 真处方行仍正常解析。
+        assert_eq!(
+            extract_meds("1.盐酸二甲双胍缓释片 0.5g×60片")[0]
+                .drug_key
+                .as_deref(),
+            Some("metformin")
+        );
     }
 
     #[test]

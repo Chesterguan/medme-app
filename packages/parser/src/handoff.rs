@@ -18,7 +18,9 @@
 //!   Pathology impressions and the viewer's `care_facility` field stay out of
 //!   scope. Only problems / labs / meds / allergies / notable_changes / imaging.
 
-use crate::aggregate::{aggregate, AnalyteSeries, MedSpan, SourceDoc};
+use crate::aggregate::{
+    aggregate, AggregatedCondition, AnalyteSeries, LabPoint, MedSpan, SourceDoc,
+};
 use chrono::NaiveDate;
 use regex::Regex;
 use serde::Deserialize;
@@ -83,10 +85,124 @@ fn entry_for(disease: &str) -> Option<&'static MapEntry> {
     problem_map().iter().find(|e| e.disease == disease)
 }
 
+/// Curated disease **stems** for merging clinical variants the mapped-disease table
+/// (problem_map) doesn't cover. A stem folds acute/stage/laterality variants to one
+/// lane: `急性脑梗死` / `急性脑梗死(左侧基底节区)` / `脑梗死恢复期` / `陈旧性脑梗死` all
+/// share `脑梗死` → one problem (quality dim 2). Kept tiny and explicit — only
+/// well-known chronic problems whose variant spellings obviously mean one disease.
+const DISEASE_STEMS: &[&str] = &["脑梗死", "脑梗塞", "脑出血", "脑卒中"];
+
+/// A condition's **normalization key** — the identity that same-problem variants
+/// merge on. A mapped chronic disease collapses to its mapped name (`高血压 3 级
+/// (很高危)` / `高血压` → `高血压`); otherwise a known stem; otherwise the cleaned
+/// raw text (distinct problems stay distinct). Deterministic, no fuzzy matching.
+fn condition_key(raw: &str) -> String {
+    if let Some(d) = match_disease(raw) {
+        return d.to_string();
+    }
+    for stem in DISEASE_STEMS {
+        if raw.contains(stem) {
+            return (*stem).to_string();
+        }
+    }
+    raw.trim().to_string()
+}
+
+/// One clinical problem after merging variant mentions across documents.
+struct MergedProblem {
+    /// Clean, verbatim display term (a real mention, never a mashed line).
+    term: String,
+    onset: Option<NaiveDate>,
+    sources: Vec<usize>,
+}
+
+/// Fold `conditions` (already exact-deduped by [`crate::aggregate`]) into clinical
+/// problems: mentions with the same [`condition_key`] collapse into one lane with
+/// the earliest onset and merged evidence (quality dim 2). The display `term` is
+/// the **shortest** raw mention in the group — the shortest is the cleanest and
+/// avoids a mashed multi-diagnosis line (`2型糖尿病 糖尿病肾病(早期) 高血压3级`)
+/// winning over a plain `2型糖尿病`. Output is sorted by (onset, term) so the
+/// summary stays deterministic.
+fn merge_conditions(conditions: &[AggregatedCondition]) -> Vec<MergedProblem> {
+    // key → (candidate display terms, earliest onset, merged sources)
+    let mut groups: BTreeMap<String, (Vec<String>, Option<NaiveDate>, BTreeSet<usize>)> =
+        BTreeMap::new();
+    for c in conditions {
+        let key = condition_key(&c.raw_text);
+        let g = groups.entry(key).or_default();
+        g.0.push(c.raw_text.clone());
+        g.1 = match (g.1, c.onset) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (Some(a), None) => Some(a),
+            (None, b) => b,
+        };
+        g.2.extend(c.sources.iter().copied());
+    }
+    let mut out: Vec<MergedProblem> = groups
+        .into_values()
+        .map(|(mut terms, onset, sources)| {
+            // Shortest mention wins; tie-break lexicographically for determinism.
+            terms.sort_by(|a, b| {
+                a.chars()
+                    .count()
+                    .cmp(&b.chars().count())
+                    .then_with(|| a.cmp(b))
+            });
+            MergedProblem {
+                term: terms.into_iter().next().unwrap_or_default(),
+                onset,
+                sources: sources.into_iter().collect(),
+            }
+        })
+        .collect();
+    out.sort_by(|a, b| match (a.onset, b.onset) {
+        (Some(x), Some(y)) => x.cmp(&y).then_with(|| a.term.cmp(&b.term)),
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => a.term.cmp(&b.term),
+    });
+    out
+}
+
 /// Format a value without a trailing `.0` for whole numbers (`88.0` → `"88"`,
 /// `7.9` → `"7.9"`), for the human-readable `notable_changes` strings.
 fn fmt_num(v: f64) -> String {
     format!("{v}")
+}
+
+/// The first and last **dated** points of a series (falling back to the first/last
+/// raw point when none carry a date). `None` only for an empty series.
+fn first_last_point(s: &AnalyteSeries) -> Option<(&LabPoint, &LabPoint)> {
+    let first = s
+        .points
+        .iter()
+        .find(|p| p.date.is_some())
+        .or_else(|| s.points.first())?;
+    let last = s
+        .points
+        .iter()
+        .rev()
+        .find(|p| p.date.is_some())
+        .or_else(|| s.points.last())?;
+    Some((first, last))
+}
+
+/// Rank key for `notable_changes`: `(crosses_threshold, |fractional change|)`.
+/// A normal↔abnormal crossing between the first and last point is the clinically
+/// notable event (a value entering or leaving its reference band); magnitude is the
+/// tiebreak. Both are computed only from grounded values/flags — no invented trend.
+fn change_significance(s: &AnalyteSeries) -> (bool, f64) {
+    let Some((first, last)) = first_last_point(s) else {
+        return (false, 0.0);
+    };
+    let is_abn = |f: &Option<String>| matches!(f.as_deref(), Some("H") | Some("L"));
+    let crosses = is_abn(&first.flag) != is_abn(&last.flag);
+    let frac = if first.value != 0.0 {
+        (last.value - first.value).abs() / first.value.abs()
+    } else {
+        (last.value - first.value).abs()
+    };
+    (crosses, frac)
 }
 
 /// `[["YYYY-MM", value], …]` for the dated points, chronological. Undated points
@@ -208,14 +324,27 @@ fn imaging_label_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
     R.get_or_init(|| {
         Regex::new(
-            r"^\s*(?:\d+\s*[.、)）]|[\u{2460}-\u{2473}]|[-•*·])?\s*(影像所见|检查所见|超声所见|诊断意见|影像诊断|超声提示|影像提示|检查提示|印象|结论|意见|所见)\s*[:：]\s*(.*)$",
+            r"^\s*(?:\d+\s*[.、)）]|[\u{2460}-\u{2473}]|[-•*·])?\s*(影像所见|检查所见|超声所见|诊断意见|影像诊断|超声提示|影像提示|检查提示|心电图诊断|印象|结论|意见|所见)\s*[:：]\s*(.*)$",
         )
         .expect("imaging label re")
     })
 }
 
-/// Whether a label names an *impression/conclusion* (preferred) vs a raw 所见
-/// finding (fallback). Both are copied verbatim — neither is interpreted.
+/// A pathology report's section-label line. `病理诊断` is the impression/conclusion
+/// (preferred); 镜下所见/肉眼所见 are raw findings (fallback). Pathology impressions
+/// are surfaced as a conclusion, never split into problems (quality dim 6).
+fn pathology_label_re() -> &'static Regex {
+    static R: OnceLock<Regex> = OnceLock::new();
+    R.get_or_init(|| {
+        Regex::new(
+            r"^\s*(?:\d+\s*[.、)）]|[\u{2460}-\u{2473}]|[-•*·])?\s*(病理诊断|病理所见|免疫组化|镜下所见|肉眼所见)\s*[:：]\s*(.*)$",
+        )
+        .expect("pathology label re")
+    })
+}
+
+/// Whether an imaging label names an *impression/conclusion* (preferred) vs a raw
+/// 所见 finding (fallback). Both are copied verbatim — neither is interpreted.
 fn is_impression_label(label: &str) -> bool {
     matches!(
         label,
@@ -224,10 +353,16 @@ fn is_impression_label(label: &str) -> bool {
             | "超声提示"
             | "影像提示"
             | "检查提示"
+            | "心电图诊断"
             | "印象"
             | "结论"
             | "意见"
     )
+}
+
+/// Whether a pathology label names the conclusion (`病理诊断`) vs a raw finding.
+fn is_pathology_impression_label(label: &str) -> bool {
+    label == "病理诊断"
 }
 
 /// Lines that end an impression/findings block even without a blank separator:
@@ -261,12 +396,31 @@ fn is_impression_terminator(line: &str) -> bool {
 /// headers between labels are not treated as boundaries (a stray `检查方法:` line
 /// after 所见 would be swallowed) — reports put 结论 last, so this is rare.
 fn imaging_impression(text: &str) -> Option<String> {
+    labeled_impression(text, imaging_label_re(), is_impression_label)
+}
+
+/// Pull a pathology report's **conclusion** (`病理诊断` narrative, else 镜下/肉眼所见).
+/// Same block-scan as imaging; the narrative stays a single verbatim conclusion and
+/// is NEVER comma-split into problems (quality dim 6).
+fn pathology_impression(text: &str) -> Option<String> {
+    labeled_impression(text, pathology_label_re(), is_pathology_impression_label)
+}
+
+/// Shared labeled-block extractor for imaging/pathology conclusions. Scans for
+/// `label_re` line starts; a block is the inline remainder plus following non-empty
+/// lines up to a blank line or the next labeled section (an `is_impression` label
+/// wins over a raw 所见 fallback). Returns the trimmed text, or `None`.
+fn labeled_impression(
+    text: &str,
+    label_re: &Regex,
+    is_impression: impl Fn(&str) -> bool,
+) -> Option<String> {
     let lines: Vec<&str> = text.lines().collect();
     let mut impression: Option<String> = None;
     let mut findings: Option<String> = None;
     let mut i = 0;
     while i < lines.len() {
-        let Some(caps) = imaging_label_re().captures(lines[i]) else {
+        let Some(caps) = label_re.captures(lines[i]) else {
             i += 1;
             continue;
         };
@@ -287,7 +441,7 @@ fn imaging_impression(text: &str) -> Option<String> {
                 j += 1;
                 continue;
             }
-            if imaging_label_re().is_match(lines[j]) || is_impression_terminator(t) {
+            if label_re.is_match(lines[j]) || is_impression_terminator(t) {
                 break;
             }
             parts.push(t.to_string());
@@ -295,7 +449,7 @@ fn imaging_impression(text: &str) -> Option<String> {
         }
         let block = parts.join("\n").trim().to_string();
         if !block.is_empty() {
-            if is_impression_label(label) {
+            if is_impression(label) {
                 impression.get_or_insert(block);
             } else {
                 findings.get_or_insert(block);
@@ -403,17 +557,19 @@ pub fn assemble_summary(docs: &[SourceDoc<'_>]) -> Value {
     // the leftovers fall into the synthetic「其他」bucket instead of vanishing.
     let mut placed_labs = vec![false; agg.labs.len()];
     let mut placed_meds = vec![false; agg.meds.len()];
-    // Grouped-and-abnormal series (with ≥2 points) feed notable_changes.
-    let mut changes_pool: Vec<&AnalyteSeries> = Vec::new();
+    // Indices (into agg.labs) of grouped-and-abnormal series with ≥2 points; a
+    // BTreeSet dedups a series that maps to several problems (quality dim 5).
+    let mut changed: BTreeSet<usize> = BTreeSet::new();
 
     let mut problems: Vec<Value> = Vec::new();
-    // agg.conditions is already sorted by (onset, raw_text) — deterministic.
-    for c in &agg.conditions {
+    // Merge same-problem variants first (quality dim 2), then attach labs/meds by
+    // the mapped disease of the (clean) display term.
+    for c in merge_conditions(&agg.conditions) {
         let mut labs_json = Vec::new();
         let mut meds_json = Vec::new();
         let mut warn = false;
 
-        if let Some(disease) = match_disease(&c.raw_text) {
+        if let Some(disease) = match_disease(&c.term) {
             let entry = entry_for(disease).expect("matched disease is in the map");
             let loincs: BTreeSet<&str> = entry.labs.iter().map(|l| l.loinc.as_str()).collect();
             let prefixes: Vec<&str> = entry
@@ -427,7 +583,7 @@ pub fn assemble_summary(docs: &[SourceDoc<'_>]) -> Value {
                     placed_labs[i] = true;
                     warn |= s.any_abnormal;
                     if s.any_abnormal && s.points.len() >= 2 {
-                        changes_pool.push(s);
+                        changed.insert(i);
                     }
                     labs_json.push(series_to_json(s));
                 }
@@ -444,7 +600,7 @@ pub fn assemble_summary(docs: &[SourceDoc<'_>]) -> Value {
         }
 
         let mut prob = Map::new();
-        prob.insert("term".into(), json!(c.raw_text));
+        prob.insert("term".into(), json!(c.term));
         if let Some(onset) = c.onset {
             prob.insert("onset".into(), json!(onset.format("%Y-%m").to_string()));
         }
@@ -484,15 +640,24 @@ pub fn assemble_summary(docs: &[SourceDoc<'_>]) -> Value {
         }));
     }
 
-    // ── notable_changes: short "指标 first→last unit" for abnormal trends ──
-    // Deterministic: changes_pool follows agg.labs order (sorted by group_name);
-    // cap at 4 to keep it a glance, not a dump.
-    let notable_changes: Vec<String> = changes_pool
+    // ── notable_changes: short "指标 first→last unit" for the abnormal trends that
+    // matter most. Deduped by series (changed is a set) and ranked by clinical
+    // significance — a normal↔abnormal threshold crossing first (LDL 他汀达标↓,
+    // 肌酐↑, 尿酸达标↓), then by fractional change magnitude — so the real story
+    // surfaces instead of the smallest wiggle. Cap at 4 (quality dim 5).
+    let mut ranked: Vec<&AnalyteSeries> = changed.iter().map(|&i| &agg.labs[i]).collect();
+    ranked.sort_by(|a, b| {
+        let (ca, fa) = change_significance(a);
+        let (cb, fb) = change_significance(b);
+        cb.cmp(&ca)
+            .then(fb.total_cmp(&fa))
+            .then(a.group_name.cmp(&b.group_name))
+    });
+    let notable_changes: Vec<String> = ranked
         .iter()
         .take(4)
         .filter_map(|s| {
-            let first = s.points.first()?;
-            let last = s.points.last()?;
+            let (first, last) = first_last_point(s)?;
             let unit = last.unit.clone().unwrap_or_default();
             Some(format!(
                 "{} {}→{}{}",
@@ -558,14 +723,49 @@ pub fn assemble_summary(docs: &[SourceDoc<'_>]) -> Value {
         })
         .collect();
 
+    // ── pathology: each 病理 report's verbatim conclusion, never split into
+    // problems (quality dim 6). Qualify ONLY on doc_type == pathology (same
+    // discipline as imaging); the narrative is copied, not interpreted.
+    let mut pathology: Vec<(Option<NaiveDate>, Value)> = Vec::new();
+    for doc in docs {
+        let is_path = doc
+            .doc_type
+            .as_deref()
+            .is_some_and(|t| t.contains("pathology"));
+        if !is_path {
+            continue;
+        }
+        let Some(conclusion) = pathology_impression(doc.text) else {
+            continue;
+        };
+        pathology.push((
+            doc.date,
+            json!({
+                "date": doc.date.map(|d| d.format("%Y-%m").to_string()),
+                "conclusion": conclusion,
+                "evidence": [doc.index],
+            }),
+        ));
+    }
+    pathology.sort_by(|a, b| match (a.0, b.0) {
+        (Some(x), Some(y)) => x.cmp(&y),
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => std::cmp::Ordering::Equal,
+    });
+    let pathology: Vec<Value> = pathology.into_iter().map(|(_, v)| v).collect();
+
     let mut summary = json!({
         "problems": problems,
         "allergies": allergies,
         "notable_changes": notable_changes,
     });
-    // Attach imaging only when present (老分享/无影像 keeps the key absent).
+    // Attach imaging/pathology only when present (老分享/无 keeps the key absent).
     if !imaging.is_empty() {
         summary["imaging"] = json!(imaging);
+    }
+    if !pathology.is_empty() {
+        summary["pathology"] = json!(pathology);
     }
     summary
 }
@@ -815,6 +1015,47 @@ mod tests {
         assert_eq!(studies[1]["date"], "2025-01");
         assert_eq!(studies[1]["finding"], "右肺上叶小结节,较前稳定。");
         assert_eq!(studies[1]["evidence"], json!([1]));
+    }
+
+    #[test]
+    fn assemble_summary_surfaces_pathology_conclusion_not_as_problems() {
+        // 真 corpus doc11 的病理叙事:过去被逗号拆成 3 条假「诊断」。现在整段作为一条
+        // pathology 结论浮出,且绝不进 problems(quality dim 6)。
+        let docs = vec![SourceDoc {
+            index: 11,
+            doc_type: Some("pathology".into()),
+            title: Some("胃镜活检病理".into()),
+            date: d(2024, 9, 1),
+            text: "病理诊断:(胃窦)慢性活动性胃炎,伴轻度肠上皮化生,Hp阳性(++)。未见异型增生及恶性证据。",
+        }];
+        let sm = assemble_summary(&docs);
+        assert!(
+            sm["problems"].as_array().expect("problems").is_empty(),
+            "病理叙事绝不进 problems"
+        );
+        let path = sm["pathology"].as_array().expect("pathology present");
+        assert_eq!(path.len(), 1);
+        assert_eq!(path[0]["date"], "2024-09");
+        assert_eq!(
+            path[0]["conclusion"],
+            "(胃窦)慢性活动性胃炎,伴轻度肠上皮化生,Hp阳性(++)。未见异型增生及恶性证据。"
+        );
+        assert_eq!(path[0]["evidence"], json!([11]));
+    }
+
+    #[test]
+    fn assemble_summary_omits_pathology_when_none() {
+        let docs = vec![SourceDoc {
+            index: 0,
+            doc_type: Some("lab_report".into()),
+            title: Some("血常规".into()),
+            date: d(2024, 1, 1),
+            text: "白细胞 10.5",
+        }];
+        assert!(
+            assemble_summary(&docs).get("pathology").is_none(),
+            "no pathology key when empty"
+        );
     }
 
     #[test]

@@ -11,12 +11,19 @@
 //! Section label (optionally after a list number) + `:`/`：`, then either:
 //! ```text
 //! 出院诊断:2型糖尿病；高血压病3级          <- inline, split on ；;，,、 and numbers
+//! 出院诊断:1. 急性脑梗死 2. 高血压3级 3. 2型糖尿病  <- inline w/ in-line numbering
 //! 出院诊断:                                <- label then a numbered block:
 //!   1. 2型糖尿病(E11.9)                    <- numbering stripped, ICD code dropped
 //!   2. 高血压病3级
 //! ```
-//! Recognized labels: 诊断 初步诊断 入院诊断 出院诊断 主要诊断 其他诊断 病理诊断 临床诊断.
+//! Recognized labels: 诊断 初步诊断 入院诊断 出院诊断 主要诊断 其他诊断 临床诊断.
 //! A numbered block is consumed until a blank line or a non-numbered line.
+//!
+//! ## 病理诊断 is deliberately NOT a diagnosis label here
+//! 病理 reports write a *narrative* impression (`(胃窦)慢性活动性胃炎,伴轻度肠上皮
+//! 化生,Hp 阳性(++)。未见异型增生及恶性证据。`) that must never be comma-split into
+//! fake "diagnoses" — it is surfaced as a pathology **conclusion** by the summary
+//! layer (docs/030, quality dim 6), not as problems.
 //!
 //! ## Deliberately NOT handled (kept lean)
 //! - Diagnoses in free prose with no section label.
@@ -43,7 +50,7 @@ fn section_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
     R.get_or_init(|| {
         Regex::new(
-            r"^\s*(?:\d+\s*[.、)）]|[\u{2460}-\u{2473}]|[-•*·])?\s*(出院诊断|入院诊断|初步诊断|主要诊断|其他诊断|病理诊断|临床诊断|诊断)\s*[:：]\s*(.*)$",
+            r"^\s*(?:\d+\s*[.、)）]|[\u{2460}-\u{2473}]|[-•*·])?\s*(出院诊断|入院诊断|初步诊断|主要诊断|其他诊断|临床诊断|诊断)\s*[:：]\s*(.*)$",
         )
         .expect("section re")
     })
@@ -69,9 +76,27 @@ fn icd_paren_re() -> &'static Regex {
     })
 }
 
-/// Split an inline diagnosis string on separators, clean each part, keep order.
+/// An **in-line** numbered marker: whitespace (or line start) then `N.`/`N、`/`N)`.
+/// The delimiter after the digit is required, so `高血压 3 级` / `2 型糖尿病` (a digit
+/// glued to the disease name, no delimiter) is NOT treated as a marker.
+///
+/// 真 corpus 把多诊断写在一行:`出院诊断:1. 急性脑梗死 2. 高血压3级 3. 2型糖尿病`。
+/// 这些 ` 2.` ` 3.` 既不是标点分隔符也不是「独立成行」的编号块,过去整行塌成一条
+/// term。先按它切开,行内多诊断才拆得开(quality dim 1)。
+fn inline_number_re() -> &'static Regex {
+    static R: OnceLock<Regex> = OnceLock::new();
+    // Whitespace (or end) MUST follow the delimiter, so a decimal measurement inside
+    // a diagnosis (`甲状腺结节 1.2cm`) is not split at the `.` — the corpus always
+    // writes list markers as `1. ` / `2. ` with a trailing space.
+    R.get_or_init(|| Regex::new(r"(?:^|\s)\d+\s*[.、)）](?:\s+|$)").expect("inline number re"))
+}
+
+/// Split an inline diagnosis string, clean each part, keep order. Two passes:
+/// first on in-line numbered markers (` 2.` ` 3.`), then on `；;，,、`.
 fn split_inline(s: &str) -> Vec<String> {
-    s.split(['；', ';', '，', ',', '、'])
+    inline_number_re()
+        .split(s)
+        .flat_map(|seg| seg.split(['；', ';', '，', ',', '、']))
         .filter_map(clean_dx)
         .collect()
 }
@@ -156,6 +181,26 @@ mod tests {
         assert_eq!(obs[0].section.as_deref(), Some("出院诊断"));
         assert_eq!(obs[1].raw_text, "高血压病3级");
         assert_eq!(obs[1].section.as_deref(), Some("出院诊断"));
+    }
+
+    #[test]
+    fn inline_numbered_multi_diagnosis_splits() {
+        // 真 corpus 出院诊断:一行内用 `1. .. 2. .. 3. ..` 串三个诊断,须拆成三条,
+        // 且 term 里不含行内编号标记(`2.`/`3.`),病名内的空格保留(逐字)。
+        let obs = extract_conditions("出院诊断:1. 急性脑梗死  2. 高血压 3 级(很高危)  3. 2 型糖尿病");
+        let terms: Vec<&str> = obs.iter().map(|o| o.raw_text.as_str()).collect();
+        assert_eq!(terms, ["急性脑梗死", "高血压 3 级(很高危)", "2 型糖尿病"]);
+        assert!(obs.iter().all(|o| !o.raw_text.contains(" 2.")
+            && !o.raw_text.contains(" 3.")
+            && !o.raw_text.contains('。')));
+    }
+
+    #[test]
+    fn decimal_measurement_in_diagnosis_is_not_split() {
+        // 病名带尺寸的小数(`1.2cm`)不得被行内编号切分成 `["甲状腺结节","2cm"]`。
+        let obs = extract_conditions("诊断:甲状腺结节 1.2cm");
+        let terms: Vec<&str> = obs.iter().map(|o| o.raw_text.as_str()).collect();
+        assert_eq!(terms, ["甲状腺结节 1.2cm"]);
     }
 
     #[test]
