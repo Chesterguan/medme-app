@@ -2126,6 +2126,7 @@ dependencies = [
  "chrono",
  "core-model",
  "dicom",
+ "parser",
  "pipeline",
  "rand 0.8.7",
  "serde_json",
@@ -2567,6 +2568,10 @@ dependencies = [
  "core-model",
  "pdf-extract",
  "regex",
+ "serde",
+ "serde_json",
+ "terminology",
+ "unicode-normalization",
 ]
 
 [[package]]
@@ -3384,6 +3389,14 @@ dependencies = [
  "fastrand",
  "rustix",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "terminology"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -250,9 +250,28 @@ pub fn get_document(id: i64) -> anyhow::Result<DocumentDetailDto> {
     })
 }
 
+/// 一份来源文件在磁盘上的**绝对路径**(CAS `objects/…` 下的对象文件)。
+///
+/// 供 iOS「查看原件」路径在读盘前先把可能被 iCloud 逐出的对象物化到本地用:Dart
+/// 拿到此路径后经 `medme/icloud` MethodChannel 触发 `startDownloadingUbiquitousItem`
+/// 并等待下载完成(见 `AppDelegate.swift` 的 `ensureDownloaded`),再调
+/// `read_source_bytes` / `render_dicom_png` 读盘。安卓无 iCloud、不走这一步。
+pub fn source_file_object_path(id: i64) -> anyhow::Result<String> {
+    with_state(|state| {
+        let v = &state.vault;
+        let sf = v
+            .source_file_by_id(id)
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?
+            .ok_or_else(|| anyhow::anyhow!("找不到来源文件 {id}"))?;
+        Ok(v.root_join(&sf.storage_path).to_string_lossy().to_string())
+    })
+}
+
 /// 一份来源文件的原始字节(图片文档据此渲染缩略图/大图)。与桌面/Tauri 移动端的
-/// `read_source_bytes` 同构;移动端目前没有 iCloud 逐出对象的下载触发逻辑
-/// (P2 未接 iCloud——见 `open_vault`),直接读盘。
+/// `read_source_bytes` 同构。iOS 上保险箱开了 iCloud 同步时,`objects/` 里的对象可能
+/// 被 iCloud 逐出(替换为 `.icloud` 占位符);Dart 侧在调用本函数前已按平台先经
+/// `source_file_object_path` + `medme/icloud`.`ensureDownloaded` 把对象物化回本地,
+/// 故这里保持一次普通读盘(已在本地的对象即快路径,不触发任何网络/下载)。
 pub fn read_source_bytes(id: i64) -> anyhow::Result<Vec<u8>> {
     with_state(|state| {
         let v = &state.vault;
@@ -725,12 +744,12 @@ pub fn reset_vault() -> anyhow::Result<()> {
     })
 }
 
-/// iCloud 同步状态占位。P2 阶段恒为「不可用/未开启」——真正的容器解析/开关逻辑
-/// 是 iOS-only 且依赖 Tauri 路径 API(见 Tauri 版 `apps/mobile/src-tauri/src/icloud.rs`),
-/// 不能直接照搬进这个平台无关的 FFI 层,留给 P5 用 Flutter/iOS 原生桥重做
-/// (见 `docs/020_Flutter_Mobile_Rewrite.md` 的「同步(iCloud,iOS)」一节)。
-/// iCloud 同步是否已在本设备开启(读持久标记)。`available`(容器是否可解析)由
-/// Dart 侧经 MethodChannel 判断——Rust 拿不到容器,恒返回 false,Dart 覆盖。
+/// iCloud 同步是否已在本设备开启(读持久标记 `<data_dir>/icloud_enabled`)。
+///
+/// 分工:`enabled` 由 Rust 据持久标记如实返回;`available`(能否解析到 iCloud 容器)
+/// 是 iOS-only 且需原生 API,Rust 拿不到容器,恒返回 `false` 交由 Dart 侧经
+/// `medme/icloud` MethodChannel(`IcloudBridge.containerPath`)判断后覆盖。整套 iCloud
+/// 开关/迁移逻辑见 `enable_icloud_sync` / `disable_icloud_sync` 与 `open_vault`。
 pub fn icloud_status() -> IcloudStatusDto {
     let enabled = with_state(|s| Ok(s.data_dir.join("icloud_enabled").exists())).unwrap_or(false);
     IcloudStatusDto {

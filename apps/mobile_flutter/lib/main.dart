@@ -37,7 +37,8 @@ class MedMeApp extends StatelessWidget {
 
 /// 启动引导:先在真实沙盒目录打开保险箱(FFI `open_vault`),再进主界面。
 /// 打开是可韧性的(损坏的派生 db 会从 log 重建);目录取自 path_provider。
-/// iCloud 暂关(P5 接);打开失败给人性化提示而非白屏。
+/// iCloud 已接入(见 `vault_boot` / `icloud_bridge`):容器可解析且用户在设置里开启
+/// 同步时,真相存进 iCloud 容器,否则用本机沙盒。打开失败给人性化提示而非白屏。
 class VaultBootstrap extends StatefulWidget {
   const VaultBootstrap({super.key});
   @override

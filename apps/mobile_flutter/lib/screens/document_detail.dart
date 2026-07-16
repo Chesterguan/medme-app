@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:pdfx/pdfx.dart';
 
 import 'package:mobile_flutter/src/rust/api/dto.dart';
 import 'package:mobile_flutter/src/rust/api/vault.dart';
+import 'package:mobile_flutter/icloud_bridge.dart';
 import 'package:mobile_flutter/review_state.dart';
 import 'package:mobile_flutter/theme.dart';
 import 'package:mobile_flutter/vault_events.dart';
@@ -29,6 +31,32 @@ String _fmtDate(String? iso) {
   final d = DateTime.tryParse(iso);
   if (d == null) return '';
   return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+}
+
+/// iOS-only:读盘前先确保对象已从 iCloud 下载到本地。开启 iCloud 同步后,`objects/`
+/// 里的对象可能被 iCloud 逐出(只剩 `.icloud` 占位符),直接读会失败。先经 Rust 拿
+/// 对象绝对路径,再让原生触发按需下载并等待,然后再读。安卓/其它平台无 iCloud,
+/// 跳过物化直接读(保持快路径)。物化失败也照常尝试读,由调用方做优雅降级。
+Future<void> _ensureMaterialized(int sourceFileId) async {
+  if (!Platform.isIOS) return;
+  try {
+    final path = await sourceFileObjectPath(id: sourceFileId);
+    await IcloudBridge.ensureDownloaded(path);
+  } catch (_) {
+    // 拿路径/下载失败不阻断:继续读盘,失败时上层已有「原件加载失败」降级。
+  }
+}
+
+/// 「查看原件」读原始字节:iOS 上先物化(防 iCloud 逐出),再 `readSourceBytes`。
+Future<Uint8List> _readSourceMaterialized(int sourceFileId) async {
+  await _ensureMaterialized(sourceFileId);
+  return readSourceBytes(id: sourceFileId);
+}
+
+/// 「查看原件」渲染 DICOM:iOS 上先物化(防 iCloud 逐出),再 `renderDicomPng`。
+Future<Uint8List> _renderDicomMaterialized(int sourceFileId) async {
+  await _ensureMaterialized(sourceFileId);
+  return renderDicomPng(id: sourceFileId);
 }
 
 /// 文档详情屏:类型/日期/来源 + 识别文本(复用 ReportContent 内容感知渲染)+
@@ -354,7 +382,7 @@ class _ImageViewerScreen extends StatelessWidget {
         title: const Text('原件'),
       ),
       body: FutureBuilder<Uint8List>(
-        future: readSourceBytes(id: sourceFileId),
+        future: _readSourceMaterialized(sourceFileId),
         builder: (context, snap) {
           if (snap.connectionState != ConnectionState.done) {
             return const Center(
@@ -395,7 +423,7 @@ class _PdfViewerScreenState extends State<_PdfViewerScreen> {
 
   Future<void> _load() async {
     try {
-      final bytes = await readSourceBytes(id: widget.sourceFileId);
+      final bytes = await _readSourceMaterialized(widget.sourceFileId);
       if (!mounted) return;
       setState(() {
         _controller = PdfController(document: PdfDocument.openData(bytes));
@@ -440,7 +468,7 @@ class _DicomViewerScreen extends StatelessWidget {
         title: const Text('影像原件'),
       ),
       body: FutureBuilder<Uint8List>(
-        future: renderDicomPng(id: sourceFileId),
+        future: _renderDicomMaterialized(sourceFileId),
         builder: (context, snap) {
           if (snap.connectionState != ConnectionState.done) {
             return const Center(

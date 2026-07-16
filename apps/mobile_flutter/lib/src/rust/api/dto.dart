@@ -166,9 +166,9 @@ class ExportResultDto {
 }
 
 /// iCloud 同步状态(设置页开关据此渲染)。`available` = 当前能否解析到 iCloud
-/// 容器;`enabled` = 本设备是否已开启同步。P2 阶段恒为 `{false, false}`——真正的
-/// 容器解析/开关逻辑是 iOS-only 且依赖 Tauri 路径 API(见
-/// `apps/mobile/src-tauri/src/icloud.rs`),留给 P5 重做。
+/// 容器(iOS-only,由 Dart 侧经 `medme/icloud` MethodChannel 判断后覆盖;Rust
+/// 恒返回 false);`enabled` = 本设备是否已开启同步(Rust 据持久标记返回)。
+/// 开关/迁移逻辑见 `api::vault` 的 `enable_icloud_sync` / `disable_icloud_sync`。
 class IcloudStatusDto {
   final bool available;
   final bool enabled;

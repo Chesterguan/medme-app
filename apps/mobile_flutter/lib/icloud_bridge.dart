@@ -22,4 +22,22 @@ class IcloudBridge {
 
   /// iCloud 是否可用(容器能解析)。
   static Future<bool> available() async => (await containerPath()) != null;
+
+  /// 确保 vault 里一份对象文件已从 iCloud 下载到本地。开启 iCloud 同步后,
+  /// `objects/` 里的对象可能被 iCloud 逐出(只剩 `.icloud` 占位符);「查看原件」
+  /// 读盘前先调它触发按需下载并等待落地(见 `AppDelegate.swift` 的 `ensureDownloaded`)。
+  ///
+  /// iOS-only。其它平台无 handler,`invokeMethod` 抛 `MissingPluginException`;文件已
+  /// 是最新 / 非 iCloud 托管时原生侧立即返回。任何异常都按「就绪」放行(返回 true),
+  /// 让上层照常读盘并在真失败时优雅降级,绝不因下载判断而卡住查看。
+  static Future<bool> ensureDownloaded(String absolutePath) async {
+    try {
+      final ok = await _channel.invokeMethod<bool>('ensureDownloaded', {
+        'path': absolutePath,
+      });
+      return ok ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
 }

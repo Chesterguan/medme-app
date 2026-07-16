@@ -7,7 +7,6 @@
 // ignore_for_file: argument_type_not_assignable
 
 import 'api/dto.dart';
-import 'api/simple.dart';
 import 'api/vault.dart';
 import 'dart:async';
 import 'dart:convert';

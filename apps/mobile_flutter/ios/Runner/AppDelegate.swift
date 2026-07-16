@@ -37,10 +37,55 @@ import Vision
           let path = FileManager.default.url(forUbiquityContainerIdentifier: nil)?.path
           DispatchQueue.main.async { result(path) }
         }
+      case "ensureDownloaded":
+        // 保险箱 `objects/` 存进 iCloud 容器后,单个对象可能被 iCloud 逐出本地
+        // (只剩 `.icloud` 占位符)。「查看原件」读盘前,Dart 传对象绝对路径来触发
+        // 按需下载并等待其落地,避免打开被逐出的原件失败。见 Dart `IcloudBridge`。
+        guard let args = call.arguments as? [String: Any],
+          let path = args["path"] as? String
+        else {
+          result(FlutterError(code: "bad_args", message: "missing path", details: nil))
+          return
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+          let ok = AppDelegate.ensureUbiquitousItemDownloaded(atPath: path)
+          DispatchQueue.main.async { result(ok) }
+        }
       default:
         result(FlutterMethodNotImplemented)
       }
     }
+  }
+
+  /// 确保 iCloud 容器里的对象已下载到本地。被逐出成 `.icloud` 占位符时触发
+  /// `startDownloadingUbiquitousItem` 并轮询等待 `.current`(有界超时)。
+  ///
+  /// 快路径:已是最新(`.current`)或该文件根本不是 iCloud 托管(如关了 iCloud、
+  /// 本机沙盒库,拿不到 downloadingStatus)→ 立即返回 `true`,不触发任何下载。
+  /// 触发下载失败或超时 → 返回 `false`,上层照常尝试读盘并在失败时优雅降级。
+  private static func ensureUbiquitousItemDownloaded(atPath path: String) -> Bool {
+    let url = URL(fileURLWithPath: path)
+    let statusKey: URLResourceKey = .ubiquitousItemDownloadingStatusKey
+    func downloadingStatus() -> URLUbiquitousItemDownloadingStatus? {
+      return try? url.resourceValues(forKeys: [statusKey]).ubiquitousItemDownloadingStatus
+    }
+    guard let status = downloadingStatus() else {
+      // 非 iCloud 托管文件(无此资源值)——已在本地,视作就绪。
+      return true
+    }
+    if status == .current { return true }
+    do {
+      try FileManager.default.startDownloadingUbiquitousItem(at: url)
+    } catch {
+      return false
+    }
+    // 轮询等待下载完成,最多 ~30s;超时交由上层降级(原件仍安全保存)。
+    let deadline = Date().addingTimeInterval(30)
+    while Date() < deadline {
+      if downloadingStatus() == .current { return true }
+      Thread.sleep(forTimeInterval: 0.2)
+    }
+    return false
   }
 
   // MARK: - OCR MethodChannel(iOS-only,Apple Vision)
