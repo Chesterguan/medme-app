@@ -753,9 +753,10 @@ function buildEMRFromSummary(sm, patient) {
   const yr = s => String(s || "").slice(0, 4);
   const facility = sm.care_facility || (sm.recent_encounters && sm.recent_encounters[0] && sm.recent_encounters[0].provider) || "外院";
   const dx = (sm.problems || []).filter(x => !x.acute).map(x => x.term + (x.onset ? "(" + yr(x.onset) + ")" : "")).join("、");
-  // 影像 / 病理:重点前置
-  const imaging = (sm.imaging || []).map(i => (i.name || "影像") + "提示" + (i.finding || "")).join(";");
-  const pathology = (sm.pathology || []).map(i => (i.name || "病理") + "提示" + (i.finding || "")).join(";");
+  // 影像 / 病理:重点前置。字段须与 assemble_summary 一致:影像 = [{group, studies:[{finding}]}],
+  // 病理 = [{date, conclusion}](此前误读 i.name/i.finding,导致复制文本里影像/病理内容为空)。
+  const imaging = (sm.imaging || []).flatMap(g => (g.studies || []).filter(st => st.finding).map(st => (g.group || "影像") + "提示" + st.finding)).join(";");
+  const pathology = (sm.pathology || []).filter(i => i.conclusion).map(i => "病理提示" + i.conclusion).join(";");
   // 化验:主要阳性 + 趋势,阳性优先
   const labItems = [];
   (sm.problems || []).forEach(pr => (pr.labs || []).forEach(x => {
@@ -869,6 +870,9 @@ function renderSummary(sm, asOf, patient) {
     + '<details class="sum-emr"><summary>预览要复制的文本 ▾</summary><pre id="sum-emr-text">' + esc(emrText) + '</pre></details></div>';
   if ((sm.notable_changes || []).length)
     h += '<div class="sum-card sum-changes"><div class="sum-h">近期变化</div><ul>' + sm.notable_changes.map(c => '<li>' + esc(c) + '</li>').join("") + '</ul></div>';
+  // 病理可视区块(此前病理只进「复制为病历文本」,查看器无可见区块)。字段 = {date, conclusion}。
+  if ((sm.pathology || []).length)
+    h += '<div class="sum-card"><div class="sum-h">病理</div><ul>' + sm.pathology.map(pt => '<li>' + esc(pt.conclusion || "") + (pt.date ? ' <span style="color:#94a3b8">(' + esc(pt.date) + ')</span>' : "") + '</li>').join("") + '</ul></div>';
   h += '</div>';
   h += '<div class="sum-hint">点击任一疾病条 → 展示该病细节(化验趋势与用药)。自上而下 = 发病由早到晚。</div>';
   h += '<div class="sum-chips"><button class="sum-chip on" type="button" data-f="all">全部</button><button class="sum-chip" type="button" data-f="active">只看在治</button><button class="sum-chip" type="button" data-f="abn">只看异常</button></div>';
@@ -1054,7 +1058,16 @@ function render(payload) {
 
   // 医生视图 summary(#37):有则在原始报告之上渲染疾病泳道时间轴 + 趋势 + 影像分区;无则跳过(回退纯列表)。
   const records = payload.records || [];
-  const hasSummary = payload.summary && (payload.summary.problems || []).length;
+  // 与 share.rs 的挂载门槛一致:诊断/趋势/影像/病理/过敏 任一非空就渲染,
+  // 否则只有化验趋势/影像的保险箱会被这一关卡掉、医生只看到文件列表。
+  const s = payload.summary;
+  const hasSummary = s && (
+    (s.problems || []).length ||
+    (s.notable_changes || []).length ||
+    (s.imaging || []).length ||
+    (s.pathology || []).length ||
+    (s.allergies || []).length
+  );
   if (hasSummary) {
     html += renderSummary(payload.summary, payload.generated, payload.patient);
     html += renderImaging(payload.summary.imaging, records); // 影像检查 · 按部位/时间

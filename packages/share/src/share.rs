@@ -241,10 +241,20 @@ pub fn build_encrypted_share(
         "degraded": degraded,
     });
 
-    // 仅当确有 problem 时挂上 summary;否则省略,查看器回退纯文档列表(老分享/空保险箱不受影响)。
-    if summary["problems"]
-        .as_array()
-        .is_some_and(|a| !a.is_empty())
+    // 挂 summary 的门槛:只要有任一有意义的临床内容(诊断 / 趋势 / 影像 / 病理 /
+    // 过敏)就挂,不再只认「有诊断」—— 否则只有化验趋势/影像/病理的保险箱会白算一场、
+    // 医生只看到文件列表。全空(老分享/空保险箱)仍省略,查看器回退纯文档列表。
+    let has_content = |key: &str| {
+        summary
+            .get(key)
+            .and_then(|v| v.as_array())
+            .is_some_and(|a| !a.is_empty())
+    };
+    if has_content("problems")
+        || has_content("notable_changes")
+        || has_content("imaging")
+        || has_content("pathology")
+        || has_content("allergies")
     {
         payload["summary"] = summary;
     }
@@ -767,6 +777,47 @@ mod tests {
             .expect("summary.problems 应存在");
         assert!(!problems.is_empty());
         assert!(problems.iter().any(|p| p["term"] == "2型糖尿病"));
+    }
+
+    #[test]
+    fn share_includes_summary_for_imaging_only_no_diagnosis() {
+        // 降门槛回归:只有影像、无诊断的保险箱,summary 也应挂上(problems 空但 imaging
+        // 非空)。改门槛前 summary 会被整个丢掉,医生只看到文件列表。
+        use core_model::{DocType, NewDocument, NewOcr, OcrBackendKind};
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Vault::open(dir.path()).unwrap();
+        let imp = vault.import("胸部CT.txt", "text/plain", b"ct").unwrap();
+        let doc = vault
+            .add_document(NewDocument {
+                source_file_id: imp.source_file.id,
+                doc_type: DocType::ImagingReport,
+                doc_date: Some(chrono::Utc::now()),
+                doc_date_end: None,
+                title: Some("胸部CT".into()),
+                language: Some("zh".into()),
+                page_count: 1,
+            })
+            .unwrap();
+        vault
+            .add_ocr(NewOcr {
+                document_id: doc.id,
+                page_no: 1,
+                backend: OcrBackendKind::Native,
+                model_version: "text-layer".into(),
+                text: "胸部CT\n影像所见:两肺纹理清晰。\n诊断意见:两肺未见明显活动性病变。".into(),
+                confidence: None,
+            })
+            .unwrap();
+        let (html, pass, _n) =
+            build_encrypted_share(&vault, 5, &crate::render_dicom_png_in_process).unwrap();
+        let payload = decrypt_payload(&html, &pass);
+        assert!(payload["summary"].is_object(), "只有影像时 summary 也应挂上");
+        assert!(
+            payload["summary"]["imaging"]
+                .as_array()
+                .is_some_and(|a| !a.is_empty()),
+            "imaging 应非空"
+        );
     }
 
     /// slice ④:纯非临床记录(无诊断/化验/用药)不产出任何 problem,故 payload 里

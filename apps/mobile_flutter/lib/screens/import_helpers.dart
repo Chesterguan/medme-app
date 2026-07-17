@@ -97,6 +97,7 @@ ImportResultRow rowFromOutcome(ImportOutcomeDto outcome) {
 /// 不让一份文件的问题中断整个批次。
 ImportResultRow rowFromError(String name, Object error) => ImportResultRow(
   name: name,
-  statusLabel: '导入失败:$error',
+  // 面向用户的简单明确提示(原始错误已在导入循环里 debugPrint 到日志)。
+  statusLabel: '导入失败,文件可能损坏或格式不支持,可重试',
   kind: ImportRowKind.failed,
 );

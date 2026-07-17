@@ -41,6 +41,10 @@ Future<OcrResult> recognizeImageText(String path) async {
       InputImage.fromFilePath(path),
     );
     return OcrResult(recognized.text, _averageMlkitConfidence(recognized));
+  } catch (_) {
+    // OCR 失败(模型首次下载失败 / 坏图等)也返回空文本,与 iOS 对齐:让导入流程
+    // 继续,原件照样存下(「仅存原件·未识别到文字」),不丢用户的照片。
+    return const OcrResult('', _confFallback);
   } finally {
     await recognizer.close();
   }
