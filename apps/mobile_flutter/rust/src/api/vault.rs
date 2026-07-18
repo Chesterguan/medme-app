@@ -450,6 +450,34 @@ pub fn ingest_bytes(filename: String, data: Vec<u8>) -> anyhow::Result<ImportOut
     })
 }
 
+/// 扫描版 PDF 的 OCR 回填。`ingest_bytes` 对无文本层的 PDF 只 `store_no_text`
+/// (移动端未链接 Rust OCR 引擎),文档已存但无文字。Flutter 侧用 `pdfx` 逐页把
+/// PDF 渲染成 PNG、走原生图片 OCR(iOS Vision / 安卓 ML Kit)拿到文本后,调本函数
+/// 把文本补进该已存文档,使其可搜索、进 summary。
+///
+/// 只补 `ocr_result`;`doc_type` 暂沿用建档时的文件名分类(用 OCR 文本重分类属质量
+/// 提升,另做)。文本为空则报错(调用方不应回填空)。
+pub fn backfill_pdf_text(document_id: i64, text: String, confidence: f64) -> anyhow::Result<()> {
+    let text = text.trim().to_string();
+    if text.is_empty() {
+        anyhow::bail!("回填文本为空,拒绝");
+    }
+    with_state(|state| {
+        state
+            .vault
+            .add_ocr(NewOcr {
+                document_id,
+                page_no: 1,
+                backend: OcrBackendKind::MlKit,
+                model_version: "mlkit-pdf".into(),
+                text,
+                confidence: Some(confidence as f32),
+            })
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        Ok(())
+    })
+}
+
 /// 采集(图片,Flutter 端已用 ML Kit 识别好文本):原始字节先入 CAS(与
 /// `pipeline::ingest` 一致,去重同一张图);识别出文字则建 document + ocr_result
 /// (backend 固定 `OcrBackendKind::MlKit`,置信度取调用方传入值,与识别引擎无关——

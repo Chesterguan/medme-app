@@ -166,6 +166,93 @@ fn wants_meds(doc_type: Option<&str>) -> bool {
     doc_type.is_none_or(|t| t.contains("prescription"))
 }
 
+/// A clinical section kind, for section-scoped mining of **embedded** labs/meds.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum SecKind {
+    Meds,
+    Labs,
+    Other,
+}
+
+/// The section kind a header line starts, or `None` if it isn't a header. Prefix
+/// match on the trimmed line. `Other` headers (诊断/病史/…) aren't mined but still
+/// bound a section so a meds/labs section ends where the next section begins.
+fn header_kind(line: &str) -> Option<SecKind> {
+    let l = line.trim_start();
+    const MEDS: &[&str] = &[
+        "出院医嘱",
+        "出院带药",
+        "带药",
+        "用药医嘱",
+        "用药",
+        "医嘱",
+        "Rp",
+    ];
+    const LABS: &[&str] = &["检验项目", "检验结果", "化验", "生化检验", "检验报告"];
+    const OTHER: &[&str] = &[
+        "出院诊断",
+        "入院诊断",
+        "初步诊断",
+        "主要诊断",
+        "临床诊断",
+        "病理诊断",
+        "诊断",
+        "影像所见",
+        "超声所见",
+        "检查所见",
+        "诊断意见",
+        "印象",
+        "结论",
+        "主诉",
+        "现病史",
+        "既往史",
+        "住院经过",
+        "查体",
+        "处理意见",
+        "处方",
+        "建议",
+        "小结",
+    ];
+    if MEDS.iter().any(|h| l.starts_with(h)) {
+        Some(SecKind::Meds)
+    } else if LABS.iter().any(|h| l.starts_with(h)) {
+        Some(SecKind::Labs)
+    } else if OTHER.iter().any(|h| l.starts_with(h)) {
+        Some(SecKind::Other)
+    } else {
+        None
+    }
+}
+
+/// Text of the sections in `text` whose header matches `want` (a section runs from
+/// its header line to the next recognized header, or end). Mines **embedded**
+/// labs/meds out of documents whose own `doc_type` isn't lab/rx — a discharge
+/// summary's 出院医嘱 list, a note's 化验 block — that whole-doc `doc_type` gating
+/// would otherwise drop (#148). Section-scoped, so `extract_labs`/`extract_meds`'s
+/// own row-level guards still apply, and prose outside these sections is untouched.
+fn sections_text(text: &str, want: SecKind) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut cur: Option<(SecKind, Vec<&str>)> = None;
+    for line in text.lines() {
+        if let Some(k) = header_kind(line) {
+            if let Some((ck, lines)) = cur.take() {
+                if ck == want {
+                    out.push(lines.join("\n"));
+                }
+            }
+            cur = Some((k, vec![line]));
+        } else if let Some((_, lines)) = cur.as_mut() {
+            lines.push(line);
+        }
+    }
+    if let Some((ck, lines)) = cur {
+        if ck == want {
+            out.push(lines.join("\n"));
+        }
+    }
+    out
+}
+
 /// Render a mention's dose + frequency, e.g. "0.5g bid". `None` if the mention
 /// carries neither a dose nor a frequency.
 fn dose_string(m: &MedObservation) -> Option<String> {
@@ -228,11 +315,15 @@ pub fn aggregate(docs: &[SourceDoc<'_>]) -> AggregatedClinical {
 
     for doc in docs {
         let dt = doc.doc_type.as_deref();
-        // --- labs (only from lab reports; see wants_labs) ---
+        // --- labs: whole-doc for lab reports; else only from embedded 化验 sections
+        // (section-scoped, so a discharge summary's prose 血压 stays out) —— #148. ---
         let doc_labs = if wants_labs(dt) {
             extract_labs(doc.text)
         } else {
-            Vec::new()
+            sections_text(doc.text, SecKind::Labs)
+                .iter()
+                .flat_map(|s| extract_labs(s))
+                .collect()
         };
         for obs in doc_labs {
             let matched = obs.analyte_key.is_some();
@@ -292,10 +383,36 @@ pub fn aggregate(docs: &[SourceDoc<'_>]) -> AggregatedClinical {
         }
 
         // --- meds (only from prescriptions; see wants_meds) ---
+        // --- meds: whole-doc for prescriptions; else only from embedded 用药/带药
+        // sections (a discharge summary's 出院医嘱 list) —— #148. ---
         let doc_meds = if wants_meds(dt) {
             extract_meds(doc.text)
         } else {
-            Vec::new()
+            sections_text(doc.text, SecKind::Meds)
+                .iter()
+                .flat_map(|s| {
+                    // 出院医嘱等常把多药写在**一行**、用「、;,。」分隔,且带用法动词
+                    // (继续口服阿司匹林…)。extract_meds 按行抽、#141 整句标点 guard 会拒
+                    // 整行。故:先按分隔符拆行,再剥去行首用法动词,让每个药各成干净一行
+                    // (散文碎片如「低盐低脂饮食」无剂量,仍被 guard 正确拒掉)。
+                    let normalized: String = s
+                        .replace(['、', '；', ';', '，', ',', '。'], "\n")
+                        .lines()
+                        .map(|l| {
+                            let t = l.trim_start();
+                            for p in ["继续口服", "继续服用", "继续", "口服", "服用", "给予", "予"]
+                            {
+                                if let Some(rest) = t.strip_prefix(p) {
+                                    return rest;
+                                }
+                            }
+                            t
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    extract_meds(&normalized)
+                })
+                .collect()
         };
         for obs in doc_meds {
             let matched = obs.drug_key.is_some();
@@ -428,6 +545,32 @@ mod tests {
 
     fn d(y: i32, m: u32, day: u32) -> Option<NaiveDate> {
         NaiveDate::from_ymd_opt(y, m, day)
+    }
+
+    #[test]
+    fn discharge_summary_embedded_meds_recovered_via_section() {
+        // #148:出院小结 doc_type 不是 prescription,现状 doc_type 门控会丢它的「出院
+        // 医嘱」带药。按段路由应从 用药段 抽出这 4 个药(逗号分隔在一行)。
+        let docs = vec![SourceDoc {
+            index: 0,
+            doc_type: Some("discharge_summary".into()),
+            title: None,
+            date: d(2023, 5, 1),
+            text: "出院诊断:急性脑梗死\n出院医嘱:低盐低脂饮食;继续口服阿司匹林 100mg qd、阿托伐他汀 20mg qn、氨氯地平 5mg qd、二甲双胍 0.5g bid;门诊随访。",
+        }];
+        let agg = aggregate(&docs);
+        let keys: Vec<&str> = agg
+            .meds
+            .iter()
+            .filter_map(|m| m.drug_key.as_deref())
+            .collect();
+        for want in ["aspirin", "atorvastatin", "amlodipine", "metformin"] {
+            assert!(
+                keys.contains(&want),
+                "缺药 {want};实际 keys={keys:?} names={:?}",
+                agg.meds.iter().map(|m| &m.name).collect::<Vec<_>>()
+            );
+        }
     }
 
     #[test]

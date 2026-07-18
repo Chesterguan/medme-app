@@ -32,23 +32,24 @@ use std::sync::OnceLock;
 static PIPELINE: OnceLock<OAROCR> = OnceLock::new();
 
 /// Optional override for where the three PP-OCRv5 model files live. When unset
-/// (desktop/CLI default), the builder is handed the bare file names, which the
-/// `auto-download` feature resolves out of `$OAR_HOME` (`~/.oar`), fetching them
-/// from ModelScope on first use. When set (Android, where `auto-download` is off
-/// and there is no writable home), the app extracts the models shipped in its
-/// APK to app storage and points the engine at that directory via
-/// [`set_model_dir`], so the builder gets absolute, on-disk paths instead.
+/// -- which is every build we currently ship -- the builder is handed the bare
+/// file names, which the `auto-download` feature resolves out of `$OAR_HOME`
+/// (`~/.oar`), fetching them from ModelScope on first use. When set via
+/// [`set_model_dir`], the builder gets absolute, on-disk paths instead, for
+/// packaging the models alongside the binary with `auto-download` off.
 #[cfg(feature = "engine")]
 static MODEL_DIR: OnceLock<PathBuf> = OnceLock::new();
 
 /// Point the OCR engine at a directory holding the three PP-OCRv5 model files
 /// (`pp-ocrv5_mobile_det.onnx`, `pp-ocrv5_mobile_rec.onnx`, `ppocrv5_dict.txt`).
 ///
-/// Used on Android, where the models are bundled in the APK and extracted to
-/// app-private storage at startup rather than auto-downloaded. Must be called
-/// before the first `recognize`/`recognize_pdf` call (the pipeline is built
-/// lazily on first use and cached). Idempotent: the first call wins; later
-/// calls are ignored.
+/// For packaging the models next to the binary instead of auto-downloading
+/// them. **Currently has no callers** -- mobile does not use this crate (ADR
+/// 0005), and desktop/CLI auto-download. Kept as the escape hatch for an
+/// offline build; delete it if that never materializes. Must be called before
+/// the first `recognize`/`recognize_pdf` call (the pipeline is built lazily on
+/// first use and cached). Idempotent: the first call wins; later calls are
+/// ignored.
 #[cfg(feature = "engine")]
 pub fn set_model_dir(dir: PathBuf) {
     let _ = MODEL_DIR.set(dir);
@@ -95,9 +96,9 @@ fn pipeline() -> Result<&'static OAROCR> {
     if let Some(p) = PIPELINE.get() {
         return Ok(p);
     }
-    // With a MODEL_DIR set (Android), hand the builder absolute paths to the
-    // extracted models; `auto-download` is off there, so bare names wouldn't
-    // resolve. Without it (desktop/CLI), the bare names go through
+    // With a MODEL_DIR set, hand the builder absolute paths to packaged models
+    // (for builds with `auto-download` off, where bare names wouldn't resolve).
+    // Without it -- every build we ship today -- the bare names go through
     // `auto-download`'s `$OAR_HOME` resolution unchanged.
     let (det, rec, dict) = match MODEL_DIR.get() {
         Some(dir) => (

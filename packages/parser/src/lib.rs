@@ -312,6 +312,12 @@ pub fn classify(text: &str) -> DocType {
         || has("operative")
     {
         DocType::Surgery
+    } else if has("病理科") || has("病理诊断报告") || has("病理报告") || has("pathology")
+    {
+        // 病理报告的**报告级**标记(科室名 / 报告标题)优先于正文里顺带的「检验 /
+        // 化验 / 影像」字样,免得含这些词的病理报告被抢先分到 LabReport/Imaging。
+        // 弱标记 `病理`(可能只是别的文档正文顺带提到)仍留在后面兜底。
+        DocType::Pathology
     } else if has("检验") || has("化验") || has("laborator") || word("lab") {
         DocType::LabReport
     } else if has("门诊病历")
@@ -583,6 +589,24 @@ mod tests {
         assert_eq!(classify("心电图检查报告"), DocType::ImagingReport);
         assert_eq!(classify("DR 检查:胸部"), DocType::ImagingReport);
         assert_eq!(classify("患者今日拍片复查"), DocType::ImagingReport);
+    }
+
+    #[test]
+    fn classify_pathology_report_beats_incidental_lab_imaging_words() {
+        // 病理报告(报告级标记)含「检验/化验/镜检」等字样,不应被抢先分到 LabReport。
+        assert_eq!(
+            classify("病理科 病理诊断报告\n送检标本:胃镜活检\n病理诊断:慢性胃炎"),
+            DocType::Pathology
+        );
+        assert_eq!(
+            classify("免疫组化检验 病理报告\n化验结果见下"),
+            DocType::Pathology
+        );
+        // 但门诊病历正文顺带提到「病理」,仍是病历(弱标记不抢报告级)。
+        assert_eq!(
+            classify("门诊病历\n就诊科室:消化内科\n病理回报慢性胃炎,继续观察。"),
+            DocType::ClinicalNote
+        );
     }
 
     #[test]

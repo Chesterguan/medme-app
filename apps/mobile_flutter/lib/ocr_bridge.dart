@@ -40,7 +40,19 @@ Future<OcrResult> recognizeImageText(String path) async {
     final recognized = await recognizer.processImage(
       InputImage.fromFilePath(path),
     );
-    return OcrResult(recognized.text, _averageMlkitConfidence(recognized));
+    // Layer-0 A:保留 ML Kit 的**块**结构(块间空行分隔),下游按段分块更准;
+    // 多栏化验单各栏是独立 block,块间不串栏。ML Kit 已给出块及阅读顺序,直接用;
+    // 无块时回退 recognized.text(逐字节等价旧行为)。
+    final blockText = recognized.blocks
+        .map((b) => b.text.trim())
+        .where((t) => t.isNotEmpty)
+        .join('\n\n');
+    final text = blockText.isNotEmpty ? blockText : recognized.text;
+    return OcrResult(text, _averageMlkitConfidence(recognized));
+  } catch (_) {
+    // OCR 失败(模型首次下载失败 / 坏图等)也返回空文本,与 iOS 对齐:让导入流程
+    // 继续,原件照样存下(「仅存原件·未识别到文字」),不丢用户的照片。
+    return const OcrResult('', _confFallback);
   } finally {
     await recognizer.close();
   }

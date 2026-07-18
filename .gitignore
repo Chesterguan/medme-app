@@ -18,3 +18,8 @@ examples/**/*.png
 examples/**/*.pdf
 .playwright-mcp/
 /ui-*.png
+
+# Claude Code:只提交 skill/agent 定义,忽略会话产物与 agent worktree(343M)
+.claude/*
+!.claude/agents/
+!.claude/skills/

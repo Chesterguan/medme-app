@@ -140,12 +140,25 @@ import Vision
     guard let observations = request.results, !observations.isEmpty else {
       return empty
     }
+    // Layer-0 A:按阅读顺序排序(上→下、左→右),大纵向间隔处插空行分块 → 下游按段
+    // 分块更准。Vision 不保证返回顺序;boundingBox 归一化、原点在左下,maxY 越大越靠上。
+    let sorted = observations.sorted { a, b in
+      if abs(a.boundingBox.maxY - b.boundingBox.maxY) > 0.01 {
+        return a.boundingBox.maxY > b.boundingBox.maxY
+      }
+      return a.boundingBox.minX < b.boundingBox.minX
+    }
     var lines: [String] = []
     var confs: [Float] = []
-    for obs in observations {
+    var prevY: CGFloat? = nil
+    for obs in sorted {
       guard let top = obs.topCandidates(1).first else { continue }
+      if let py = prevY, py - obs.boundingBox.maxY > 0.03 {
+        lines.append("") // 大纵向间隔 → 块边界(join 后成空行)
+      }
       lines.append(top.string)
       confs.append(top.confidence)
+      prevY = obs.boundingBox.maxY
     }
     let text = lines.joined(separator: "\n")
     let confidence: Any =

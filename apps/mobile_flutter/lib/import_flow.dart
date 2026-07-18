@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:pdfx/pdfx.dart';
 
 import 'package:mobile_flutter/ocr_bridge.dart';
 import 'package:mobile_flutter/screens/import_helpers.dart';
@@ -135,6 +136,7 @@ Future<void> _runImport(BuildContext context, List<PendingImport> items) async {
     progress.value = '正在导入 ${i + 1}/${items.length}…';
     try {
       final ImportOutcomeDto outcome;
+      var pdfBackfilled = false;
       if (item.isImage) {
         // 各平台原生最强 OCR:iOS Apple Vision / 安卓 ML Kit(见 ocr_bridge.dart)。
         final ocr = await recognizeImageText(item.path);
@@ -148,10 +150,35 @@ Future<void> _runImport(BuildContext context, List<PendingImport> items) async {
       } else {
         final bytes = await File(item.path).readAsBytes();
         outcome = await ingestBytes(filename: item.name, data: bytes);
+        // 扫描版 PDF(无文本层 → 仅存原件):移动端未链接 Rust OCR 引擎,改用 pdfx
+        // 逐页渲染成 PNG、走能用的原生图片 OCR(Vision/ML Kit)后回填,补齐文本。
+        if (outcome.status == 'stored_no_text' &&
+            outcome.documentId != null &&
+            item.name.toLowerCase().endsWith('.pdf')) {
+          final pdfOcr = await _ocrScannedPdf(item.path);
+          if (pdfOcr.text.trim().isNotEmpty) {
+            await backfillPdfText(
+              documentId: outcome.documentId!,
+              text: pdfOcr.text,
+              confidence: pdfOcr.confidence,
+            );
+            pdfBackfilled = true;
+          }
+        }
       }
       if (outcome.documentId case final id?) newDocs[id] = outcome.detectedName;
-      rows.add(rowFromOutcome(outcome));
+      rows.add(
+        pdfBackfilled
+            ? ImportResultRow(
+                name: outcome.name,
+                statusLabel: '已识别入库(扫描件)',
+                kind: ImportRowKind.success,
+              )
+            : rowFromOutcome(outcome),
+      );
     } catch (e) {
+      // 原始错误留日志给开发者;用户看到的是 rowFromError 里的简单提示。
+      debugPrint('[import] ${item.name} 导入失败: $e');
       rows.add(rowFromError(item.name, e));
     }
   }
@@ -175,6 +202,57 @@ Future<void> _runImport(BuildContext context, List<PendingImport> items) async {
   Navigator.of(context).pop(); // 关进度对话框
   await _showImportSummary(context, rows);
   progress.dispose();
+}
+
+/// 扫描版 PDF 补 OCR:用 `pdfx` 逐页渲染成 PNG(2× 分辨率提升识别率),走原生图片
+/// OCR([recognizeImageText],iOS Vision / 安卓 ML Kit),合并各页文本 + 平均置信度。
+/// 任何一步失败/无文本都安全返回(空文本 → 调用方不回填,保持「仅存原件」)。
+/// 页数封顶 [_kMaxPdfOcrPages] 防超大 PDF 卡死。
+const int _kMaxPdfOcrPages = 20;
+
+Future<OcrResult> _ocrScannedPdf(String path) async {
+  final buf = StringBuffer();
+  final confs = <double>[];
+  PdfDocument? doc;
+  Directory? tmp;
+  try {
+    doc = await PdfDocument.openFile(path);
+    tmp = await Directory.systemTemp.createTemp('medme_pdf_ocr');
+    final pages = doc.pagesCount < _kMaxPdfOcrPages
+        ? doc.pagesCount
+        : _kMaxPdfOcrPages;
+    for (var i = 1; i <= pages; i++) {
+      final page = await doc.getPage(i);
+      try {
+        final img = await page.render(
+          width: page.width * 2,
+          height: page.height * 2,
+          format: PdfPageImageFormat.png,
+        );
+        if (img == null) continue;
+        final f = File('${tmp.path}/p$i.png');
+        await f.writeAsBytes(img.bytes);
+        final ocr = await recognizeImageText(f.path);
+        if (ocr.text.trim().isNotEmpty) {
+          buf.writeln(ocr.text);
+          confs.add(ocr.confidence);
+        }
+      } finally {
+        await page.close();
+      }
+    }
+  } catch (e) {
+    debugPrint('[import] 扫描 PDF 渲染/OCR 失败: $e');
+  } finally {
+    await doc?.close();
+    if (tmp != null) {
+      try {
+        await tmp.delete(recursive: true);
+      } catch (_) {}
+    }
+  }
+  final conf = confs.isEmpty ? 0.0 : confs.reduce((a, b) => a + b) / confs.length;
+  return OcrResult(buf.toString().trim(), conf);
 }
 
 Future<void> _showImportSummary(

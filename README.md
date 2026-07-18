@@ -106,7 +106,7 @@ cargo run -p medme-cli -- --help
   | `core-model` | 事件日志、CAS、物化、审计、查询 |
   | `parser` | 文档分类、日期提取、结构化 |
   | `pipeline` | 导入编排(去重、OCR 调度、入库) |
-  | `ocr` | PP-OCRv5 封装(去阴影 / 纠偏预处理) |
+  | `ocr` | 按平台 OCR:macOS Apple Vision · Windows Windows.Media.Ocr · Linux/兜底 PP-OCRv5(去阴影 / 纠偏预处理)。移动端图片 OCR 另在 Flutter/Dart 层:iOS Apple Vision · Android ML Kit |
   | `dicom` | DICOM 解析与渲染(JPEG2000 / JPEG-LS 解码) |
   | `medme-share` | 端到端加密分享导出 |
 

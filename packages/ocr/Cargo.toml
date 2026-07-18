@@ -7,10 +7,10 @@ edition = "2021"
 # `download-binaries` + `simd` are oar-ocr's own defaults (we spell them out so
 # `default-features = false` here doesn't drop them). `download-binaries` is what
 # makes `ort`/ONNX Runtime a *static, self-contained* native lib fetched at BUILD
-# time (per target, including `aarch64-linux-android`) and linked into the final
-# binary -- no runtime download of the runtime. `auto-download` (fetching the OCR
-# *model* files into ~/.oar at run time) is split into its own feature below so
-# the Android build can keep the engine but ship models itself.
+# time (per target) and linked into the final binary -- no runtime download of the
+# runtime. `auto-download` (fetching the OCR *model* files into ~/.oar at run time)
+# is split into its own feature below so a packaged/offline build can supply the
+# models itself. Mobile does not build this crate at all -- see the note below.
 oar-ocr = { version = "0.8.0", default-features = false, features = [
     "download-binaries",
     "simd",
@@ -35,13 +35,13 @@ lopdf.workspace = true
 #   * `auto-download` -- fetches the PP-OCRv5 *model* files into $OAR_HOME
 #                        (~/.oar) the first time OCR runs. Needs a writable home.
 #
-# The mobile **Android** build turns on `engine` but leaves `auto-download` OFF
-# (mobile's Cargo.toml, android target block): the Android sandbox has no
-# writable home for the model download, so the app ships the three model files
-# in its APK and points the engine at them via `set_model_dir`. iOS keeps both
-# (mobile's iOS target block) because iOS still uses `recognize_pdf` for scanned/
-# image-only PDFs (only image files route to Apple Vision, see
-# `ingest_image_via_vision`). Without `engine`, `recognize`/`recognize_pdf`
+# **Mobile does not use this crate at all.** iOS OCRs via Apple Vision and
+# Android via ML Kit, both in the Dart layer (see ADR 0005); the Flutter app's
+# Rust crate has no `ocr` dependency, and `pipeline` takes us with
+# `default-features = false`, so `engine` never links on mobile. The old
+# `set_model_dir` APK-bundling story belonged to the deleted Tauri mobile app
+# (#113) and is dead -- do not resurrect it from this comment.
+# Without `engine`, `recognize`/`recognize_pdf`
 # still compile and return an error ("OCR not available"); callers already
 # treat OCR failure as non-fatal (pipeline falls back to the near-empty text
 # layer / stores the file with no extracted text).
