@@ -9,6 +9,9 @@ on:
     branches: [main]
     paths:
       - "web/hosted-viewer/**"
+      - "tools/build_demo_page.py"
+      - "packages/share/examples/gen_demo_payload.rs"
+      - "apps/desktop/src-tauri/demo-data/**"
       - ".github/workflows/deploy-viewer.yml"
   workflow_dispatch:
 
@@ -24,6 +27,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Generate demo payload from the real sample dataset
+        run: |
+          set -euo pipefail
+          cargo run --release -p medme-share --example gen_demo_payload -- "$RUNNER_TEMP/demo-payload.json"
+          ls -lh "$RUNNER_TEMP/demo-payload.json"
+
       - name: Sync web/hosted-viewer -> gh-pages /viewer/
         run: |
           set -euo pipefail
@@ -33,11 +42,12 @@ jobs:
           git worktree add -B gh-pages gh-pages-wt origin/gh-pages
           install -D web/hosted-viewer/index.html gh-pages-wt/viewer/index.html
           # 示例查看器:同一份查看器 + 注入公开演示数据(张建国示例数据集)。
-          # 与真实分享注入密文同一机制,故功能完全一致、仅数据不同。
+          # payload 由上一步用**生产的 build_encrypted_share** 现生成,不入库
+          # (33MB;入库会把 diff 撑到让 CodeQL 误把 main 上的历史告警算到 PR 头上)。
           mkdir -p gh-pages-wt/demo
           python3 tools/build_demo_page.py \
             web/hosted-viewer/index.html \
-            web/hosted-viewer/demo-payload.json \
+            "$RUNNER_TEMP/demo-payload.json" \
             gh-pages-wt/demo/index.html
           cd gh-pages-wt
           git add viewer/index.html demo/index.html

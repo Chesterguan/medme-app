@@ -23,3 +23,6 @@ examples/**/*.pdf
 .claude/*
 !.claude/agents/
 !.claude/skills/
+
+# 示例查看器 payload:由 CI 从示例数据集现生成(33MB,不入库)
+web/hosted-viewer/demo-payload.json
