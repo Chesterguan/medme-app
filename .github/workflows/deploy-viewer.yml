@@ -9,8 +9,7 @@ on:
     branches: [main]
     paths:
       - "web/hosted-viewer/**"
-      - "tools/build_demo_page.py"
-      - "packages/share/examples/gen_demo_payload.rs"
+      - "packages/share/examples/gen_demo_share.rs"
       - "apps/desktop/src-tauri/demo-data/**"
       - ".github/workflows/deploy-viewer.yml"
   workflow_dispatch:
@@ -27,11 +26,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - name: Generate demo payload from the real sample dataset
+      - name: Build demo share from the real sample dataset
         run: |
           set -euo pipefail
-          cargo run --release -p medme-share --example gen_demo_payload -- "$RUNNER_TEMP/demo-payload.json"
-          ls -lh "$RUNNER_TEMP/demo-payload.json"
+          # 示例页 = 一份**真实加密分享**(同一条生产代码路径),数据换成公开演示数据集。
+          cargo run --release -p medme-share --example gen_demo_share -- \
+            "$RUNNER_TEMP/demo.html" "$RUNNER_TEMP/demo-pass.txt"
+          ls -lh "$RUNNER_TEMP/demo.html"
 
       - name: Sync web/hosted-viewer -> gh-pages /viewer/
         run: |
@@ -41,16 +42,20 @@ jobs:
           git fetch origin gh-pages
           git worktree add -B gh-pages gh-pages-wt origin/gh-pages
           install -D web/hosted-viewer/index.html gh-pages-wt/viewer/index.html
-          # 示例查看器:同一份查看器 + 注入公开演示数据(张建国示例数据集)。
-          # payload 由上一步用**生产的 build_encrypted_share** 现生成,不入库
-          # (33MB;入库会把 diff 撑到让 CodeQL 误把 main 上的历史告警算到 PR 头上)。
-          mkdir -p gh-pages-wt/demo
-          python3 tools/build_demo_page.py \
-            web/hosted-viewer/index.html \
-            "$RUNNER_TEMP/demo-payload.json" \
-            gh-pages-wt/demo/index.html
+          # 示例页:上一步产出的真实分享(43MB,不入库)。口令随 URL fragment 送达,
+          # 故把落地页的样例入口重写成 demo/#<口令> —— 每次部署口令都会变。
+          install -D "$RUNNER_TEMP/demo.html" gh-pages-wt/demo/index.html
+          python3 - "$RUNNER_TEMP/demo-pass.txt" gh-pages-wt/index.html <<'PY'
+          import re, sys, urllib.parse
+          pw = urllib.parse.quote(open(sys.argv[1]).read().strip())
+          p = sys.argv[2]
+          s = open(p, encoding="utf-8").read()
+          s2 = re.sub(r'href="(?:demo/[^"]*|viewer/\?demo)"', f'href="demo/#{pw}"', s)
+          open(p, "w", encoding="utf-8").write(s2)
+          print("landing demo link updated" if s2 != s else "landing demo link unchanged")
+PY
           cd gh-pages-wt
-          git add viewer/index.html demo/index.html
+          git add viewer/index.html demo/index.html index.html
           if git diff --cached --quiet; then
             echo "viewer already up to date; nothing to deploy"
           else
