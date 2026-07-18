@@ -590,14 +590,18 @@ mod tests {
         let iv = &blob[..12];
         let data = &blob[12..];
         let cipher2 = Aes256Gcm::new_from_slice(&key_bytes).unwrap();
-        let out = cipher2.decrypt(iv.try_into().expect("12 字节 iv"), data).unwrap();
+        let out = cipher2
+            .decrypt(iv.try_into().expect("12 字节 iv"), data)
+            .unwrap();
         assert_eq!(out, plaintext);
 
         // 错误密钥应解密失败
         let mut wrong = key_bytes;
         wrong[0] ^= 0xff;
         let bad = Aes256Gcm::new_from_slice(&wrong).unwrap();
-        assert!(bad.decrypt(iv.try_into().expect("12 字节 iv"), data).is_err());
+        assert!(bad
+            .decrypt(iv.try_into().expect("12 字节 iv"), data)
+            .is_err());
     }
 
     #[test]
