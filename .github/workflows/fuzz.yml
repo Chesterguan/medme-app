@@ -51,7 +51,11 @@ jobs:
         run: |
           set -euo pipefail
           cd fuzz
-          cargo +nightly fuzz run ${{ matrix.target }} -- \
+          # taiki-e/install-action 装的是 musl 静态链接的 cargo-fuzz,它会把自己的
+          # 构建目标当成 fuzz 目标,而 sanitizer 与静态 libc 不兼容 —— 故显式指定
+          # 当前工具链的 host target。
+          HOST=$(rustc +nightly -vV | awk '/^host:/{print $2}')
+          cargo +nightly fuzz run --target "$HOST" ${{ matrix.target }} -- \
             -max_total_time=120 -rss_limit_mb=2048
       - name: 上传复现样本(仅在失败时)
         if: failure()
