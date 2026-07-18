@@ -11,7 +11,7 @@
   :root{ color-scheme:light; --bg:#f8fafc; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --blue:#1789c1; --blue-50:#e6f6fa; --card:#ffffff; }
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.7;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:760px;margin:0 auto;padding:30px 20px 72px}
+  .wrap{max-width:1040px;margin:0 auto;padding:30px 20px 72px}
   header{display:flex;align-items:center;gap:11px;padding:4px 0 20px;border-bottom:1px solid var(--line);margin-bottom:26px}
   header .logo{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#2bc0d2,#1789c1,#1560a8);flex-shrink:0}
   header h1{font-size:19px;font-weight:800;letter-spacing:-.01em}
@@ -24,15 +24,38 @@
   .langbar button[aria-pressed="true"]{background:var(--blue);border-color:var(--blue);color:#fff}
   html[data-lang="zh"] [lang="en"]{display:none}
   html[data-lang="en"] [lang="zh"]{display:none}
+  /* 搜索占位 */
+  .search{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--line);
+    border-radius:12px;padding:10px 14px;margin-bottom:20px;color:var(--muted);
+    box-shadow:0 1px 3px rgba(15,23,42,.04)}
+  .search input{flex:1;font:inherit;font-size:14px;border:0;outline:0;background:transparent;
+    color:var(--ink);cursor:not-allowed}
+  .search input::placeholder{color:#94a3b8}
+  .search .soon{font-size:11px;font-weight:700;color:var(--blue);background:var(--blue-50);
+    border:1px solid #c8ebf1;border-radius:999px;padding:2px 9px;white-space:nowrap}
+  /* 三列网格;展开的卡横跨整行,正文才有正常行宽 */
+  .topics{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .topics .topic{display:flex;flex-direction:column}
+  .topics .topic details{flex:1;display:flex;flex-direction:column}
+  .topic summary .q{margin-bottom:9px}
+  .topics .topic{margin-bottom:0}
+  .topics .topic:has(details[open]){grid-column:1 / -1}
+  .topic .body{max-width:72ch}
+  @media(max-width:920px){.topics{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:640px){.topics{grid-template-columns:1fr}}
+  /* 卡片图标 */
+  .topic .ic{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;
+    border-radius:10px;background:var(--blue-50);border:1px solid #c8ebf1;color:var(--blue);
+    margin-bottom:12px}
   /* 专题卡片 */
   .topic{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px 24px;
     margin-bottom:16px;box-shadow:0 1px 3px rgba(15,23,42,.04)}
-  .topic .q{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.06em;color:var(--blue);
+  .topic .q{display:block;width:fit-content;font-size:11.5px;font-weight:700;letter-spacing:.06em;color:var(--blue);
     background:var(--blue-50);border:1px solid #c8ebf1;border-radius:999px;padding:2px 11px;margin-bottom:11px}
   .topic h2{font-size:20px;letter-spacing:-.01em;line-height:1.35;margin-bottom:0}
-  .topic summary{list-style:none;cursor:pointer;position:relative;padding-right:30px}
+  .topic summary{list-style:none;cursor:pointer;position:relative;padding-right:26px;display:block}
   .topic summary::-webkit-details-marker{display:none}
-  .topic summary::after{content:"";position:absolute;right:4px;top:calc(50% - 3px);
+  .topic summary::after{content:"";position:absolute;right:2px;top:14px;
     width:9px;height:9px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);
     transform:rotate(45deg);transition:transform .2s}
   .topic details[open] summary::after{transform:rotate(-135deg)}
@@ -79,10 +102,13 @@
     <button type="button" data-set="en" aria-pressed="false">English</button>
   </div>
 
+  <div class="search"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" disabled aria-label="搜索" data-ph-zh="搜索专题、决定、技术名词" data-ph-en="Search topics, decisions, terms" /><span class="soon"><span lang="zh">即将推出</span><span lang="en">coming soon</span></span></div>
+
+  <div class="topics">
   <!-- ── 专题 1:OCR ────────────────────────────────────────── -->
   <section class="topic">
     <div lang="zh">
-      <details><summary><span class="q">用户在意的:我拍的照片,它能读对吗</span>
+      <details><summary><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l1.5-2h7L17 7h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span><span class="q">用户在意的:我拍的照片,它能读对吗</span>
       <h2>让手机读准一张拍歪的化验单</h2></summary><div class="body">
       <p class="why">MedMe 的识别和整理都在你自己的设备上完成,照片和 PDF 不会被传到我们这儿 —— 我们也没有存它们的服务器。代价是<b>没有一个通用的「认字」引擎可以用</b>:每个系统只肯借你它自己那套 OCR,好用程度还不一样。这张卡片记的就是我们怎么在五个平台上,拼出一条尽量能把中文病历读准的路。</p>
 
@@ -111,7 +137,7 @@
     </div>
 
     <div lang="en">
-      <details><summary><span class="q">What you actually care about: will it read my photo correctly?</span>
+      <details><summary><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l1.5-2h7L17 7h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span><span class="q">What you actually care about: will it read my photo correctly?</span>
       <h2>Getting a phone to read a crooked photo of a lab report</h2></summary><div class="body">
       <p class="why">Recognition and organizing both happen on your own device — your photos and PDFs don't come to us, and we don't run servers that store them. The price: <b>there is no single OCR engine available to us</b>. Each OS only lends you its own, and they are not equally good. This card tracks how we assembled a path across five platforms that reads Chinese medical records as accurately as we can manage.</p>
 
@@ -143,7 +169,7 @@
   <!-- ── 专题 2:抽取与术语 ──────────────────────────────── -->
   <section class="topic">
     <div lang="zh">
-      <details><summary><span class="q">用户在意的:它会不会看错、会不会瞎编</span>
+      <details><summary><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h10M4 10h7M4 15h9M4 20h5"/><path d="M15.5 15.5l2.5 2.5 4.5-4.5"/></svg></span><span class="q">用户在意的:它会不会看错、会不会瞎编</span>
       <h2>认出「这是一种药、那是一项指标」,而且不许猜</h2></summary><div class="body">
       <p class="why">读出字只是第一步。一份出院小结里,「二甲双胍 0.5g 每日两次」是用药,「谷丙转氨酶 43.60 U/L」是化验,「2 型糖尿病」是诊断 —— 得先分得清,才谈得上按时间给你理成一条线。难点不在认出常见词,在于<b>同一个东西有十几种写法</b>(缩写、商品名、中英混排、单位不统一),而且<b>宁可漏,也不能编</b>。</p>
 
@@ -176,7 +202,7 @@
     </div>
 
     <div lang="en">
-      <details><summary><span class="q">What you actually care about: will it misread things, or make them up?</span>
+      <details><summary><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h10M4 10h7M4 15h9M4 20h5"/><path d="M15.5 15.5l2.5 2.5 4.5-4.5"/></svg></span><span class="q">What you actually care about: will it misread things, or make them up?</span>
       <h2>Telling "this is a drug" from "that is a lab value" — without guessing</h2></summary><div class="body">
       <p class="why">Reading the characters is only step one. In one discharge summary, "metformin 0.5g twice daily" is a medication, "ALT 43.60 U/L" is a lab result, and "type 2 diabetes" is a diagnosis. You have to tell them apart before you can lay anything out on a timeline. The hard part isn't the common words — it's that <b>the same thing gets written a dozen ways</b> (abbreviations, brand names, mixed Chinese/English, inconsistent units), and that <b>missing something is acceptable while inventing something is not</b>.</p>
 
@@ -212,7 +238,7 @@
   <!-- ── 专题 3:数据存在哪 ──────────────────────────────── -->
   <section class="topic">
     <div lang="zh">
-      <details><summary><span class="q">用户在意的:这些东西会不会泄露、会不会丢</span>
+      <details><summary><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6z"/><path d="M12 11v3"/><circle cx="12" cy="9" r="0.6" fill="currentColor" stroke="none"/></svg></span><span class="q">用户在意的:这些东西会不会泄露、会不会丢</span>
       <h2>把最私密的一批数据,放在一个没有服务器的地方</h2></summary><div class="body">
       <p class="why">病历大概是普通人手里最敏感的数据。我们的选择是<b>干脆不建存它的服务器</b> —— 没有账号、没有云端库,东西就在你自己的设备上。这样一来,就不存在一个装着所有人病历、可以被一次性拖走的库;代价是数据的完整、备份、损坏恢复,全得我们自己在本地做对。</p>
 
@@ -241,7 +267,7 @@
     </div>
 
     <div lang="en">
-      <details><summary><span class="q">What you actually care about: can this leak, and can I lose it?</span>
+      <details><summary><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6z"/><path d="M12 11v3"/><circle cx="12" cy="9" r="0.6" fill="currentColor" stroke="none"/></svg></span><span class="q">What you actually care about: can this leak, and can I lose it?</span>
       <h2>Putting your most private data somewhere with no server behind it</h2></summary><div class="body">
       <p class="why">Medical records may be the most sensitive data an ordinary person holds. Our choice was to <b>not build a server that stores them at all</b> — no accounts, no cloud database, everything sits on your own device. That means there is no single database holding everyone's records for someone to walk off with; the price is that integrity, backup and corruption recovery are all on us to get right locally.</p>
 
@@ -273,7 +299,7 @@
   <!-- ── 专题 4:给医生的那一页 ──────────────────────────── -->
   <section class="topic">
     <div lang="zh">
-      <details><summary><span class="q">用户在意的:到了诊室,这东西真能用吗</span>
+      <details><summary><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3.5h6M8 12h2l1.5-3 2 6 1.5-3h2"/></svg></span><span class="q">用户在意的:到了诊室,这东西真能用吗</span>
       <h2>把三年病历,压成医生几十秒能看完的一页</h2></summary><div class="body">
       <p class="why">门诊留给你的时间通常只有几分钟。你翻着手机找化验单的时候,医生只想知道三件事:什么病、吃什么药、指标在往哪个方向走。所以我们要做的不是"把所有资料都给他",而是<b>把最要紧的挑出来排在最前面</b>,同时让他<b>随时能点回原件核对</b> —— 医生不会信一份看不到出处的摘要。</p>
 
@@ -298,7 +324,7 @@
     </div>
 
     <div lang="en">
-      <details><summary><span class="q">What you actually care about: in the exam room, does this actually work?</span>
+      <details><summary><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3.5h6M8 12h2l1.5-3 2 6 1.5-3h2"/></svg></span><span class="q">What you actually care about: in the exam room, does this actually work?</span>
       <h2>Compressing three years of records into a page a doctor can read in under a minute</h2></summary><div class="body">
       <p class="why">A clinic visit gives you a few minutes. While you're scrolling your phone hunting for a lab report, the doctor wants three things: what conditions, what medications, which direction the numbers are moving. So the job isn't "hand over everything" — it's <b>putting what matters at the top</b> while keeping <b>the original one tap away</b>. No doctor trusts a summary they can't check against the source.</p>
 
@@ -326,7 +352,7 @@
   <!-- ── 专题 5:医生查看器 ──────────────────────────────── -->
   <section class="topic">
     <div lang="zh">
-      <details><summary><span class="q">用户在意的:发给医生的那个文件,他打得开吗</span>
+      <details><summary><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M8.5 10.5l2 2 4-4.5"/></svg></span><span class="q">用户在意的:发给医生的那个文件,他打得开吗</span>
       <h2>一个不用装、不用注册、不联网的查看器</h2></summary><div class="body">
       <p class="why">分享这一步的约束很硬:你没法指望医生为你装个 App、注册个账号,诊室的网也未必好使。所以我们给的不是链接,是<b>一个文件</b> —— 一份自包含的加密 HTML,记录用 AES-256-GCM 加密塞在里面,查看器本身也在里面。口令另外一个渠道告诉他。他双击打开,输口令,浏览器本地解密。<b>难的地方在于,这个文件一旦发出去就不归我们管了</b> —— 它得自己把该做的都做完,还得让医生信它。</p>
 
@@ -363,7 +389,7 @@
     </div>
 
     <div lang="en">
-      <details><summary><span class="q">What you actually care about: can the doctor actually open the file I send?</span>
+      <details><summary><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M8.5 10.5l2 2 4-4.5"/></svg></span><span class="q">What you actually care about: can the doctor actually open the file I send?</span>
       <h2>A viewer with nothing to install, no account, and no network</h2></summary><div class="body">
       <p class="why">The constraints here are unforgiving: you can't count on the doctor installing an app or signing up for an account, and clinic wifi is a coin flip. So we don't hand over a link — we hand over <b>a file</b>. One self-contained encrypted HTML, with the records AES-256-GCM encrypted inside it and the viewer inside it too. The passphrase travels separately. Double-click, type the passphrase, and the browser decrypts locally. <b>The hard part is that once the file is sent, it's out of our hands</b> — it has to do everything itself, and it has to earn the doctor's trust.</p>
 
@@ -403,7 +429,7 @@
   <!-- ── 专题 6:系统设计 ────────────────────────────────── -->
   <section class="topic">
     <div lang="zh">
-      <details><summary><span class="q">用户在意的:为什么我等的那个版本还没出</span>
+      <details><summary><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="11" height="10" rx="1.5"/><rect x="16" y="3" width="5" height="18" rx="1.5"/><path d="M6 19h5"/></svg></span><span class="q">用户在意的:为什么我等的那个版本还没出</span>
       <h2>先做手机,桌面往后排 —— 以及为什么桌面还是得做</h2></summary><div class="body">
       <p class="why">病历是在诊室、在检查科门口、在缴费窗口排队时产生的,那个场景里你手上只有手机。<b>手机几乎人人都有 —— 我们判断它是绝大多数人的第一选择</b>,所以把它排在最前面。桌面版不是不做,而是定位不同 —— 它是<b>进阶的个人数据查看器</b>:大屏翻片子、比对多年趋势、批量整理。用得上它的人更少,但用得上的时候,手机屏幕替代不了。</p>
 
@@ -432,7 +458,7 @@
     </div>
 
     <div lang="en">
-      <details><summary><span class="q">What you actually care about: why isn't the version I want out yet?</span>
+      <details><summary><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="11" height="10" rx="1.5"/><rect x="16" y="3" width="5" height="18" rx="1.5"/><path d="M6 19h5"/></svg></span><span class="q">What you actually care about: why isn't the version I want out yet?</span>
       <h2>Phone first, desktop later — and why desktop still has to happen</h2></summary><div class="body">
       <p class="why">Medical records get created in the exam room, outside the imaging department, in the queue at the payment window. In those moments the only thing in your hand is a phone. <b>Almost everyone has one, and we're betting it's the first choice for most people</b>, so that's where we started. Desktop isn't cancelled — it plays a different role: <b>the power-user's data viewer</b>. Big screen for scans, multi-year trends side by side, bulk cleanup. Fewer people need that, but when they do, a phone screen won't substitute.</p>
 
@@ -461,6 +487,8 @@
     </div>
   </section>
 
+  </div>
+
   <p class="foot">
     <span lang="zh">日期按 UTC · <a href="changelog.html">更新日志</a> · <a href="about.html">关于</a> · <a href="https://github.com/Chesterguan/medme" target="_blank" rel="noopener">GitHub</a></span>
     <span lang="en">Dates in UTC · <a href="changelog.html">Changelog</a> · <a href="about.html">About</a> · <a href="https://github.com/Chesterguan/medme" target="_blank" rel="noopener">GitHub</a></span>
@@ -477,6 +505,8 @@
   function set(l) {
     document.documentElement.setAttribute("data-lang", l);
     document.documentElement.setAttribute("lang", l === "zh" ? "zh-CN" : "en");
+    var si = document.querySelector(".search input");
+    if (si) si.placeholder = si.dataset["ph" + (l === "zh" ? "Zh" : "En")];
     var bs = document.querySelectorAll(".langbar button");
     for (var i = 0; i < bs.length; i++) bs[i].setAttribute("aria-pressed", String(bs[i].dataset.set === l));
     try { localStorage.setItem("medme-lang", l); } catch (e) {}
