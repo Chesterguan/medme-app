@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="zh">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="light only" />
+<title>我们在解决的问题 · MedMe 医我</title>
+<meta name="description" content="MedMe 医我 的公开开发记录 —— 按专题组织:每个专题一个真实难题,底下是它一步步被解决的过程。" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%201024%201024%22%3E%3Crect%20width%3D%221024%22%20height%3D%221024%22%20rx%3D%22232%22%20fill%3D%22%231789c1%22%2F%3E%3C%2Fsvg%3E" />
+<style>
+  :root{ color-scheme:light; --bg:#f8fafc; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --blue:#1789c1; --blue-50:#e6f6fa; --card:#ffffff; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.7;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:30px 20px 72px}
+  header{display:flex;align-items:center;gap:11px;padding:4px 0 20px;border-bottom:1px solid var(--line);margin-bottom:26px}
+  header .logo{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#2bc0d2,#1789c1,#1560a8);flex-shrink:0}
+  header h1{font-size:19px;font-weight:800;letter-spacing:-.01em}
+  header .home{margin-left:auto;font-size:13px;color:var(--blue);text-decoration:none;font-weight:700}
+  .lead{color:var(--muted);font-size:13.5px;margin:-8px 0 20px}
+  /* 语言开关 */
+  .langbar{display:flex;gap:6px;margin-bottom:26px}
+  .langbar button{font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;border:1px solid var(--line);
+    background:#fff;color:var(--muted);border-radius:999px;padding:4px 14px}
+  .langbar button[aria-pressed="true"]{background:var(--blue);border-color:var(--blue);color:#fff}
+  html[data-lang="zh"] [lang="en"]{display:none}
+  html[data-lang="en"] [lang="zh"]{display:none}
+  /* 专题卡片 */
+  .topic{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px 24px;
+    margin-bottom:16px;box-shadow:0 1px 3px rgba(15,23,42,.04)}
+  .topic .q{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.06em;color:var(--blue);
+    background:var(--blue-50);border:1px solid #c8ebf1;border-radius:999px;padding:2px 11px;margin-bottom:11px}
+  .topic h2{font-size:20px;letter-spacing:-.01em;line-height:1.35;margin-bottom:10px}
+  .topic .why{font-size:14.5px;color:#334155;margin-bottom:6px}
+  .topic .why b{color:var(--ink);font-weight:650}
+  /* 卡内时间线 */
+  .tl{list-style:none;margin:18px 0 0;padding:0 0 0 18px;border-left:2px solid var(--line)}
+  .tl li{position:relative;padding:0 0 16px 14px}
+  .tl li:last-child{padding-bottom:0}
+  .tl li::before{content:"";position:absolute;left:-25px;top:8px;width:9px;height:9px;border-radius:50%;
+    background:#cbd5e1;border:2px solid var(--bg)}
+  .tl li.now::before{background:var(--blue)}
+  .tl .d{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;margin-right:8px}
+  .tl .wip{font-size:11px;font-weight:700;color:#b45309;background:#fef3c7;border-radius:999px;padding:1px 8px}
+  .tl .t{font-size:14.5px;color:#334155}
+  .tl .t b{color:var(--ink);font-weight:650}
+  .tl code{background:#f1f5f9;border-radius:5px;padding:1px 5px;font-size:12.5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .tl a{color:var(--blue);text-decoration:none;font-weight:600}
+  .tl a:hover{text-decoration:underline}
+  .soon{color:var(--muted);font-size:13.5px;font-style:normal}
+  .foot{font-size:12px;color:var(--muted);margin-top:22px;text-align:center}
+  .foot a{color:var(--blue)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="logo"></span>
+    <h1><span lang="zh">MedMe 医我 · 我们在解决的问题</span><span lang="en">MedMe · Problems We're Solving</span></h1>
+    <a class="home" href="index.html"><span lang="zh">← 回主页</span><span lang="en">← Home</span></a>
+  </header>
+  <p class="lead">
+    <span lang="zh">不按流水账写。一张卡片一个难题,底下是我们一步步啃它的过程 —— 日期是代码合并进主干的那天,做砸的也写。</span>
+    <span lang="en">Not a diary. Each card is one real problem; underneath is how it got solved, step by step. Dates are when the code merged. The things we got wrong are in here too.</span>
+  </p>
+
+  <div class="langbar">
+    <button type="button" data-set="zh" aria-pressed="true">中文</button>
+    <button type="button" data-set="en" aria-pressed="false">English</button>
+  </div>
+
+  <!-- ── 专题 1:OCR ────────────────────────────────────────── -->
+  <section class="topic">
+    <div lang="zh">
+      <span class="q">用户在意的:我拍的照片,它能读对吗</span>
+      <h2>让手机读准一张拍歪的化验单</h2>
+      <p class="why">MedMe 的识别和整理都在你自己的设备上完成,照片和 PDF 不会被传到我们这儿 —— 我们也没有存它们的服务器。代价是<b>没有一个通用的「认字」引擎可以用</b>:每个系统只肯借你它自己那套 OCR,好用程度还不一样。这张卡片记的就是我们怎么在五个平台上,拼出一条尽量能把中文病历读准的路。</p>
+
+      <ul class="tl">
+        <li class="now">
+          <span class="d">2026-07-18</span><span class="wip">开发中</span>
+          <div class="t"><b>手机能读扫描版 PDF 了。</b>医院打出来的 PDF 很多其实就是一张图,没有文字层,直接读只能读到空。桌面上有 OCR 兜底,手机上没有。现在的做法是:发现没有文字层,就把每页渲染成图,交给系统自带的 OCR,再把认出来的字填回这份文档。顺手还修了一个坑:<b>安卓上识别失败,会把照片原件一起丢掉。</b>现在识别失败不再连累原件,只告诉你这张没认出来 —— 在我们看来,原件比识别结果更值得保住。</div>
+        </li>
+        <li>
+          <span class="d">2026-07-13</span>
+          <div class="t"><b>iOS 换成 Apple Vision。</b>认中文更准,而且 iPhone 拍出来默认就是 HEIC 格式,它能直接读,不用先转一道。<a href="https://github.com/Chesterguan/medme/pull/114" target="_blank" rel="noopener">#114</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-12</span>
+          <div class="t"><b>不再假装读到了字。</b>两件事:扫描版 PDF 识别失败时,以前会把空结果当成「读到了文字层」存进去,现在老老实实标成「已存原件 · 未识别」;单张图片的记录里也如实写清到底是哪个引擎跑的(Vision / WinRT),而不是笼统写成 ONNX。读不出来就说读不出来,比给你编一个结果安全。<a href="https://github.com/Chesterguan/medme/pull/69" target="_blank" rel="noopener">#69</a> · <a href="https://github.com/Chesterguan/medme/pull/70" target="_blank" rel="noopener">#70</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-11</span>
+          <div class="t"><b>五个平台、四套引擎,凑齐了。</b>macOS 优先用 Apple Vision(读不出来再退回 PP-OCRv5),Windows 用 <code>Windows.Media.Ocr</code>,Linux 用 PP-OCRv5,安卓用 ML Kit,再补上 HEIC 解码。挑的基本都是系统自带的能力,因为它们本地就能跑完。<b>一处要说清楚:</b>PP-OCRv5 不是系统自带的,它的模型文件会在第一次用到时联网下载一次 —— 这只发生在电脑上,手机端不用它。下载的是模型,不是你的病历,但这确实是一次联网,不该含糊过去。<a href="https://github.com/Chesterguan/medme/pull/42" target="_blank" rel="noopener">#42</a> · <a href="https://github.com/Chesterguan/medme/pull/50" target="_blank" rel="noopener">#50</a></div>
+        </li>
+      </ul>
+
+      <p class="why" style="margin-top:18px">
+        <b>两件我们不打算藏着的事。</b>第一,我们试过让视觉大模型直接「看」中文化验单的照片,在我们试的那几张上,它<b>编出了根本不存在的化验项目名</b>,还编得挺像真的。这种错放在病历里风险太高,所以这条路我们先放下了,老老实实走 OCR → 文字 → 抽取。第二,同一批手机实拍的照片,Apple Vision 给出的识别置信度落在 0.36–0.41,PP-OCRv5 落在 0.69–0.95;43.60、4.35 这几个数字,PP-OCRv5 读对了、Apple Vision 读错了。<b>得说明的是</b>,两个引擎的置信度是各算各的,数值之间不能直接比高低,能比的是「读出来的字对不对」——我们看的是后者。可惜 PP-OCRv5 目前只在桌面上跑,手机用不了,所以手机端认得准不准,到今天仍是我们没解决好的一块,还在找路子。
+      </p>
+    </div>
+
+    <div lang="en">
+      <span class="q">What you actually care about: will it read my photo correctly?</span>
+      <h2>Getting a phone to read a crooked photo of a lab report</h2>
+      <p class="why">Recognition and organizing both happen on your own device — your photos and PDFs don't come to us, and we don't run servers that store them. The price: <b>there is no single OCR engine available to us</b>. Each OS only lends you its own, and they are not equally good. This card tracks how we assembled a path across five platforms that reads Chinese medical records as accurately as we can manage.</p>
+
+      <ul class="tl">
+        <li class="now">
+          <span class="d">2026-07-18</span><span class="wip">in progress</span>
+          <div class="t"><b>Phones can read scanned PDFs now.</b> Many hospital PDFs are really just images — no text layer, so reading them yields an empty string. Desktop had an OCR fallback; mobile didn't. The fix: detect the missing text layer → render each page to an image → hand it to the platform's native OCR → backfill the recognized text. Shipped alongside: <b>Android used to drop the original photo when recognition failed</b>. OCR failure no longer takes the original down with it — we just tell you that page wasn't recognized. We think the original is worth more than the extraction.</div>
+        </li>
+        <li>
+          <span class="d">2026-07-13</span>
+          <div class="t"><b>iOS switched to Apple Vision.</b> Better Chinese recognition, and it reads the HEIC files iPhones save by default — no conversion step. <a href="https://github.com/Chesterguan/medme/pull/114" target="_blank" rel="noopener">#114</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-12</span>
+          <div class="t"><b>We stopped pretending we'd read something.</b> Two fixes: when OCR failed on a scanned PDF, the empty result used to be stored as a "successful text layer" — now it honestly degrades to "original stored · not recognized". And for single images, provenance records name the engine that actually ran (Vision / WinRT) rather than lumping everything under ONNX. Saying "couldn't read it" is safer than inventing a result. <a href="https://github.com/Chesterguan/medme/pull/69" target="_blank" rel="noopener">#69</a> · <a href="https://github.com/Chesterguan/medme/pull/70" target="_blank" rel="noopener">#70</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-11</span>
+          <div class="t"><b>Five platforms, four engines, all wired up.</b> macOS prefers Apple Vision and falls back to PP-OCRv5 when Vision comes up empty; Windows uses <code>Windows.Media.Ocr</code>, Linux uses PP-OCRv5, Android uses ML Kit, plus HEIC decoding. We picked OS-provided engines wherever we could, because they run start to finish locally. <b>One thing to be clear about:</b> PP-OCRv5 isn't one of them — its model files are downloaded once, over the network, the first time they're needed. That only happens on the desktop; phones don't use it. What gets downloaded is the model, not your records, but it is a network call and we shouldn't gloss over it. <a href="https://github.com/Chesterguan/medme/pull/42" target="_blank" rel="noopener">#42</a> · <a href="https://github.com/Chesterguan/medme/pull/50" target="_blank" rel="noopener">#50</a></div>
+        </li>
+      </ul>
+
+      <p class="why" style="margin-top:18px">
+        <b>Two things we're not hiding.</b> First: pointed at photos of Chinese lab reports, a vision-language model <b>invented test names that weren't there</b> — convincingly — on the samples we tried. That kind of error is too risky to carry into medical records, so we've set the approach aside for now and stick to OCR → text → extraction. Second: on the same set of real phone photos, Apple Vision reported confidence in the 0.36–0.41 range against 0.69–0.95 for PP-OCRv5, and PP-OCRv5 read values like 43.60 and 4.35 correctly where Apple Vision didn't. <b>Worth noting:</b> the two engines compute confidence differently, so the numbers aren't directly comparable — what is comparable is whether the characters came out right, and that's what we went by. PP-OCRv5 is desktop-only today, so mobile accuracy remains unsolved for us, and we're still looking.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── 专题 2:抽取与术语 ──────────────────────────────── -->
+  <section class="topic">
+    <div lang="zh">
+      <span class="q">用户在意的:它会不会看错、会不会瞎编</span>
+      <h2>认出「这是一种药、那是一项指标」,而且不许猜</h2>
+      <p class="why">读出字只是第一步。一份出院小结里,「二甲双胍 0.5g 每日两次」是用药,「谷丙转氨酶 43.60 U/L」是化验,「2 型糖尿病」是诊断 —— 得先分得清,才谈得上按时间给你理成一条线。难点不在认出常见词,在于<b>同一个东西有十几种写法</b>(缩写、商品名、中英混排、单位不统一),而且<b>宁可漏,也不能编</b>。</p>
+
+      <ul class="tl">
+        <li class="now">
+          <span class="d">2026-07-18</span><span class="wip">开发中</span>
+          <div class="t"><b>先分段,再抽取。</b>以前是拿整份文档从头扫到尾,结果出院小结里夹着的用药段常常被漏掉。现在先按「出院医嘱 / 出院带药 / 检验结果」这类小标题把文档切成段,再按段的类型决定用哪套规则。出院小结里夹着的那段出院医嘱,以前会被整段丢掉,现在能抽出来。</div>
+        </li>
+        <li>
+          <span class="d">2026-07-16</span>
+          <div class="t"><b>给医生看的摘要,挑毛病挑出六处。</b>摘要里有六类错会露出来:诊断被行内编号切碎、同一项重复出现、病理结论被当成诊断、化验和用药串味、参考值读错、趋势排序乱。都修掉了。这活儿不性感,但摘要要给医生看,错一条就可能误导一次判断。<a href="https://github.com/Chesterguan/medme/pull/149" target="_blank" rel="noopener">#149</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-15</span>
+          <div class="t"><b>化验值、用药、诊断,三样都能确定性地抽出来了,并且跨文档合并。</b>「确定性」的意思是:同样的输入得到同样的输出,规则写在代码里,能一条条讲清为什么这么判 —— 而不是模型今天这样答、明天那样答。取舍也说清楚:规则的代价是吃排版。病历的写法千差万别,编号、分行、有没有小标题都会影响规则怎么切 —— 所以我们才一层层加结构识别(先分段、再按段路由),而不是指望一套正则通吃。散文段落最终要交给自己微调的小模型,原因也在这。<a href="https://github.com/Chesterguan/medme/pull/134" target="_blank" rel="noopener">#134</a> · <a href="https://github.com/Chesterguan/medme/pull/135" target="_blank" rel="noopener">#135</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-14</span>
+          <div class="t"><b>把「同一个东西的十几种写法」归到一起。</b>药名先做确定性剥壳(去掉剂型、规格、商品名外壳),再用单位当证据消歧(同一个缩写,后面跟 mmol/L 还是 mg 意思完全不同),配上最长匹配。术语字典从 191 条扩到 637 条。<a href="https://github.com/Chesterguan/medme/pull/126" target="_blank" rel="noopener">#126</a> · <a href="https://github.com/Chesterguan/medme/pull/128" target="_blank" rel="noopener">#128</a> · <a href="https://github.com/Chesterguan/medme/pull/130" target="_blank" rel="noopener">#130</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-10</span>
+          <div class="t"><b>先有一层术语归一,再谈别的。</b>最早的 191 条字典,覆盖化验、体征、药物三类。<a href="https://github.com/Chesterguan/medme/pull/23" target="_blank" rel="noopener">#23</a> · <a href="https://github.com/Chesterguan/medme/pull/24" target="_blank" rel="noopener">#24</a></div>
+        </li>
+      </ul>
+
+      <p class="why" style="margin-top:18px">
+        <b>最难的一块是化验项目的同义词。</b>同一个指标,不同医院能写成完全不同的样子:全称、英文缩写、旧称、加不加括号里的方法学。药名还能靠剥壳和单位证据收敛,化验项目的写法空间要大得多 —— 所以术语字典这层要一直扩下去,单靠规则收不干净。<b>「直接换个更大的模型就行了」也不成立</b>:我们试过现成的医疗大模型,它在这类中文病历文本上并不比规则可靠,还会把没有的东西说得很确定。我们的方向是规则打底,再把散文段交给自己微调的小模型。我们现在的方向是:规则打底,把散文段落交给一个我们自己微调的小模型,而不是让通用大模型自由发挥。
+      </p>
+    </div>
+
+    <div lang="en">
+      <span class="q">What you actually care about: will it misread things, or make them up?</span>
+      <h2>Telling "this is a drug" from "that is a lab value" — without guessing</h2>
+      <p class="why">Reading the characters is only step one. In one discharge summary, "metformin 0.5g twice daily" is a medication, "ALT 43.60 U/L" is a lab result, and "type 2 diabetes" is a diagnosis. You have to tell them apart before you can lay anything out on a timeline. The hard part isn't the common words — it's that <b>the same thing gets written a dozen ways</b> (abbreviations, brand names, mixed Chinese/English, inconsistent units), and that <b>missing something is acceptable while inventing something is not</b>.</p>
+
+      <ul class="tl">
+        <li class="now">
+          <span class="d">2026-07-18</span><span class="wip">in progress</span>
+          <div class="t"><b>Split into sections first, then extract.</b> We used to scan each document end to end, which meant medication lists buried inside a discharge summary were often missed. Now we cut the document at headings like "discharge orders / discharge medications / lab results" and pick the rule set per section type. The discharge-order line buried inside a summary used to be dropped wholesale; now its medications come through.</div>
+        </li>
+        <li>
+          <span class="d">2026-07-16</span>
+          <div class="t"><b>Six defects found in the doctor-facing summary.</b> Six kinds of error were surfacing in the summary: diagnoses chopped up by inline numbering, the same item repeated, pathology conclusions treated as diagnoses, labs and medications bleeding into each other, reference ranges misparsed, trends sorted wrong. All fixed. Unglamorous work — but a doctor reads this summary, and one wrong line can misdirect one decision. <a href="https://github.com/Chesterguan/medme/pull/149" target="_blank" rel="noopener">#149</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-15</span>
+          <div class="t"><b>Lab values, medications and diagnoses all extract deterministically now — and merge across documents.</b> "Deterministic" means the same input yields the same output, the rules live in code, and we can explain any single call — instead of a model answering one way today and another way tomorrow. The trade-off, stated: rules key off layout. Records are written every which way, and numbering, line breaks and whether headings exist all change how rules segment them — which is why we keep adding structure awareness (split into sections first, route per section) instead of hoping one set of regexes covers everything. Prose sections are headed for a small model we fine-tune, for the same reason. <a href="https://github.com/Chesterguan/medme/pull/134" target="_blank" rel="noopener">#134</a> · <a href="https://github.com/Chesterguan/medme/pull/135" target="_blank" rel="noopener">#135</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-14</span>
+          <div class="t"><b>Collapsing the dozen spellings into one.</b> Drug names get deterministically stripped of dosage form, strength and brand wrapper; units then serve as disambiguating evidence (the same abbreviation means very different things followed by mmol/L versus mg), with longest-match on top. The terminology dictionary went from 191 entries to 637. <a href="https://github.com/Chesterguan/medme/pull/126" target="_blank" rel="noopener">#126</a> · <a href="https://github.com/Chesterguan/medme/pull/128" target="_blank" rel="noopener">#128</a> · <a href="https://github.com/Chesterguan/medme/pull/130" target="_blank" rel="noopener">#130</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-10</span>
+          <div class="t"><b>A terminology layer had to come first.</b> The original 191-entry dictionary, covering labs, vitals and drugs. <a href="https://github.com/Chesterguan/medme/pull/23" target="_blank" rel="noopener">#23</a> · <a href="https://github.com/Chesterguan/medme/pull/24" target="_blank" rel="noopener">#24</a></div>
+        </li>
+      </ul>
+
+      <p class="why" style="margin-top:18px">
+        <b>The hardest part is synonyms among lab items.</b> The same measurement gets written completely differently across hospitals: full name, English abbreviation, legacy term, with or without the assay method in parentheses. Drug names can be pulled together by stripping and by unit evidence; the space of lab spellings is far larger — which is why the terminology dictionary has to keep growing, and why rules alone won't close it. <b>"Just swap in a bigger model" doesn't hold either</b>: we tried an off-the-shelf medical LLM and it wasn't more dependable on this kind of Chinese record text, while stating things that weren't there with full confidence. Our direction is rules as the floor, with prose sections handed to a small model we fine-tune ourselves. Our direction: rules as the floor, with prose sections handed to a small model we fine-tune ourselves, rather than letting a general-purpose LLM improvise.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── 专题 3:数据存在哪 ──────────────────────────────── -->
+  <section class="topic">
+    <div lang="zh">
+      <span class="q">用户在意的:这些东西会不会泄露、会不会丢</span>
+      <h2>把最私密的一批数据,放在一个没有服务器的地方</h2>
+      <p class="why">病历大概是普通人手里最敏感的数据。我们的选择是<b>干脆不建存它的服务器</b> —— 没有账号、没有云端库,东西就在你自己的设备上。这样一来,就不存在一个装着所有人病历、可以被一次性拖走的库;代价是数据的完整、备份、损坏恢复,全得我们自己在本地做对。</p>
+
+      <ul class="tl">
+        <li>
+          <span class="d">2026-07-13</span>
+          <div class="t"><b>删除也是一条记录。</b>删掉一份文档,不是把它从库里抹掉,而是追加一条「已删除」事件 —— 保险箱是只往后追加的流水账,任何一步都能追溯。<a href="https://github.com/Chesterguan/medme/pull/118" target="_blank" rel="noopener">#118</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-12</span>
+          <div class="t"><b>缓存坏了不该等于数据没了。</b>为了查得快,我们会从流水账里生成一份派生的数据库。以前这份派生库一损坏,开库直接崩。现在遇到损坏就丢掉它、从流水账重建 —— 真正的底稿只有一份,就是那本流水账。<a href="https://github.com/Chesterguan/medme/pull/68" target="_blank" rel="noopener">#68</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-11</span>
+          <div class="t"><b>连续一周,专门修安全。</b>给流水账加防篡改校验、读取时校验文件内容指纹、把桌面的 DICOM 解码放到单独进程里关起来跑 —— 阅片是桌面的活儿,手机端不做这件事,也就不带这部分代码、拿掉分享查看器里危险的内联脚本、不再信任前端传来的文件路径,以及 —— <b>如实告诉用户「系统云同步不是端到端加密的」</b>,而不是含糊带过。<a href="https://github.com/Chesterguan/medme/pull/46" target="_blank" rel="noopener">#46</a> · <a href="https://github.com/Chesterguan/medme/pull/39" target="_blank" rel="noopener">#39</a> · <a href="https://github.com/Chesterguan/medme/pull/38" target="_blank" rel="noopener">#38</a> · <a href="https://github.com/Chesterguan/medme/pull/44" target="_blank" rel="noopener">#44</a> · <a href="https://github.com/Chesterguan/medme/pull/40" target="_blank" rel="noopener">#40</a> · <a href="https://github.com/Chesterguan/medme/pull/48" target="_blank" rel="noopener">#48</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-10</span>
+          <div class="t"><b>先把入口和出口都收紧。</b>导入、落库、进程通信、分享导出,四处一起加固。<a href="https://github.com/Chesterguan/medme/pull/26" target="_blank" rel="noopener">#26</a></div>
+        </li>
+      </ul>
+
+      <p class="why" style="margin-top:18px">
+        <b>需要说明白的一点:</b>「没有服务器」不等于「绝对安全」。设备丢了、系统自带的云备份被别人拿到,这些风险依然在,所以我们才在 <a href="https://github.com/Chesterguan/medme/pull/39" target="_blank" rel="noopener">#39</a> 里把云同步不是端到端加密这件事直说。分享给医生的那个文件是端到端加密的(AES-256-GCM):它是一个自带解密逻辑的独立 HTML,解密全在对方浏览器里完成,口令不会传给我们。两点如实交代:我们确实托管着一个查看器页面(GitHub Pages 上那份),只是你的病历不经过它;还有,那串「口令」就是密钥本身的编码,没有再派生一层,所以<b>文件和口令一定要分两个渠道发</b>。
+      </p>
+    </div>
+
+    <div lang="en">
+      <span class="q">What you actually care about: can this leak, and can I lose it?</span>
+      <h2>Putting your most private data somewhere with no server behind it</h2>
+      <p class="why">Medical records may be the most sensitive data an ordinary person holds. Our choice was to <b>not build a server that stores them at all</b> — no accounts, no cloud database, everything sits on your own device. That means there is no single database holding everyone's records for someone to walk off with; the price is that integrity, backup and corruption recovery are all on us to get right locally.</p>
+
+      <ul class="tl">
+        <li>
+          <span class="d">2026-07-13</span>
+          <div class="t"><b>Deleting is also a record.</b> Removing a document doesn't erase it from a table — it appends a "deleted" event. The vault is an append-only ledger, so every step stays traceable. <a href="https://github.com/Chesterguan/medme/pull/118" target="_blank" rel="noopener">#118</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-12</span>
+          <div class="t"><b>A corrupt cache shouldn't mean lost data.</b> For fast queries we derive a database from the ledger. Corrupting that derived copy used to crash the vault on open; now we throw it away and rebuild from the ledger. There is only one source of truth, and it's the ledger. <a href="https://github.com/Chesterguan/medme/pull/68" target="_blank" rel="noopener">#68</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-11</span>
+          <div class="t"><b>A solid week of nothing but security fixes.</b> Tamper-evident checks on the ledger, content-hash verification on read, desktop DICOM decoding moved into a separate process — reading scans is a desktop job, so the phone doesn't do it and doesn't carry that code, dangerous inline scripts removed from the share viewer, no more trusting file paths handed over by the frontend — and <b>telling users plainly that OS cloud sync is not end-to-end encrypted</b> instead of glossing over it. <a href="https://github.com/Chesterguan/medme/pull/46" target="_blank" rel="noopener">#46</a> · <a href="https://github.com/Chesterguan/medme/pull/39" target="_blank" rel="noopener">#39</a> · <a href="https://github.com/Chesterguan/medme/pull/38" target="_blank" rel="noopener">#38</a> · <a href="https://github.com/Chesterguan/medme/pull/44" target="_blank" rel="noopener">#44</a> · <a href="https://github.com/Chesterguan/medme/pull/40" target="_blank" rel="noopener">#40</a> · <a href="https://github.com/Chesterguan/medme/pull/48" target="_blank" rel="noopener">#48</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-10</span>
+          <div class="t"><b>Tighten both the entrance and the exit.</b> Ingest, materialization, inter-process calls and share/export, hardened together. <a href="https://github.com/Chesterguan/medme/pull/26" target="_blank" rel="noopener">#26</a></div>
+        </li>
+      </ul>
+
+      <p class="why" style="margin-top:18px">
+        <b>One thing to be straight about:</b> "no server" is not the same as "perfectly safe". A lost device, or someone getting at your OS cloud backup, are still real risks — which is why <a href="https://github.com/Chesterguan/medme/pull/39" target="_blank" rel="noopener">#39</a> says outright that cloud sync isn't end-to-end encrypted. The file you share with a doctor <em>is</em> end-to-end encrypted (AES-256-GCM): a self-contained HTML that decrypts itself in the recipient's browser, with the passphrase never sent to us. Two things stated plainly: we do host a viewer page (on GitHub Pages) — your records just never go through it; and that "passphrase" is the encoded key itself, with no further derivation, so <b>send the file and the passphrase through two different channels</b>.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── 专题 4:给医生的那一页 ──────────────────────────── -->
+  <section class="topic">
+    <div lang="zh">
+      <span class="q">用户在意的:到了诊室,这东西真能用吗</span>
+      <h2>把三年病历,压成医生几十秒能看完的一页</h2>
+      <p class="why">门诊留给你的时间通常只有几分钟。你翻着手机找化验单的时候,医生只想知道三件事:什么病、吃什么药、指标在往哪个方向走。所以我们要做的不是"把所有资料都给他",而是<b>把最要紧的挑出来排在最前面</b>,同时让他<b>随时能点回原件核对</b> —— 医生不会信一份看不到出处的摘要。</p>
+
+      <ul class="tl">
+        <li class="now">
+          <span class="d">2026-07-18</span><span class="wip">开发中</span>
+          <div class="t"><b>摘要不该动不动就是空的。</b>以前只有识别出「诊断」才生成摘要,于是一堆只有化验或影像的分享打开是空白。现在诊断、趋势、影像、病理、过敏,任意一项有内容就生成。同时补上了病理结论的展示 —— 以及一个存在很久的 bug:复制出来的病历文本里,影像和病理那两栏一直是空的,因为代码读错了字段名。</div>
+        </li>
+        <li>
+          <span class="d">2026-07-15</span>
+          <div class="t"><b>分享时自动生成真实摘要,而且全线只有一个查看器。</b>以前查看器有好几份、各自漂移;统一成一份之后,你在手机上分享出去的和医生打开看到的,是同一套东西。<a href="https://github.com/Chesterguan/medme/pull/138" target="_blank" rel="noopener">#138</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-15</span>
+          <div class="t"><b>「复制病历文本」按院外就诊经历的格式来。</b>医生要往自己系统里粘贴,那就按他习惯的格式给,而不是给一段我们自己觉得好看的排版。<a href="https://github.com/Chesterguan/medme/pull/133" target="_blank" rel="noopener">#133</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-14</span>
+          <div class="t"><b>疾病泳道时间轴 + 化验和用药的趋势。</b>把同一个病的就诊串成一条线,把同一个指标的历次数值连成一条趋势。这里能跨医院,是因为资料在你手上 —— 医院自己的系统通常只看得到本院的那部分。<a href="https://github.com/Chesterguan/medme/pull/132" target="_blank" rel="noopener">#132</a></div>
+        </li>
+      </ul>
+    </div>
+
+    <div lang="en">
+      <span class="q">What you actually care about: in the exam room, does this actually work?</span>
+      <h2>Compressing three years of records into a page a doctor can read in under a minute</h2>
+      <p class="why">A clinic visit gives you a few minutes. While you're scrolling your phone hunting for a lab report, the doctor wants three things: what conditions, what medications, which direction the numbers are moving. So the job isn't "hand over everything" — it's <b>putting what matters at the top</b> while keeping <b>the original one tap away</b>. No doctor trusts a summary they can't check against the source.</p>
+
+      <ul class="tl">
+        <li class="now">
+          <span class="d">2026-07-18</span><span class="wip">in progress</span>
+          <div class="t"><b>The summary shouldn't keep coming up empty.</b> It used to require a recognized diagnosis, so shares containing only labs or imaging opened blank. Now any of diagnoses, trends, imaging, pathology or allergies is enough. Pathology conclusions are now displayed too — along with a long-standing bug: in the copied record text, the imaging and pathology fields were always empty because the code read the wrong field names.</div>
+        </li>
+        <li>
+          <span class="d">2026-07-15</span>
+          <div class="t"><b>Sharing generates a real summary, and there's now exactly one viewer.</b> There used to be several viewer copies drifting apart from each other. With one source, what you share from your phone and what the doctor opens are the same thing. <a href="https://github.com/Chesterguan/medme/pull/138" target="_blank" rel="noopener">#138</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-15</span>
+          <div class="t"><b>"Copy record text" follows the outside-visit format doctors use.</b> They're going to paste it into their own system, so it should arrive in the shape they expect — not in whatever layout we happen to find pretty. <a href="https://github.com/Chesterguan/medme/pull/133" target="_blank" rel="noopener">#133</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-14</span>
+          <div class="t"><b>Condition swimlanes on a timeline, plus lab and medication trends.</b> Visits for one condition strung into a single line; repeated measurements of one marker joined into a trend. It can span hospitals because the records are in your hands — a hospital's own system usually only sees its own share of them. <a href="https://github.com/Chesterguan/medme/pull/132" target="_blank" rel="noopener">#132</a></div>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ── 专题 5:医生查看器 ──────────────────────────────── -->
+  <section class="topic">
+    <div lang="zh">
+      <span class="q">用户在意的:发给医生的那个文件,他打得开吗</span>
+      <h2>一个不用装、不用注册、不联网的查看器</h2>
+      <p class="why">分享这一步的约束很硬:你没法指望医生为你装个 App、注册个账号,诊室的网也未必好使。所以我们给的不是链接,是<b>一个文件</b> —— 一份自包含的加密 HTML,记录用 AES-256-GCM 加密塞在里面,查看器本身也在里面。口令另外一个渠道告诉他。他双击打开,输口令,浏览器本地解密。<b>难的地方在于,这个文件一旦发出去就不归我们管了</b> —— 它得自己把该做的都做完,还得让医生信它。</p>
+
+      <ul class="tl">
+        <li>
+          <span class="d">2026-07-16</span>
+          <div class="t"><b>清掉「已过期」拦截屏留下的最后一点样式。</b>拦截屏本身早在 <a href="https://github.com/Chesterguan/medme/commit/10f5d1817a7c844e7625f389e806e23896160847" target="_blank" rel="noopener">7 月 9 日</a>就拿掉了 —— 查看器里原本有一道检查,过期就挡一屏不让看。后来想明白了:文件已经在对方手里,浏览器里的一个判断挡不住任何人;留着它,等于向用户承诺一个我们并不具备的撤回能力。<b>挡人的那道拦截没了,日期没有</b>:它降级成一条不挡路的提醒横幅,告诉医生这份是什么时候导出的、要不要回头找本人确认最新情况。<b>宁可让一个功能退回它本来的分量,也不要拿它冒充权限。</b>这次只是把它遗留的死样式扫干净。<a href="https://github.com/Chesterguan/medme/pull/140" target="_blank" rel="noopener">#140</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-15</span>
+          <div class="t"><b>一份查看器,三个地方共用。</b>以前查看器有两份代码:一份写在生成分享文件的 Rust 里,一份是托管页那个 HTML(GitHub Pages 上跑的就是它)。改一处另一处不跟,慢慢就长歪了。现在只留后面这一份,分享文件在编译时把它整个嵌进来,再注入这一份的加密数据 —— 桌面和手机本来就共用同一个分享模块,所以你从手机发出去的、医生在浏览器里打开的、我们托管的那页,是同一份东西 —— 打开时自己判断:带数据就是自包含模式(输口令),不带就是托管模式(拖文件进来)。这一步删掉了约 700 行重复代码。<a href="https://github.com/Chesterguan/medme/pull/138" target="_blank" rel="noopener">#138</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-14</span>
+          <div class="t"><b>疾病泳道时间轴,和每个数字背后的「原件」。</b>每个病一条从起病拉到现在的横条,点开就地展开这个病的化验趋势和用药。数据模型照 FHIR 的 Condition 和 OMOP 的 condition_era 来,不是我们自己拍的结构。更要紧的是旁边那个<b>「原件」标签</b>:每个化验值、每条用药都挂一个,点了直接跳回它出自哪份文档,还给一个「返回」按钮跳回来。摘要是我们整理的,原件不是 —— 得让医生随时能自己核。<a href="https://github.com/Chesterguan/medme/pull/132" target="_blank" rel="noopener">#132</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-12</span>
+          <div class="t"><b>PDF 原件整份嵌进去。</b>不只给识别出来的文字,把原始 PDF 也一并放进这个文件里,医生能下载下来对着看 —— 结构化的东西是辅助,原件才是真相,这条我们从设计文档里一路带到了产品里。整份分享有个体积上限,顶到了就不再嵌原件、只留识别文字;这种情况会在那张卡片上写明,不静默吞掉。<a href="https://github.com/Chesterguan/medme/pull/82" target="_blank" rel="noopener">#82</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-12</span>
+          <div class="t"><b>托管的那份改成自动部署。</b>之前是手工传上去的,结果线上那份落在仓库后面好几个提交。手工步骤迟早会漏,所以接了 CI。<a href="https://github.com/Chesterguan/medme/pull/74" target="_blank" rel="noopener">#74</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-11</span>
+          <div class="t"><b>把数据从可执行的脚本里挪出来。</b>查看器里跑着解密后的病历,原来的策略允许执行任意内联脚本,万一哪天混进一段注入,它就能拿着这些数据往外发。做法是:把每份分享的加密数据挪进一个<b>不可执行</b>的 JSON 节点,查看器运行时去读。这么一改,页面里剩下的两段内联脚本就变成了字节固定的常量 —— 固定,才能对它们算哈希、写进策略里精确放行,<code>script-src</code> 里的 <code>unsafe-inline</code> 也就能拿掉了(样式那边至今还留着)。顺手把导航、表单、被嵌进别人页面的路都锁死。<a href="https://github.com/Chesterguan/medme/pull/38" target="_blank" rel="noopener">#38</a></div>
+        </li>
+      </ul>
+
+      <p class="why" style="margin-top:18px">
+        <b>几处细节,顺手记下来。</b>这份查看器的安全策略第一行就是 <code>default-src 'none'</code>、<code>connect-src 'none'</code>,文件里没有外部引用 —— 它没地方可连,也不需要连。里面的 DICOM 阅片也是同一个思路:只用一个 dicom-parser 加浏览器自带的 canvas 画,不引 Cornerstone 那套渲染栈(只借了它家的解析器),不用 WASM、不开 worker,按需解码、缓存有上限 —— 因为它得能塞进一个单文件里跟着走。能直接画的是未压缩的和 JPEG baseline 这两类;别的压缩格式、以及大到超过体积上限的序列,会降级成关键切片加一句说明,同样不静默。还有一个很小但很容易踩的坑:口令按 4 个字符一组显示,分隔符只能用空格,不能用连字符 —— <code>-</code> 本身就是 base64url 字母表里的字符,当成分隔符删掉会把密钥改坏。
+      </p>
+    </div>
+
+    <div lang="en">
+      <span class="q">What you actually care about: can the doctor actually open the file I send?</span>
+      <h2>A viewer with nothing to install, no account, and no network</h2>
+      <p class="why">The constraints here are unforgiving: you can't count on the doctor installing an app or signing up for an account, and clinic wifi is a coin flip. So we don't hand over a link — we hand over <b>a file</b>. One self-contained encrypted HTML, with the records AES-256-GCM encrypted inside it and the viewer inside it too. The passphrase travels separately. Double-click, type the passphrase, and the browser decrypts locally. <b>The hard part is that once the file is sent, it's out of our hands</b> — it has to do everything itself, and it has to earn the doctor's trust.</p>
+
+      <ul class="tl">
+        <li>
+          <span class="d">2026-07-16</span>
+          <div class="t"><b>Swept out the last styles left behind by the "expired" blocking screen.</b> The screen itself went <a href="https://github.com/Chesterguan/medme/commit/10f5d1817a7c844e7625f389e806e23896160847" target="_blank" rel="noopener">back on July 9</a> — the viewer used to check an expiry date and put up a wall past it. Then it clicked: the file is already on their machine, and a check running in their browser stops nobody. Keeping it meant promising users a revocation power we don't have. <b>The wall is gone; the date isn't</b> — it degraded into a non-blocking banner that tells the doctor when this export was made and suggests checking back with the patient for anything newer. <b>Better to let a feature shrink to its real weight than let it pose as access control.</b> This PR only cleaned up its dead CSS. <a href="https://github.com/Chesterguan/medme/pull/140" target="_blank" rel="noopener">#140</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-15</span>
+          <div class="t"><b>One viewer, used in three places.</b> There used to be two copies of the viewer code: one inside the Rust that generates share files, one in the hosted HTML (what GitHub Pages serves). Fix one, the other drifts. Now only the latter is the source: the share file embeds it whole at compile time and injects that share's encrypted data. Desktop and mobile already share the same sharing module, so what you send from your phone, what the doctor opens in a browser, and the page we host are one and the same. On open it checks itself — data present means self-contained mode (type the passphrase), absent means hosted mode (drop a file in). About 700 lines of duplication went away. <a href="https://github.com/Chesterguan/medme/pull/138" target="_blank" rel="noopener">#138</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-14</span>
+          <div class="t"><b>Condition swimlanes, and a "source" tag on every number.</b> Each condition gets a bar running from onset to now; click it and that condition's lab trends and medications expand in place. The data model follows FHIR <code>Condition</code> and OMOP <code>condition_era</code> rather than a shape we invented. What matters more is the <b>"source" tag</b> next to each lab value and medication: tap it and you jump to the document it came from, with a button to jump back. We assembled the summary; we didn't write the originals — so checking one against the other has to stay one tap away. <a href="https://github.com/Chesterguan/medme/pull/132" target="_blank" rel="noopener">#132</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-12</span>
+          <div class="t"><b>The whole original PDF goes in the file.</b> Not just the recognized text — the source PDF rides along so the doctor can download it and check against it. The structured view assists; the original is the truth. That line came from our design docs and made it all the way into the product. There's a size ceiling on the whole share: once it's hit, originals stop being embedded and only the recognized text remains — and when that happens the card says so rather than swallowing it quietly. <a href="https://github.com/Chesterguan/medme/pull/82" target="_blank" rel="noopener">#82</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-12</span>
+          <div class="t"><b>The hosted copy now deploys itself.</b> It used to be uploaded by hand, and the live copy ended up several commits behind the repo. Manual steps get skipped eventually, so CI took it over. <a href="https://github.com/Chesterguan/medme/pull/74" target="_blank" rel="noopener">#74</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-11</span>
+          <div class="t"><b>Moved the data out of executable script.</b> The viewer holds decrypted records, and the old policy allowed any inline script to run — so any injection that ever slipped in could carry that data out. The fix: each share's encrypted blob moved into a <b>non-executable</b> JSON node that the viewer reads at runtime. That left the page with exactly two inline scripts whose bytes never change — and fixed bytes can be hashed and named in the policy, which is what let us drop <code>unsafe-inline</code> <b>from <code>script-src</code></b> (it's still there for styles). Navigation, form submission and being framed by another page got locked down in the same pass. <a href="https://github.com/Chesterguan/medme/pull/38" target="_blank" rel="noopener">#38</a></div>
+        </li>
+      </ul>
+
+      <p class="why" style="margin-top:18px">
+        <b>A few details worth writing down.</b> The viewer's security policy opens with <code>default-src 'none'</code> and <code>connect-src 'none'</code>, and the file carries no external references — there's nowhere for it to phone, and no need. DICOM reading inside it follows the same logic: just dicom-parser plus the browser's own canvas — none of the Cornerstone rendering stack (we borrowed their parser and stopped there), no WASM, no worker, decoding on demand against a bounded cache, because it has to fit inside a single file that travels. What it draws directly is uncompressed and JPEG baseline; other compressed formats, and series past the size ceiling, degrade to a key slice plus a note — again, said out loud rather than swallowed. And one small trap that's easy to fall into: the passphrase displays in groups of four, separated by spaces, never hyphens — <code>-</code> is itself a character in the base64url alphabet, so stripping it as a separator would corrupt the key.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── 专题 6:系统设计 ────────────────────────────────── -->
+  <section class="topic">
+    <div lang="zh">
+      <span class="q">用户在意的:为什么我等的那个版本还没出</span>
+      <h2>先做手机,桌面往后排 —— 以及为什么桌面还是得做</h2>
+      <p class="why">病历是在诊室、在检查科门口、在缴费窗口排队时产生的,那个场景里你手上只有手机。<b>手机几乎人人都有 —— 我们判断它是绝大多数人的第一选择</b>,所以把它排在最前面。桌面版不是不做,而是定位不同 —— 它是<b>进阶的个人数据查看器</b>:大屏翻片子、比对多年趋势、批量整理。用得上它的人更少,但用得上的时候,手机屏幕替代不了。</p>
+
+      <ul class="tl">
+        <li>
+          <span class="d">2026-07-13</span>
+          <div class="t"><b>把旧的那套手机端整个删掉。</b>移动端原本和桌面一样走 Tauri,后来用 Flutter 重写。两套并存只会让人搞不清哪套是真的,所以旧的直接删干净。<a href="https://github.com/Chesterguan/medme/pull/113" target="_blank" rel="noopener">#113</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-13</span>
+          <div class="t"><b>一次撞墙,和撞完之后的绕行。</b>iCloud 同步第一版写完就是链接不上——底层桥在 Flutter 的框架结构下过不去。我们没有硬扛,先把这个功能撤回,再换一条平台标准的通道重做,这才走通。撤回那次也留在记录里,因为它才是当时真实发生的事。<a href="https://github.com/Chesterguan/medme/pull/105" target="_blank" rel="noopener">#105</a> · <a href="https://github.com/Chesterguan/medme/pull/106" target="_blank" rel="noopener">#106</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-12</span>
+          <div class="t"><b>Linux 桌面构建先停掉。</b>三个桌面平台一起维护,分摊掉的是手机端的时间。所以只保留了 Windows 和 macOS 的构建流水线,Linux 的先停掉。停就明说停,不挂着一个不会更新的下载链接。<a href="https://github.com/Chesterguan/medme/pull/77" target="_blank" rel="noopener">#77</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-12</span>
+          <div class="t"><b>换成 Flutter,但内核不动。</b>结构化、加密、事件溯源、保险箱格式这些核心都在一份 Rust 代码里,手机和桌面共用;换的只是界面层。识别不在其中 —— 那部分用的是各平台系统自带的能力(见第一张卡片)。所以「重写手机端」没有把前面几个月的东西推倒重来。<a href="https://github.com/Chesterguan/medme/pull/89" target="_blank" rel="noopener">#89</a> · <a href="https://github.com/Chesterguan/medme/pull/93" target="_blank" rel="noopener">#93</a></div>
+        </li>
+      </ul>
+
+      <p class="why" style="margin-top:18px">
+        <b>代价也写清楚。</b>手机优先的直接后果就是桌面端排在后面 —— 桌面版还在往前做,Linux 的构建先停着。这是排序换来的,不是忘了。
+      </p>
+    </div>
+
+    <div lang="en">
+      <span class="q">What you actually care about: why isn't the version I want out yet?</span>
+      <h2>Phone first, desktop later — and why desktop still has to happen</h2>
+      <p class="why">Medical records get created in the exam room, outside the imaging department, in the queue at the payment window. In those moments the only thing in your hand is a phone. <b>Almost everyone has one, and we're betting it's the first choice for most people</b>, so that's where we started. Desktop isn't cancelled — it plays a different role: <b>the power-user's data viewer</b>. Big screen for scans, multi-year trends side by side, bulk cleanup. Fewer people need that, but when they do, a phone screen won't substitute.</p>
+
+      <ul class="tl">
+        <li>
+          <span class="d">2026-07-13</span>
+          <div class="t"><b>Deleted the old mobile app outright.</b> Mobile originally ran on Tauri like the desktop, then got rewritten in Flutter. Keeping both around only makes it unclear which one is real, so the old one is gone. <a href="https://github.com/Chesterguan/medme/pull/113" target="_blank" rel="noopener">#113</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-13</span>
+          <div class="t"><b>One wall we hit, and the way around it.</b> The first iCloud sync implementation simply wouldn't link — the low-level bridge didn't survive Flutter's framework structure. Rather than force it, we pulled the feature back out and rebuilt it over a standard platform channel, which worked. The revert stays in the record, because that's what actually happened. <a href="https://github.com/Chesterguan/medme/pull/105" target="_blank" rel="noopener">#105</a> · <a href="https://github.com/Chesterguan/medme/pull/106" target="_blank" rel="noopener">#106</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-12</span>
+          <div class="t"><b>Paused Linux desktop builds.</b> Maintaining three desktop platforms takes its time out of mobile, so we kept the Windows and macOS build pipelines and paused the Linux one. When something is paused we say so, rather than leaving up a download link that never updates. <a href="https://github.com/Chesterguan/medme/pull/77" target="_blank" rel="noopener">#77</a></div>
+        </li>
+        <li>
+          <span class="d">2026-07-12</span>
+          <div class="t"><b>Switched to Flutter without touching the core.</b> Structuring, encryption, event sourcing and the vault format all live in one Rust codebase shared by phone and desktop; only the UI layer changed. Recognition is the exception — that runs on each platform's own OCR (see the first card). So "rewriting the mobile app" didn't throw away the previous months of work. <a href="https://github.com/Chesterguan/medme/pull/89" target="_blank" rel="noopener">#89</a> · <a href="https://github.com/Chesterguan/medme/pull/93" target="_blank" rel="noopener">#93</a></div>
+        </li>
+      </ul>
+
+      <p class="why" style="margin-top:18px">
+        <b>The cost, stated plainly.</b> Putting mobile first means desktop comes later — it's still moving, while the Linux build stays paused. That's what the ordering costs, and it's a choice, not an oversight.
+      </p>
+    </div>
+  </section>
+
+  <p class="foot">
+    <span lang="zh">日期按 UTC · <a href="changelog.html">更新日志</a> · <a href="about.html">关于</a> · <a href="https://github.com/Chesterguan/medme" target="_blank" rel="noopener">GitHub</a></span>
+    <span lang="en">Dates in UTC · <a href="changelog.html">Changelog</a> · <a href="about.html">About</a> · <a href="https://github.com/Chesterguan/medme" target="_blank" rel="noopener">GitHub</a></span>
+  </p>
+</div>
+<script>
+  // 语言:URL ?lang= > localStorage > 浏览器语言;非 zh 一律给英文。
+  var saved = null;
+  try { saved = localStorage.getItem("medme-lang"); } catch (e) {}
+  var q = new URLSearchParams(location.search).get("lang");
+  var lang = (q || saved || ((navigator.language || "").toLowerCase().indexOf("zh") === 0 ? "zh" : "en"));
+  set(lang === "en" ? "en" : "zh");
+
+  function set(l) {
+    document.documentElement.setAttribute("data-lang", l);
+    document.documentElement.setAttribute("lang", l === "zh" ? "zh-CN" : "en");
+    var bs = document.querySelectorAll(".langbar button");
+    for (var i = 0; i < bs.length; i++) bs[i].setAttribute("aria-pressed", String(bs[i].dataset.set === l));
+    try { localStorage.setItem("medme-lang", l); } catch (e) {}
+  }
+  document.querySelector(".langbar").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-set]");
+    if (b) set(b.dataset.set);
+  });
+</script>
+</body>
+</html>
