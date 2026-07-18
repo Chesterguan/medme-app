@@ -32,8 +32,15 @@ jobs:
           git fetch origin gh-pages
           git worktree add -B gh-pages gh-pages-wt origin/gh-pages
           install -D web/hosted-viewer/index.html gh-pages-wt/viewer/index.html
+          # 示例查看器:同一份查看器 + 注入公开演示数据(张建国示例数据集)。
+          # 与真实分享注入密文同一机制,故功能完全一致、仅数据不同。
+          mkdir -p gh-pages-wt/demo
+          python3 tools/build_demo_page.py \
+            web/hosted-viewer/index.html \
+            web/hosted-viewer/demo-payload.json \
+            gh-pages-wt/demo/index.html
           cd gh-pages-wt
-          git add viewer/index.html
+          git add viewer/index.html demo/index.html
           if git diff --cached --quiet; then
             echo "viewer already up to date; nothing to deploy"
           else

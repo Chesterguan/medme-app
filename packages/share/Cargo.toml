@@ -25,6 +25,7 @@ aes-gcm = "0.11"
 getrandom = "0.4"
 
 [dev-dependencies]
+pipeline = { path = "../pipeline" }
 tempfile = { workspace = true }
 # 仅供 vendored dicom-parser 的完整性测试(校验内联 JS 未被篡改)。
 sha2 = { workspace = true }
