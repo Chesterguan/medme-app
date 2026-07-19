@@ -23,6 +23,9 @@ pub const QR_BINARY_CAPACITY: usize = 2953;
 /// AEAD 绑定串:与整份分享(`medme-share-v1`)区分开,避免两种载荷被互相当成对方解。
 const QR_AAD: &[u8] = b"medme-qr-v1";
 
+/// fragment 版本前缀。查看器据此区分二维码载荷与口令。
+pub const FRAGMENT_PREFIX: &str = "q1.";
+
 /// 裁剪参数。默认值是**工程占位**,临床上该带多少由医生侧反馈决定 —— 改这里即可,
 /// 不需要动管线。
 #[derive(Debug, Clone, Copy)]
@@ -56,7 +59,8 @@ impl Default for QrLimits {
 
 /// 已裁剪的载荷 + 其分享链接片段。
 pub struct QrShare {
-    /// `#` 之后的内容:`<base64url(nonce‖密文)>.<base64url(密钥)>`。
+    /// `#` 之后的内容:`q1.<base64url(nonce‖密文)>.<base64url(密钥)>`。
+    /// `q1.` 前缀让查看器一眼区分「二维码载荷」与「口令」两种 fragment。
     pub fragment: String,
     /// 加密后的字节数(不含 base64 膨胀),用于判断是否还塞得进二维码。
     pub cipher_len: usize,
@@ -197,10 +201,62 @@ pub fn build_qr_fragment(
     blob.extend_from_slice(&ct);
 
     Ok(QrShare {
-        fragment: format!("{}.{}", B64URL.encode(&blob), B64URL.encode(key_bytes)),
+        fragment: format!(
+            "{}{}.{}",
+            FRAGMENT_PREFIX,
+            B64URL.encode(&blob),
+            B64URL.encode(key_bytes)
+        ),
         cipher_len: blob.len(),
         problem_count,
     })
+}
+
+/// 从保险箱直接产出二维码分享:装配 summary → 按 [`QrLimits`] 裁剪 → 加密成
+/// fragment。随机源用 OS 熵(失败按错误上报,不 panic)。
+///
+/// 返回 `(完整 URL, QrShare)`;URL 形如 `<base_url>#q1.<密文>.<密钥>`,直接编成
+/// 二维码即可。密钥在 `#` 之后 —— 按 HTTP 规范不会发给服务器。
+pub fn build_qr_share(
+    v: &core_model::Vault,
+    base_url: &str,
+    lim: QrLimits,
+) -> Result<(String, QrShare), String> {
+    let records = crate::export::gather_records(v)?;
+    let profile = pipeline::patient_profile(v).map_err(|e| e.to_string())?;
+    let docs: Vec<parser::SourceDoc<'_>> = records
+        .iter()
+        .enumerate()
+        .map(|(i, rec)| parser::SourceDoc {
+            index: i,
+            date: rec.doc.doc_date.map(|dt| dt.date_naive()),
+            text: &rec.text,
+            doc_type: Some(rec.doc.doc_type.as_str().to_lowercase()),
+            title: rec.doc.title.clone(),
+        })
+        .collect();
+    let summary = parser::assemble_summary(&docs);
+    let trimmed = trim_summary(&summary, lim);
+
+    let mut key = [0u8; 32];
+    getrandom::fill(&mut key).map_err(|e| format!("OS RNG unavailable: {e}"))?;
+    let mut nonce = [0u8; 12];
+    getrandom::fill(&mut nonce).map_err(|e| format!("OS RNG unavailable: {e}"))?;
+
+    let patient = serde_json::json!({
+        "name": profile.name,
+        "gender": profile.gender,
+        "age": profile.age,
+    });
+    let qr = build_qr_fragment(
+        &trimmed,
+        &patient,
+        &chrono::Utc::now().to_rfc3339(),
+        key,
+        nonce,
+    )?;
+    let url = format!("{}#{}", base_url.trim_end_matches('#'), qr.fragment);
+    Ok((url, qr))
 }
 
 #[cfg(test)]
@@ -319,8 +375,10 @@ mod tests {
 
         let (blob_b64, key_b64) = qr
             .fragment
+            .strip_prefix(FRAGMENT_PREFIX)
+            .expect("应带版本前缀")
             .split_once('.')
-            .expect("fragment 应为 数据.密钥");
+            .expect("fragment 应为 q1.数据.密钥");
         let blob = B64URL.decode(blob_b64).unwrap();
         let key = B64URL.decode(key_b64).unwrap();
 
@@ -350,7 +408,8 @@ mod tests {
         // 整份分享用的是 medme-share-v1;两种载荷不该互相解开。
         let trimmed = trim_summary(&sample_summary(3, 4), QrLimits::default());
         let qr = build(&trimmed);
-        let (blob_b64, key_b64) = qr.fragment.split_once('.').unwrap();
+        let body = qr.fragment.strip_prefix(FRAGMENT_PREFIX).unwrap();
+        let (blob_b64, key_b64) = body.split_once('.').unwrap();
         let blob = B64URL.decode(blob_b64).unwrap();
         let key = B64URL.decode(key_b64).unwrap();
         let cipher = Aes256Gcm::new_from_slice(&key).unwrap();

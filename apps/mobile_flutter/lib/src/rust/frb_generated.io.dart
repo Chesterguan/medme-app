@@ -101,6 +101,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PatientProfileDto dco_decode_patient_profile_dto(dynamic raw);
 
   @protected
+  QrShareDto dco_decode_qr_share_dto(dynamic raw);
+
+  @protected
   ShareResultDto dco_decode_share_result_dto(dynamic raw);
 
   @protected
@@ -211,6 +214,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PatientProfileDto sse_decode_patient_profile_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  QrShareDto sse_decode_qr_share_dto(SseDeserializer deserializer);
 
   @protected
   ShareResultDto sse_decode_share_result_dto(SseDeserializer deserializer);
@@ -354,6 +360,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     PatientProfileDto self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_qr_share_dto(QrShareDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_share_result_dto(

@@ -2115,6 +2115,7 @@ dependencies = [
  "chrono",
  "core-model",
  "dicom",
+ "flate2",
  "getrandom 0.4.3",
  "parser",
  "pipeline",

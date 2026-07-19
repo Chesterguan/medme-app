@@ -45,6 +45,8 @@ dependencies:
   file_picker: ^8.0.0
   google_mlkit_text_recognition: ^0.16.0
   photo_view: ^0.15.0
+  # 面对面二维码分享:把「当下病情」编成码给医生扫(纯本地绘制,不联网)
+  qr_flutter: ^4.1.0
   pdfx: ^2.9.2
   share_plus: ^11.0.0
   url_launcher: ^6.3.2

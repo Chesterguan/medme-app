@@ -9,7 +9,7 @@ import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'dto.freezed.dart';
 
 // These functions are ignored because they are not marked as `pub`: `from_encounter`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`
 
 /// 文档详情:类型/日期(在 document 里)+ 来源文件 + 识别文本。
 class DocumentDetailDto {
@@ -266,6 +266,32 @@ class PatientProfileDto {
           birthDate == other.birthDate &&
           age == other.age &&
           recordCount == other.recordCount;
+}
+
+/// 二维码分享结果:一条可直接编码成二维码的 URL、带上的疾病数、以及是否仍在
+/// 二维码容量内(按构造裁剪后应恒为 true,留作兜底提示)。
+class QrShareDto {
+  final String url;
+  final PlatformInt64 problemCount;
+  final bool fitsQr;
+
+  const QrShareDto({
+    required this.url,
+    required this.problemCount,
+    required this.fitsQr,
+  });
+
+  @override
+  int get hashCode => url.hashCode ^ problemCount.hashCode ^ fitsQr.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is QrShareDto &&
+          runtimeType == other.runtimeType &&
+          url == other.url &&
+          problemCount == other.problemCount &&
+          fitsQr == other.fitsQr;
 }
 
 /// 加密分享生成结果:口令(单独告知医生)、记录数、文件字节数、分享文件路径。

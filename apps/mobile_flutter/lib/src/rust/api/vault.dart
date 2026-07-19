@@ -129,6 +129,18 @@ Future<ImportOutcomeDto> ingestImageWithText({
 );
 
 /// 端到端加密分享:复用 `medme_share::share::build_encrypted_share`,把全部病历
+/// 面对面二维码分享:把「当下病情」压成一条 URL,由手机端渲染成二维码给医生扫。
+///
+/// 与 [`create_share`] 的分工:那个是**整份病历**(含原件、影像,给医生带走);
+/// 这个是**当下病情**(在治的病、关键指标最近几个点、在用的药),只够医生三十秒
+/// 看懂大局 —— 要看原件或阅片,患者手机当场翻。
+///
+/// 载荷有界(见 `medme_share::qr::QrLimits`),因此体积与病历总量无关,永远塞得进
+/// 一张二维码。密钥在 URL 的 `#` 之后,按 HTTP 规范不会发给服务器 —— 医生扫码后
+/// 只从我们的静态页下载一个空壳查看器,病历数据全程只在两台手机之间。
+Future<QrShareDto> buildQrShareUrl({required String baseUrl}) =>
+    RustLib.instance.api.crateApiVaultBuildQrShareUrl(baseUrl: baseUrl);
+
 /// 打包成自包含加密 HTML 写进保险箱 `shares/` 目录,返回口令、记录数、字节数与
 /// 文件路径。与桌面/Tauri 移动端同构;安全性说明见 `render_dicom_png` 的 doc
 /// (进程内 DICOM 渲染在移动端是安全的,`codecs` 特性已关)。

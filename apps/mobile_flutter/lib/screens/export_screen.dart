@@ -6,6 +6,8 @@ import 'package:mobile_flutter/src/rust/api/dto.dart';
 import 'package:mobile_flutter/src/rust/api/vault.dart';
 import 'package:mobile_flutter/theme.dart';
 
+import 'qr_share_screen.dart';
+
 /// 底部导航一级 tab「导出·分享」—— 把病历导出成可打印文件(可按日期区间筛选),或
 /// 端到端加密分享给医生。手机端只做「轻」的导出/筛选;全文搜索、趋势等「重」功能在
 /// 桌面端与医生查看器。导出/加密全在 Rust core(`medme_share`),这里只调 FFI + 分享。
@@ -346,6 +348,22 @@ class _ExportScreenState extends State<ExportScreen> {
           ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             children: [
+              // 门诊现场最高频的一步放最前:医生扫码,三十秒看懂当下病情。
+              _ActionCard(
+                icon: Icons.qr_code_2,
+                title: '当面给医生看',
+                subtitle: '生成二维码,医生用自己手机扫一下就能看到在治疾病、'
+                    '关键指标趋势与在用药物。不含原件,需要时你再当场翻给他。',
+                buttonLabel: '出示二维码',
+                onPressed: _busy
+                    ? null
+                    : () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const QrShareScreen(),
+                        ),
+                      ),
+              ),
+              const SizedBox(height: 14),
               _ActionCard(
                 icon: Icons.description_outlined,
                 title: '导出时间线',

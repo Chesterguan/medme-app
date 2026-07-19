@@ -139,6 +139,15 @@ pub struct ShareResultDto {
     pub path: String,
 }
 
+/// 二维码分享结果:一条可直接编码成二维码的 URL、带上的疾病数、以及是否仍在
+/// 二维码容量内(按构造裁剪后应恒为 true,留作兜底提示)。
+#[derive(Debug, Clone)]
+pub struct QrShareDto {
+    pub url: String,
+    pub problem_count: i64,
+    pub fits_qr: bool,
+}
+
 /// 时间线导出结果:未加密、可打印的自包含 HTML。与 `ShareResultDto` 不同,
 /// 没有口令——导出内容不加密,靠系统「分享」sheet 直接交给医生 / 存下来打印。
 #[derive(Debug, Clone)]
