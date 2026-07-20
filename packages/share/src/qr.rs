@@ -17,8 +17,15 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD as B64URL;
 use base64::Engine;
 use serde_json::{json, Value};
 
-/// 二维码二进制模式容量上限(version 40,纠错等级 L)。
-pub const QR_BINARY_CAPACITY: usize = 2953;
+/// 二维码二进制模式容量上限(version 40,**纠错等级 M**)。
+///
+/// 各等级容量:L=2953 · **M=2331** · Q=1663 · H=1273。这里取 M 而非理论最大的 L,
+/// 因为出码端实际就是按 M 渲染的(`qr_share_screen.dart` 的 `errorCorrectionLevel`)
+/// —— 医生隔着桌子扫,纠错留高一点更容易扫上。若判断按 L(2953)、渲染按 M,
+/// 守卫会比实际宽 27%:载荷一旦变大就会「判定装得下、实际扫不出来」。
+///
+/// 改渲染端的纠错等级时,**这个常量必须同步改**。
+pub const QR_BINARY_CAPACITY: usize = 2331;
 
 /// AEAD 绑定串:与整份分享(`medme-share-v1`)区分开,避免两种载荷被互相当成对方解。
 const QR_AAD: &[u8] = b"medme-qr-v1";
