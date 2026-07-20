@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cunning_document_scanner/cunning_document_scanner.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -73,9 +74,25 @@ enum _ImportChoice { camera, gallery, files }
 Future<List<PendingImport>> _pick(_ImportChoice choice) async {
   switch (choice) {
     case _ImportChoice.camera:
-      final file = await ImagePicker().pickImage(source: ImageSource.camera);
-      if (file == null) return const [];
-      return [PendingImport(name: file.name, path: file.path, isImage: true)];
+      // 走系统文档扫描器(iOS VisionKit / 安卓 ML Kit Document Scanner):自动
+      // 画框 + 透视校正,拿到已拉正的图 —— 斜着拍的表格变回横平竖直,OCR 才拼得
+      // 回整行。随手斜拍是最常见的输入,这一步质量提升值一次多余的对框操作。
+      // 扫描器不可用(部分设备/权限)时回退到普通拍照,不阻断采集。
+      try {
+        final paths = await CunningDocumentScanner.getPictures(
+          scannerSource: ScannerSource.camera,
+        );
+        if (paths == null || paths.isEmpty) return const [];
+        return [
+          for (final p in paths)
+            PendingImport(name: p.split('/').last, path: p, isImage: true),
+        ];
+      } catch (e) {
+        debugPrint('[import] 文档扫描器不可用,回退普通拍照: $e');
+        final file = await ImagePicker().pickImage(source: ImageSource.camera);
+        if (file == null) return const [];
+        return [PendingImport(name: file.name, path: file.path, isImage: true)];
+      }
     case _ImportChoice.gallery:
       final files = await ImagePicker().pickMultiImage();
       return [
@@ -284,7 +301,9 @@ Future<OcrResult> _ocrScannedPdf(String path) async {
       } catch (_) {}
     }
   }
-  final conf = confs.isEmpty ? 0.0 : confs.reduce((a, b) => a + b) / confs.length;
+  final conf = confs.isEmpty
+      ? 0.0
+      : confs.reduce((a, b) => a + b) / confs.length;
   return OcrResult(buf.toString().trim(), conf);
 }
 
