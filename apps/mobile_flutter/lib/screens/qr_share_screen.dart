@@ -118,6 +118,8 @@ class _QrShareScreenState extends State<QrShareScreen> {
               size: 280,
               backgroundColor: Colors.white,
               // 医生隔着距离扫,纠错等级留高一点更容易扫上。
+              // 注意:Rust 侧 `QR_BINARY_CAPACITY` 是按这个等级(M=2331 字节)定的,
+              // 改这里必须同步改那个常量,否则守卫会比实际容量宽 27%。
               errorCorrectionLevel: QrErrorCorrectLevel.M,
             ),
           ),
