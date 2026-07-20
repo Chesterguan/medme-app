@@ -42,6 +42,9 @@ dependencies:
   path_provider: ^2.1.6
   freezed_annotation: ^3.1.0
   image_picker: ^1.2.3
+  # 文档扫描器:封装 iOS VisionKit + 安卓 ML Kit Document Scanner(系统级自动画框
+  # 与透视校正,与 CamScanner 同级)。拍照采集走它,拿到已拉正的图 → OCR 行拼得回来。
+  cunning_document_scanner: ^2.6.0
   file_picker: ^8.0.0
   google_mlkit_text_recognition: ^0.16.0
   photo_view: ^0.15.0
