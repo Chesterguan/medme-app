@@ -34,3 +34,6 @@ fuzz/artifacts/
 
 # 上游安全报告草稿:含未公开的漏洞细节,提交前不入库
 docs/upstream-dicom-rs-report.md
+
+# 真机测试素材:3 个无文本层扫描 PDF,用于验证移动端 OCR 回填(体积小但属测试数据)
+scratch_test_pdfs/
