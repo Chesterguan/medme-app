@@ -118,8 +118,29 @@ import Vision
     }
   }
 
+  /// OCR 列重建常量:目标列宽(字符数,映射整页文字内容宽度)、同行 y 容差
+  /// (相对行高的比例,判定多个 observation 是否属于同一视觉行)、块间距阈值
+  /// (Vision 归一化坐标下的行顶间距,判定段落/表格边界,沿用原逐行分块的经验值)。
+  /// 保守取值,只在「同一视觉行确有多个文本块」时才触发列对齐,规整散文不受影响。
+  private static let ocrTargetColumnWidth = 90
+  private static let ocrRowYToleranceRatio: CGFloat = 0.6
+  private static let ocrBlockGapThreshold: CGFloat = 0.03
+
+  /// 一个 Vision 识别行:文字 + 归一化包围盒(原点左下)+ 置信度。
+  private struct OcrLine {
+    let text: String
+    let box: CGRect
+    let confidence: Float
+  }
+
   /// 用 Apple Vision 识别一张图片(含 HEIC)的文字。返回 `{text, confidence}`;
   /// 打不开/识别不到时返回空文本 + `confidence = NSNull`(Dart 侧兜底)。
+  ///
+  /// 化验单等表格文档,列信息全靠 OCR 各行的空间坐标——Vision 把同一物理行里、
+  /// 相隔较远的几格识别成独立 observation,直接按行拼接会丢空格、塌成流水账。
+  /// 这里按 y 坐标把 observation 归到「视觉行」,行内按 x 坐标补空格重建列对齐
+  /// (下游查看器 `splitCells` 靠「≥2 个连续空格」切列);单 observation 的行
+  /// (散文句子)原样输出,不受影响。
   private static func recognizeText(atPath path: String) -> [String: Any] {
     let empty: [String: Any] = ["text": "", "confidence": NSNull()]
     guard let image = UIImage(contentsOfFile: path), let cg = image.cgImage else {
@@ -140,30 +161,81 @@ import Vision
     guard let observations = request.results, !observations.isEmpty else {
       return empty
     }
-    // Layer-0 A:按阅读顺序排序(上→下、左→右),大纵向间隔处插空行分块 → 下游按段
-    // 分块更准。Vision 不保证返回顺序;boundingBox 归一化、原点在左下,maxY 越大越靠上。
+    // 按阅读顺序排序(上→下、左→右)。Vision 不保证返回顺序;boundingBox 归一化、
+    // 原点在左下,maxY 越大越靠上。
     let sorted = observations.sorted { a, b in
       if abs(a.boundingBox.maxY - b.boundingBox.maxY) > 0.01 {
         return a.boundingBox.maxY > b.boundingBox.maxY
       }
       return a.boundingBox.minX < b.boundingBox.minX
     }
+    let ocrLines: [OcrLine] = sorted.compactMap { obs in
+      guard let top = obs.topCandidates(1).first else { return nil }
+      return OcrLine(text: top.string, box: obs.boundingBox, confidence: top.confidence)
+    }
+    guard !ocrLines.isEmpty else { return empty }
+
+    // 1) 把 observation 按 y 坐标归到同一视觉行(容差 = 行高的一个比例)。
+    var rows: [[OcrLine]] = []
+    for line in ocrLines {
+      if let refTop = rows.last?.first?.box.maxY {
+        let tol = ocrRowYToleranceRatio * max(line.box.height, rows.last!.first!.box.height)
+        if refTop - line.box.maxY <= tol {
+          rows[rows.count - 1].append(line)
+          continue
+        }
+      }
+      rows.append([line])
+    }
+
+    // 2) 整页文字内容的左右边界,作为列坐标的归一化参照(而非整张图片宽度,
+    //    避免照片背景空白挤压列分辨率)。
+    let contentMinX = ocrLines.map { $0.box.minX }.min() ?? 0
+    let contentMaxX = ocrLines.map { $0.box.maxX }.max() ?? 1
+    let contentSpan = contentMaxX - contentMinX
+
+    // 3) 逐行拼接:视觉行只有一个 observation → 原样输出(散文);多个 → 按 x
+    //    坐标映射字符列、补空格重建对齐,块间距超阈值处插空行(段落/表格边界)。
     var lines: [String] = []
     var confs: [Float] = []
-    var prevY: CGFloat? = nil
-    for obs in sorted {
-      guard let top = obs.topCandidates(1).first else { continue }
-      if let py = prevY, py - obs.boundingBox.maxY > 0.03 {
+    var prevTopY: CGFloat? = nil
+    for row in rows {
+      let rowTopY = row.map { $0.box.maxY }.max() ?? 0
+      if let py = prevTopY, py - rowTopY > ocrBlockGapThreshold {
         lines.append("") // 大纵向间隔 → 块边界(join 后成空行)
       }
-      lines.append(top.string)
-      confs.append(top.confidence)
-      prevY = obs.boundingBox.maxY
+      lines.append(buildRowText(row, contentMinX: contentMinX, contentSpan: contentSpan))
+      confs.append(contentsOf: row.map { $0.confidence })
+      prevTopY = rowTopY
     }
     let text = lines.joined(separator: "\n")
     let confidence: Any =
       confs.isEmpty ? NSNull() : Double(confs.reduce(0, +) / Float(confs.count))
     return ["text": text, "confidence": confidence]
+  }
+
+  /// 把同一视觉行的 observation 拼成一行文本。单 observation 直接返回文字;
+  /// 多 observation(表格的一行数据)按各自 minX 在 `contentSpan` 里的相对位置
+  /// 映射到目标列宽的字符列,补空格对齐(至少 2 个空格,配合查看器的切列规则)。
+  private static func buildRowText(_ row: [OcrLine], contentMinX: CGFloat, contentSpan: CGFloat)
+    -> String
+  {
+    let sortedRow = row.sorted { $0.box.minX < $1.box.minX }
+    guard sortedRow.count > 1, contentSpan > 0.0001 else {
+      return sortedRow.map { $0.text }.joined(separator: " ")
+    }
+    var out = ""
+    for line in sortedRow {
+      if out.isEmpty {
+        out = line.text
+        continue
+      }
+      let col = Int(((line.box.minX - contentMinX) / contentSpan) * CGFloat(ocrTargetColumnWidth))
+      let targetLen = max(col, out.count + 2)
+      out += String(repeating: " ", count: targetLen - out.count)
+      out += line.text
+    }
+    return out
   }
 
   /// UIImage 的 EXIF 方向 → Vision 需要的 CGImagePropertyOrientation
