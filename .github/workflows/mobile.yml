@@ -177,13 +177,6 @@ jobs:
         run: flutter pub get
       - name: 构建 IPA(release archive + 导出)
         working-directory: ${{ env.WORKDIR }}
-        # permission_handler(SPM 集成)靠环境变量决定编译哪些权限,优先级高于扫
-        # Info.plist —— 后者在 CI 干净环境下路径回溯不可靠(诊断实测:构建期扫不到
-        # 我们的 Info.plist,相机权限被默认关闭 → .request() 直接 denied、不弹框)。
-        # 显式 export 强制启用相机 + 相册,确定性,不依赖路径。
-        env:
-          PERMISSION_CAMERA: "1"
-          PERMISSION_PHOTOS: "1"
         run: flutter build ipa --release --export-options-plist=$RUNNER_TEMP/ExportOptions.plist
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

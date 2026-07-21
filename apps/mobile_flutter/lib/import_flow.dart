@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:cunning_document_scanner/cunning_document_scanner.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -64,14 +63,6 @@ Future<void> showImportSheet(BuildContext context) async {
   );
   if (choice == null || !context.mounted) return;
 
-  // 等 bottom sheet 的关闭动画播完再拉起原生采集器。文档扫描器
-  // (VNDocumentCameraViewController)靠 rootViewController.present 弹出;若 sheet
-  // 尚未完全消失,present 会被正在退场的 sheet 挡下、静默失败,method channel 永不
-  // 回调 —— 表现就是「点了没反应」。ImagePicker 内部自己处理了这个时序,这个扫描器
-  // 插件没有,所以在这里补一帧等待。
-  await Future<void>.delayed(const Duration(milliseconds: 350));
-  if (!context.mounted) return;
-
   final items = await _pick(choice);
   if (items.isEmpty || !context.mounted) return;
   await _runImport(context, items);
@@ -82,27 +73,12 @@ enum _ImportChoice { camera, gallery, files }
 Future<List<PendingImport>> _pick(_ImportChoice choice) async {
   switch (choice) {
     case _ImportChoice.camera:
-      // 走系统文档扫描器(iOS VisionKit / 安卓 ML Kit Document Scanner):自动
-      // 画框 + 透视校正,拿到已拉正的图 —— 斜着拍的表格变回横平竖直,OCR 才拼得
-      // 回整行。随手斜拍是最常见的输入,这一步质量提升值一次多余的对框操作。
-      // 扫描器不可用(部分设备/权限)时回退到普通拍照,不阻断采集。
-      try {
-        // 加超时兜底:万一原生侧仍无响应(极端时序 / 未来插件回归),挂起 12s 即抛,
-        // 落到下面回退分支走普通拍照,不让用户干等。
-        final paths = await CunningDocumentScanner.getPictures(
-          scannerSource: ScannerSource.camera,
-        ).timeout(const Duration(seconds: 12));
-        if (paths == null || paths.isEmpty) return const [];
-        return [
-          for (final p in paths)
-            PendingImport(name: p.split('/').last, path: p, isImage: true),
-        ];
-      } catch (e) {
-        debugPrint('[import] 文档扫描器不可用,回退普通拍照: $e');
-        final file = await ImagePicker().pickImage(source: ImageSource.camera);
-        if (file == null) return const [];
-        return [PendingImport(name: file.name, path: file.path, isImage: true)];
-      }
+      // 普通相机拍照(v20 起一直用、确定可用)。文档扫描器(自动纠偏)一度换进来,
+      // 但那个插件在 SPM 集成 / present 时序 / 相机权限上连环踩坑,六版未稳,已撤回。
+      // 纠偏改走更轻的路子(见 issue),不再阻塞采集。
+      final file = await ImagePicker().pickImage(source: ImageSource.camera);
+      if (file == null) return const [];
+      return [PendingImport(name: file.name, path: file.path, isImage: true)];
     case _ImportChoice.gallery:
       final files = await ImagePicker().pickMultiImage();
       return [
