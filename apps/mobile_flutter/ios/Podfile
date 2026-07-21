@@ -50,6 +50,17 @@ post_install do |installer|
       # 模拟器是 arm64 会链接失败。对模拟器排除 arm64(改跑 x86_64/Rosetta);
       # 真机(device/TestFlight)构建不受影响,仍用 arm64。
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+
+      # permission_handler 在 CocoaPods 下靠这些预处理宏决定编译哪些权限的实现:
+      # 没打开的权限会被编成「永远返回 denied」的桩,`.request()` 直接拒绝、不弹框。
+      # cunning_document_scanner 走相机权限,不加 PERMISSION_CAMERA=1 就永远
+      # permission_denied、系统设置里也不出现 MedMe 的相机项 —— 真机实测就是如此。
+      # (README 说 SPM 集成会自动扫 Info.plist,但本工程是 CocoaPods,得手动加。)
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+        '$(inherited)',
+        'PERMISSION_CAMERA=1',
+        'PERMISSION_PHOTOS=1',
+      ]
     end
   end
 end
