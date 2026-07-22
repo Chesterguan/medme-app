@@ -44,7 +44,7 @@ class ModePickerScreen extends StatelessWidget {
                 icon: Icons.folder_shared_outlined,
                 accentColor: MedMe.teal,
                 accentSoft: MedMe.tealSoft,
-                title: '我是患者 / 家属',
+                title: '我管自己/家人的病历',
                 subtitle: '整理、查看、加密分享自己和家人的病历',
                 onTap: () => AppMode.instance.chooseMode(AppModeKind.personal),
               ),

@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
-/// 应用模式:「我管自己/家人的病历」(患者/家属)还是「我是医生,帮病人建档」
+/// 应用模式:「我管自己/家人的病历」(普通人)还是「我是医生,帮病人建档」
 /// (医生代拍)。首次打开选一次,之后在「设置」可随时切换。
 enum AppModeKind { personal, doctor }
 
