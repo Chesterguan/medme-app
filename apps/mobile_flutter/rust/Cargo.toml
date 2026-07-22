@@ -45,14 +45,24 @@ dicom = { path = "../../../packages/dicom", default-features = false }
 # `download-binaries`)在 build 时为 `aarch64-linux-android` 下载预编译静态
 # onnxruntime(`libonnxruntime.a`,~108MB 未剥离)并静态链接,另外动态链接
 # NDK 的 `libc++_shared.so`(C++ 标准库,NDK 推荐做法——多个 .so 共享同一份
-# libc++ 而非各自静态内嵌一份)。**待办,真机测前必做**:cargokit 的 Gradle
-# 插件只把我们自己编译出的 `lib*.so` 拷进 APK 的 jniLibs(见
+# libc++ 而非各自静态内嵌一份;ML Kit 自己的
+# `libmlkit_google_ocr_pipeline.so` 也是这个模式)。cargokit 的 Gradle 插件只
+# 把我们自己编译出的 `lib*.so` 拷进 APK 的 jniLibs(见
 # `rust_builder/cargokit/build_tool/lib/src/artifacts_provider.dart`
-# `getArtifactNames`),不会自动带上这个 NDK 系统库——首次真机跑会在
-# `dlopen` 我们的 `.so` 时因为它依赖的 `libc++_shared.so` 缺失而
-# `UnsatisfiedLinkError`。还没接这块(需要往 `rust_builder/android/`
-# 加一个 Gradle 任务或直接把 NDK 的 `libc++_shared.so` 拷进
-# jniLibs,两种做法都没试过、没验证,留给真机测那一步一起解决)。
+# `getArtifactNames`),不会带上这个 NDK 系统库,所以**直接把它提交进
+# `rust_builder/android/src/main/jniLibs/arm64-v8a/libc++_shared.so`**(与
+# cargokit 动态写入的 `debug`/`release` sourceSet 是同一模块、同一
+# `jniLibs` 概念的另一个来源,AGP 按 variant 汇总所有 sourceSet 的
+# jniLibs——main 的静态目录 + buildType 的动态目录都会进最终 APK;这一步
+# 没跑整包 build 验证,武断信的是 AGP 文档化的 sourceSet 合并行为,外加
+# 本仓库已有的 ML Kit 那份 `.so` 正是靠同一条 jniLibs→AAR→APK 流水线在真机
+# 上跑通的实证)。从 build 实际用的 NDK
+# (`~/Library/Android/sdk/ndk/28.2.13676358`,Flutter 3.44.6 默认版本,CI 亦然)
+# 的 `toolchains/llvm/prebuilt/<host>/sysroot/usr/lib/aarch64-linux-android/
+# libc++_shared.so` 拷出、`llvm-strip --strip-unneeded` 剥掉调试符号后
+# 9.2MB→1.25MB(保留 `.dynsym` 2502 项,SONAME 仍是 `libc++_shared.so`,
+# 运行时按 SONAME 匹配,不依赖文件名之外的东西)。只提交了 arm64-v8a 这一个
+# ABI(唯一验证过交叉编译的 target);armeabi-v7a/x86_64 需要时照此办法再加。
 [target.'cfg(any(target_os = "ios", target_os = "android"))'.dependencies]
 ocr = { path = "../../../packages/ocr", default-features = false, features = ["engine"] }
 
