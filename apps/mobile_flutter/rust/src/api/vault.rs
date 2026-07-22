@@ -13,6 +13,18 @@ use core_model::{DocType, NewDocument, NewOcr, OcrBackendKind, Vault};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
+// 移动端图片 OCR 落库时如实标注引擎(溯源):iOS 走 PP-OCRv5(ONNX Runtime,见
+// `ocr_bridge.dart` iOS 分支的 `recognize_image_pp`),安卓走 Google ML Kit。按编译
+// 目标区分——本 crate 由 cargokit 分别为 aarch64-apple-ios / Android 交叉编译。
+#[cfg(target_os = "ios")]
+const MOBILE_OCR_BACKEND: OcrBackendKind = OcrBackendKind::Onnx;
+#[cfg(not(target_os = "ios"))]
+const MOBILE_OCR_BACKEND: OcrBackendKind = OcrBackendKind::MlKit;
+#[cfg(target_os = "ios")]
+const MOBILE_OCR_MODEL: &str = "pp-ocrv5-mobile";
+#[cfg(not(target_os = "ios"))]
+const MOBILE_OCR_MODEL: &str = "mlkit-v2-zh";
+
 /// 随应用二进制打包的示例数据(张建国示例病历,corpus/scenarios,文本+PDF,
 /// 不含大体积 DICOM——与 Tauri 移动端 `demo-data/` 同一份数据集)。
 ///
@@ -468,8 +480,8 @@ pub fn backfill_pdf_text(document_id: i64, text: String, confidence: f64) -> any
             .add_ocr(NewOcr {
                 document_id,
                 page_no: 1,
-                backend: OcrBackendKind::MlKit,
-                model_version: "mlkit-pdf".into(),
+                backend: MOBILE_OCR_BACKEND,
+                model_version: MOBILE_OCR_MODEL.into(),
                 text,
                 confidence: Some(confidence as f32),
             })
@@ -478,13 +490,12 @@ pub fn backfill_pdf_text(document_id: i64, text: String, confidence: f64) -> any
     })
 }
 
-/// 采集(图片,Flutter 端已用 ML Kit 识别好文本):原始字节先入 CAS(与
-/// `pipeline::ingest` 一致,去重同一张图);识别出文字则建 document + ocr_result
-/// (backend 固定 `OcrBackendKind::MlKit`,置信度取调用方传入值,与识别引擎无关——
-/// 只是把「MedMe 侧落库时统一打上 MlKit 标签」这件事从 Rust 端 OCR 迁到 Flutter
-/// 端 OCR,记录里如实标注来源);识别为空则退回文件名元数据(`StoredNoText`),
-/// 原件仍可见。落库语义逐字镜像 Tauri 版 `ingest_image_via_vision`/
-/// `ingest_image_via_mlkit`,只是识别文本来自参数而非本地再跑一次 OCR。
+/// 采集(图片,Flutter 端已识别好文本):原始字节先入 CAS(与 `pipeline::ingest`
+/// 一致,去重同一张图);识别出文字则建 document + ocr_result(backend 按编译目标
+/// 如实标注 `MOBILE_OCR_BACKEND`——iOS=PP-OCRv5/Onnx,安卓=ML Kit;置信度取调用方
+/// 传入值);识别为空则退回文件名元数据(`StoredNoText`),原件仍可见。落库语义逐字
+/// 镜像 Tauri 版 `ingest_image_via_vision`/`ingest_image_via_mlkit`,只是识别文本来自
+/// 参数而非本地再跑一次 OCR。
 pub fn ingest_image_with_text(
     name: String,
     bytes: Vec<u8>,
@@ -551,8 +562,8 @@ pub fn ingest_image_with_text(
                 v.add_ocr(NewOcr {
                     document_id: doc.id,
                     page_no: 1,
-                    backend: OcrBackendKind::MlKit,
-                    model_version: "mlkit".into(),
+                    backend: MOBILE_OCR_BACKEND,
+                    model_version: MOBILE_OCR_MODEL.into(),
                     text: ocr_text,
                     confidence: Some(confidence),
                 })
