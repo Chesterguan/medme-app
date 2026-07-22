@@ -3,9 +3,12 @@
 //! Pulls diagnosis terms out of labeled sections of a clinical note and keeps
 //! them as honest raw strings. Pure string work: no network, no LLM. There is
 //! **no** condition/diagnosis category in the terminology dictionary, so — unlike
-//! labs and meds — nothing here is normalized to a code (ICD or otherwise). Any
-//! ICD code that happens to be printed alongside a term is *dropped*, not
-//! trusted: we don't verify it and won't launder it into structured data.
+//! labs and meds — the term itself is not normalized to a code. A trailing ICD
+//! code that the note prints alongside the term IS captured verbatim into
+//! [`ConditionMention::icd_code`] (additive FHIR-coding groundwork) but never
+//! trusted for display: `raw_text` still has it stripped, and we don't validate
+//! the code or invent one when the note omits it. It's the note's own claim,
+//! carried through unchanged for a future FHIR export to use or ignore.
 //!
 //! ## Row shapes handled
 //! Section label (optionally after a list number) + `:`/`：`, then either:
@@ -13,7 +16,7 @@
 //! 出院诊断:2型糖尿病；高血压病3级          <- inline, split on ；;，,、 and numbers
 //! 出院诊断:1. 急性脑梗死 2. 高血压3级 3. 2型糖尿病  <- inline w/ in-line numbering
 //! 出院诊断:                                <- label then a numbered block:
-//!   1. 2型糖尿病(E11.9)                    <- numbering stripped, ICD code dropped
+//!   1. 2型糖尿病(E11.9)                    <- numbering stripped, ICD code → icd_code
 //!   2. 高血压病3级
 //! ```
 //! Recognized labels: 诊断 初步诊断 入院诊断 出院诊断 主要诊断 其他诊断 临床诊断.
@@ -41,6 +44,10 @@ use std::sync::OnceLock;
 pub struct ConditionMention {
     pub raw_text: String,
     pub section: Option<String>,
+    /// A trailing ICD-style code the note printed next to the term (`E11.9` from
+    /// `2型糖尿病(E11.9)`), captured verbatim, `None` when the note prints none.
+    /// Never derived — stripped out of `raw_text`, kept here for FHIR groundwork.
+    pub icd_code: Option<String>,
 }
 
 /// A diagnosis-section label line: optional list marker, a known label, a colon,
@@ -67,12 +74,14 @@ fn numbered_item_re() -> &'static Regex {
 }
 
 /// Trailing ICD-style code in (), （）, [], 【】: `(E11.9)`, `[I10]`. Inner content
-/// must start with a letter+digit — the ICD-10 shape — so a genuine parenthetical
-/// like `高血压(3级)` is left intact.
+/// (capture group 1) must start with a letter+digit — the ICD-10 shape — so a
+/// genuine parenthetical like `高血压(3级)` is left intact. Group 1 is the bare
+/// code for [`ConditionMention::icd_code`]; the whole match is stripped from the
+/// display name.
 fn icd_paren_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
     R.get_or_init(|| {
-        Regex::new(r"\s*[(（\[【]\s*[A-Za-z]\d[0-9A-Za-z.\-]*\s*[)）\]】]\s*$").expect("icd re")
+        Regex::new(r"\s*[(（\[【]\s*([A-Za-z]\d[0-9A-Za-z.\-]*)\s*[)）\]】]\s*$").expect("icd re")
     })
 }
 
@@ -92,8 +101,9 @@ fn inline_number_re() -> &'static Regex {
 }
 
 /// Split an inline diagnosis string, clean each part, keep order. Two passes:
-/// first on in-line numbered markers (` 2.` ` 3.`), then on `；;，,、`.
-fn split_inline(s: &str) -> Vec<String> {
+/// first on in-line numbered markers (` 2.` ` 3.`), then on `；;，,、`. Each kept
+/// part is `(display_name, optional_icd_code)`.
+fn split_inline(s: &str) -> Vec<(String, Option<String>)> {
     inline_number_re()
         .split(s)
         .flat_map(|seg| seg.split(['；', ';', '，', ',', '、']))
@@ -101,13 +111,19 @@ fn split_inline(s: &str) -> Vec<String> {
         .collect()
 }
 
-/// Normalize one diagnosis term: strip any leading list numbering, drop a
-/// trailing ICD code, trim punctuation/space. Returns `None` for empties.
-fn clean_dx(raw: &str) -> Option<String> {
+/// Normalize one diagnosis term: strip any leading list numbering, capture then
+/// strip a trailing ICD code, trim punctuation/space. Returns `(display_name,
+/// icd_code)` — `icd_code` is `Some` only when the term printed one. `None` for
+/// empties (an ICD code alone, with no disease text left, is not a diagnosis).
+fn clean_dx(raw: &str) -> Option<(String, Option<String>)> {
     let mut s = numbered_item_re()
         .captures(raw)
         .and_then(|c| c.get(1).map(|m| m.as_str().to_string()))
         .unwrap_or_else(|| raw.to_string());
+    // Capture the bare code (group 1) before stripping the whole `(…)` match.
+    let icd = icd_paren_re()
+        .captures(&s)
+        .and_then(|c| c.get(1).map(|m| m.as_str().to_string()));
     s = icd_paren_re().replace(&s, "").to_string();
     let s = s
         .trim()
@@ -119,7 +135,7 @@ fn clean_dx(raw: &str) -> Option<String> {
     if s.is_empty() {
         None
     } else {
-        Some(s)
+        Some((s, icd))
     }
 }
 
@@ -138,18 +154,19 @@ pub fn extract_conditions(text: &str) -> Vec<ConditionMention> {
         let section = caps.get(1).expect("label group").as_str().to_string();
         let inline = caps.get(2).map(|m| m.as_str()).unwrap_or("");
 
-        let mut push = |dx: String, out: &mut Vec<ConditionMention>| {
+        let mut push = |dx: String, icd: Option<String>, out: &mut Vec<ConditionMention>| {
             if seen.insert((dx.clone(), section.clone())) {
                 out.push(ConditionMention {
                     raw_text: dx,
                     section: Some(section.clone()),
+                    icd_code: icd,
                 });
             }
         };
 
         // Inline diagnoses after the label.
-        for dx in split_inline(inline) {
-            push(dx, &mut out);
+        for (dx, icd) in split_inline(inline) {
+            push(dx, icd, &mut out);
         }
 
         // A following numbered block belongs to this section; stop at a blank or
@@ -159,8 +176,8 @@ pub fn extract_conditions(text: &str) -> Vec<ConditionMention> {
             if lines[j].trim().is_empty() || !numbered_item_re().is_match(lines[j]) {
                 break;
             }
-            if let Some(dx) = clean_dx(lines[j]) {
-                push(dx, &mut out);
+            if let Some((dx, icd)) = clean_dx(lines[j]) {
+                push(dx, icd, &mut out);
             }
             j += 1;
         }
@@ -215,10 +232,13 @@ mod tests {
 ";
         let obs = extract_conditions(text);
         assert_eq!(obs.len(), 2);
-        // ICD code dropped, disease-leading digit (2型) preserved.
+        // ICD code stripped from the name (disease-leading digit 2型 preserved) but
+        // now captured into icd_code; a term with no code carries None.
         assert_eq!(obs[0].raw_text, "2型糖尿病");
+        assert_eq!(obs[0].icd_code.as_deref(), Some("E11.9"));
         assert_eq!(obs[0].section.as_deref(), Some("出院诊断"));
         assert_eq!(obs[1].raw_text, "高血压病3级");
+        assert_eq!(obs[1].icd_code, None);
     }
 
     #[test]
@@ -246,6 +266,8 @@ mod tests {
         let obs = extract_conditions(text);
         assert_eq!(obs.len(), 1);
         assert_eq!(obs[0].raw_text, "2型糖尿病");
+        // Bracket form [E11.9] is captured the same as the paren form.
+        assert_eq!(obs[0].icd_code.as_deref(), Some("E11.9"));
         assert_eq!(obs[0].section.as_deref(), Some("临床诊断"));
     }
 }

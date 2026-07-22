@@ -102,6 +102,10 @@ pub struct AggregatedCondition {
     pub raw_text: String,
     /// Earliest dated mention (`None` if no mention carried a date).
     pub onset: Option<NaiveDate>,
+    /// ICD code the note printed alongside this diagnosis, if any (first
+    /// non-empty across the merged mentions). Additive FHIR groundwork — not yet
+    /// surfaced in the summary/share; carried here for a future export to use.
+    pub icd_code: Option<String>,
     /// All [`SourceDoc::index`] that mention it, deduped, ascending.
     pub sources: Vec<usize>,
 }
@@ -304,6 +308,7 @@ struct MedBuilder {
 struct CondBuilder {
     raw_text: String,
     onset: Option<NaiveDate>,
+    icd_code: Option<String>,
     sources: BTreeSet<usize>,
 }
 
@@ -470,9 +475,14 @@ pub fn aggregate(docs: &[SourceDoc<'_>]) -> AggregatedClinical {
             let b = conds.entry(raw.clone()).or_insert_with(|| CondBuilder {
                 raw_text: raw,
                 onset: None,
+                icd_code: None,
                 sources: BTreeSet::new(),
             });
             b.onset = min_date(b.onset, doc.date);
+            // First document that printed a code for this diagnosis wins.
+            if b.icd_code.is_none() {
+                b.icd_code = c.icd_code;
+            }
             b.sources.insert(doc.index);
         }
     }
@@ -525,6 +535,7 @@ pub fn aggregate(docs: &[SourceDoc<'_>]) -> AggregatedClinical {
         .map(|b| AggregatedCondition {
             raw_text: b.raw_text,
             onset: b.onset,
+            icd_code: b.icd_code,
             sources: b.sources.into_iter().collect(),
         })
         .collect();
