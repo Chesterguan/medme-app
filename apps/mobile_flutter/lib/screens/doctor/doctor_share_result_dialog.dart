@@ -9,7 +9,7 @@ import 'package:mobile_flutter/theme.dart';
 ///
 /// 与 `screens/export_screen.dart` 的 `_showShareResult` 是**同一份 UI/文案的
 /// 独立副本**,不是共享组件——两者交付方向相反(患者→医生 vs 医生→病人),
-/// 措辞不能共用同一句话;拆开维护也让「不碰普通人模式一行代码」这条硬规矩
+/// 措辞不能共用同一句话;拆开维护也让「不碰患者/家属模式一行代码」这条硬规矩
 /// 在这个文件上是显而易见成立的(`export_screen.dart` 完全不知道本文件存在)。
 /// 宁可这 ~100 行重复,也不去改 `export_screen.dart` 抽公共组件。
 Future<void> showDoctorShareResultDialog(

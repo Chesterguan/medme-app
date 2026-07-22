@@ -146,7 +146,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           target == AppModeKind.doctor
               ? '切换到「医生模式」:主界面变成「为病人代拍」,你自己的病历仍在——'
                     '随时可以再切回来查看。'
-              : '切换到「我管自己/家人的病历」模式,回到健康档案 / 导出分享 / 设置。',
+              : '切换到「患者 / 家属」模式,回到健康档案 / 导出分享 / 设置。',
         ),
         actions: [
           TextButton(
@@ -182,7 +182,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: currentMode == AppModeKind.doctor
                     ? Icons.medical_services_outlined
                     : Icons.folder_shared_outlined,
-                title: currentMode == AppModeKind.doctor ? '医生模式' : '我管自己/家人的病历',
+                title: currentMode == AppModeKind.doctor ? '医生模式' : '患者 / 家属模式',
                 subtitle: currentMode == AppModeKind.doctor
                     ? '点击切换到你自己的家庭档案'
                     : '点击切换到「为病人代拍」',
