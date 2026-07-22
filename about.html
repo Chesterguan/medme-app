@@ -49,12 +49,15 @@
   .section-lead{color:var(--muted);text-align:center;max-width:640px;margin:0 auto 40px;font-size:16px}
   /* team */
   .team-intro{color:var(--muted);text-align:center;max-width:640px;margin:0 auto 40px;font-size:16px}
-  .team{display:grid;grid-template-columns:repeat(2,1fr);gap:22px;max-width:840px;margin:0 auto}
+  .team{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;max-width:1080px;margin:0 auto}
+  .team.founders{grid-template-columns:repeat(2,1fr);max-width:720px}
+  .team-group{max-width:1080px;margin:0 auto 20px;text-align:center;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--blue)}
+  .team + .team-group{margin-top:52px}
   .member{background:#fff;border:1px solid var(--line);border-radius:18px;padding:30px 26px;text-align:center}
   section.alt .member{background:var(--bg)}
-  .member .avatar{width:96px;height:96px;border-radius:50%;overflow:hidden;margin:0 auto 16px;
+  .member .avatar{position:relative;width:96px;height:96px;border-radius:50%;overflow:hidden;margin:0 auto 16px;
     background:var(--blue-50);border:1px solid #c8ebf1;display:flex;align-items:center;justify-content:center;color:#2bc0d2}
-  .member .avatar img{width:100%;height:100%;object-fit:cover}
+  .member .avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   .member .avatar svg{width:46px;height:46px}
   .member h3{font-size:18px;margin-bottom:4px}
   .member .role{font-size:13px;color:var(--blue);font-weight:600;margin-bottom:12px}
@@ -98,9 +101,12 @@
   footer .flinks a:hover{color:#fff}
   footer .disc{max-width:720px;margin:0 auto 16px;color:#94a3b8;font-size:13px;line-height:1.8}
   footer b{color:#e2e8f0}
+  @media(max-width:900px){
+    .team{grid-template-columns:repeat(2,1fr);max-width:720px}
+  }
   @media(max-width:760px){
     header.phead h1{font-size:30px}
-    .team{grid-template-columns:1fr}
+    .team,.team.founders{grid-template-columns:1fr}
     .principles{grid-template-columns:1fr}
   }
 </style>
@@ -135,7 +141,9 @@
   <div class="wrap">
     <h2>我们是谁</h2>
     <p class="team-intro">健康数据事关信任。我们把团队摆在明处——真实的人、真实的背景、可查证的身份。</p>
-    <div class="team">
+
+    <div class="team-group">创始团队</div>
+    <div class="team founders">
 
       <!-- 成员 1:项目创始人 -->
       <div class="member">
@@ -167,6 +175,11 @@
         </div>
       </div>
 
+    </div>
+
+    <div class="team-group">科学顾问</div>
+    <div class="team">
+
       <!-- 计算生物学 -->
       <div class="member">
         <div class="avatar">
@@ -178,6 +191,35 @@
         <p>香港神农制药计算生物学家(实习);香港科技大学生物工程硕士。方向为人工智能辅助药物设计与体外检测试剂。</p>
         <div class="links">
           <a href="https://www.linkedin.com/in/%E5%90%AF%E4%B9%90-%E6%9D%8E-0859b6181" target="_blank" rel="noopener" title="LinkedIn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14zM8.34 17V10.4H6.16V17h2.18zM7.25 9.5a1.26 1.26 0 1 0 0-2.52 1.26 1.26 0 0 0 0 2.52zM18 17v-3.62c0-1.93-.41-3.42-2.67-3.42-1.08 0-1.81.6-2.11 1.16h-.03V10.4h-2.09V17h2.18v-3.26c0-.86.16-1.69 1.23-1.69 1.05 0 1.07.98 1.07 1.75V17H18z"/></svg> LinkedIn</a>
+        </div>
+      </div>
+
+      <!-- 基因组学 -->
+      <div class="member">
+        <div class="avatar">
+          <img src="assets/team/moni.jpg" alt="Moni Qiande" onerror="this.remove()" />
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <h3>Moni Qiande</h3>
+        <div class="role">科学顾问 · 基因组学</div>
+        <p>佛罗里达大学博士,基因组学 / 合成生物学背景。研究转基因表达系统与高通量实验自动化。</p>
+        <div class="links">
+          <a href="https://www.linkedin.com/in/qiandemoni/" target="_blank" rel="noopener" title="LinkedIn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14zM8.34 17V10.4H6.16V17h2.18zM7.25 9.5a1.26 1.26 0 1 0 0-2.52 1.26 1.26 0 0 0 0 2.52zM18 17v-3.62c0-1.93-.41-3.42-2.67-3.42-1.08 0-1.81.6-2.11 1.16h-.03V10.4h-2.09V17h2.18v-3.26c0-.86.16-1.69 1.23-1.69 1.05 0 1.07.98 1.07 1.75V17H18z"/></svg> LinkedIn</a>
+          <a href="https://www.designerglycans.com/research-team-members/" target="_blank" rel="noopener" title="实验室主页"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3.5 12h17M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18"/></svg> Lab</a>
+        </div>
+      </div>
+
+      <!-- AI 医疗 -->
+      <div class="member">
+        <div class="avatar">
+          <img src="assets/team/yuanfang.jpg" alt="任远芳 Yuanfang Ren" onerror="this.remove()" />
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <h3>任远芳 Yuanfang Ren</h3>
+        <div class="role">科学顾问 · 资深 AI 医疗研究员</div>
+        <p>机器学习 / 生物信息学 / 多模态电子病历。研究含用多模态数据预测大型手术术后并发症,方法学与临床落地兼顾。</p>
+        <div class="links">
+          <a href="https://scholar.google.com/citations?user=0WjkGP8AAAAJ&amp;hl=en" target="_blank" rel="noopener" title="Google Scholar"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3zM5 13.18v3.5L12 20l7-3.32v-3.5L12 17l-7-3.82z"/></svg> Scholar</a>
         </div>
       </div>
 
