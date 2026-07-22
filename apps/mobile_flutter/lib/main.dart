@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:mobile_flutter/ephemeral_session.dart';
 import 'package:mobile_flutter/src/rust/frb_generated.dart';
 import 'package:mobile_flutter/theme.dart';
 import 'package:mobile_flutter/screens/archive_screen.dart';
@@ -11,6 +14,10 @@ import 'package:mobile_flutter/vault_events.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await RustLib.init();
+  // 清崩溃残留:上次「为病人代建档」若因崩溃/被系统杀掉而没能即焚,这里兜底
+  // 清掉(见 `ephemeral_session.dart` / `api::ephemeral::ephemeral_sweep`)。
+  // 不阻塞 UI——尽力而为,失败也不影响正常启动。
+  unawaited(EphemeralSession.sweep());
   runApp(const MedMeApp());
 }
 

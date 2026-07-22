@@ -7,7 +7,7 @@ import '../frb_generated.dart';
 import 'dto.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `collect_demo_files`, `detected_name_for`, `doc_summary`, `ingest_one`, `machine_device_id`, `open_resilient_with_fallback`, `resolve_vault_paths`, `vault_cell`, `with_state_mut`, `with_state`
+// These functions are ignored because they are not marked as `pub`: `collect_demo_files`, `create_share_core`, `detected_name_for`, `doc_summary`, `ingest_bytes_core`, `ingest_image_with_text_core`, `ingest_one`, `load_archive_core`, `machine_device_id`, `open_resilient_with_fallback`, `resolve_vault_paths`, `vault_cell`, `with_state_mut`, `with_state`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `VaultState`
 
 /// 打开(或新建)保险箱。iCloud 容器路径由 **Dart 侧经 MethodChannel 解析后传入**
@@ -109,13 +109,12 @@ Future<void> backfillPdfText({
   confidence: confidence,
 );
 
-/// 采集(图片,Flutter 端已用 ML Kit 识别好文本):原始字节先入 CAS(与
-/// `pipeline::ingest` 一致,去重同一张图);识别出文字则建 document + ocr_result
-/// (backend 固定 `OcrBackendKind::MlKit`,置信度取调用方传入值,与识别引擎无关——
-/// 只是把「MedMe 侧落库时统一打上 MlKit 标签」这件事从 Rust 端 OCR 迁到 Flutter
-/// 端 OCR,记录里如实标注来源);识别为空则退回文件名元数据(`StoredNoText`),
-/// 原件仍可见。落库语义逐字镜像 Tauri 版 `ingest_image_via_vision`/
-/// `ingest_image_via_mlkit`,只是识别文本来自参数而非本地再跑一次 OCR。
+/// 采集(图片,Flutter 端已识别好文本):原始字节先入 CAS(与 `pipeline::ingest`
+/// 一致,去重同一张图);识别出文字则建 document + ocr_result(backend 按编译目标
+/// 如实标注 `MOBILE_OCR_BACKEND`——iOS=PP-OCRv5/Onnx,安卓=ML Kit;置信度取调用方
+/// 传入值);识别为空则退回文件名元数据(`StoredNoText`),原件仍可见。落库语义逐字
+/// 镜像 Tauri 版 `ingest_image_via_vision`/`ingest_image_via_mlkit`,只是识别文本来自
+/// 参数而非本地再跑一次 OCR。
 Future<ImportOutcomeDto> ingestImageWithText({
   required String name,
   required List<int> bytes,

@@ -18,6 +18,11 @@ class MedMe {
   static const Color faint = Color(0xFF94A3B8);
   static const Color danger = Color(0xFFBE123C);
 
+  // 「为病人代建档」全屏流程专用的警示橙 chrome —— 与品牌 teal 明显区分,
+  // 让医生一眼分清「这不是我的箱」(见 `screens/proxy/proxy_intake_flow.dart`)。
+  static const Color proxyOrange = Color(0xFFC2570C);
+  static const Color proxyOrangeSoft = Color(0xFFFCEEE0);
+
   static ThemeData theme() {
     final scheme = ColorScheme.fromSeed(
       seedColor: teal,

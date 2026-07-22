@@ -42,5 +42,8 @@ dicom = { path = "../../../packages/dicom", default-features = false }
 [target.'cfg(target_os = "ios")'.dependencies]
 ocr = { path = "../../../packages/ocr", default-features = false, features = ["engine"] }
 
+[dev-dependencies]
+tempfile = "3"
+
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }

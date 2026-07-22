@@ -4,6 +4,7 @@
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
 import 'api/dto.dart';
+import 'api/ephemeral.dart';
 import 'api/vault.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -67,7 +68,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => 1913789328;
+  int get rustContentHash => 912060962;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -96,6 +97,31 @@ abstract class RustLibApi extends BaseApi {
   Future<void> crateApiVaultDisableIcloudSync();
 
   Future<void> crateApiVaultEnableIcloudSync({required String containerDir});
+
+  Future<void> crateApiEphemeralEphemeralBegin({required String cacheDir});
+
+  Future<ShareResultDto> crateApiEphemeralEphemeralCreateShare({
+    required PlatformInt64 expiresDays,
+    required ConsentDto consent,
+  });
+
+  Future<ImportOutcomeDto> crateApiEphemeralEphemeralIngestBytes({
+    required String filename,
+    required List<int> data,
+  });
+
+  Future<ImportOutcomeDto> crateApiEphemeralEphemeralIngestImageWithText({
+    required String name,
+    required List<int> bytes,
+    required String ocrText,
+    required double confidence,
+  });
+
+  Future<List<TimelineGroupDto>> crateApiEphemeralEphemeralLoadPreview();
+
+  Future<void> crateApiEphemeralEphemeralSweep({required String cacheDir});
+
+  Future<void> crateApiEphemeralEphemeralWipe();
 
   Future<ExportResultDto> crateApiVaultExportTimelineHtml({
     String? fromDate,
@@ -347,6 +373,225 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiEphemeralEphemeralBegin({required String cacheDir}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(cacheDir, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 7,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiEphemeralEphemeralBeginConstMeta,
+        argValues: [cacheDir],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEphemeralEphemeralBeginConstMeta =>
+      const TaskConstMeta(debugName: "ephemeral_begin", argNames: ["cacheDir"]);
+
+  @override
+  Future<ShareResultDto> crateApiEphemeralEphemeralCreateShare({
+    required PlatformInt64 expiresDays,
+    required ConsentDto consent,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_i_64(expiresDays, serializer);
+          sse_encode_box_autoadd_consent_dto(consent, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 8,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_share_result_dto,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiEphemeralEphemeralCreateShareConstMeta,
+        argValues: [expiresDays, consent],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEphemeralEphemeralCreateShareConstMeta =>
+      const TaskConstMeta(
+        debugName: "ephemeral_create_share",
+        argNames: ["expiresDays", "consent"],
+      );
+
+  @override
+  Future<ImportOutcomeDto> crateApiEphemeralEphemeralIngestBytes({
+    required String filename,
+    required List<int> data,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(filename, serializer);
+          sse_encode_list_prim_u_8_loose(data, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 9,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_import_outcome_dto,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiEphemeralEphemeralIngestBytesConstMeta,
+        argValues: [filename, data],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEphemeralEphemeralIngestBytesConstMeta =>
+      const TaskConstMeta(
+        debugName: "ephemeral_ingest_bytes",
+        argNames: ["filename", "data"],
+      );
+
+  @override
+  Future<ImportOutcomeDto> crateApiEphemeralEphemeralIngestImageWithText({
+    required String name,
+    required List<int> bytes,
+    required String ocrText,
+    required double confidence,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(name, serializer);
+          sse_encode_list_prim_u_8_loose(bytes, serializer);
+          sse_encode_String(ocrText, serializer);
+          sse_encode_f_32(confidence, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 10,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_import_outcome_dto,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiEphemeralEphemeralIngestImageWithTextConstMeta,
+        argValues: [name, bytes, ocrText, confidence],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEphemeralEphemeralIngestImageWithTextConstMeta =>
+      const TaskConstMeta(
+        debugName: "ephemeral_ingest_image_with_text",
+        argNames: ["name", "bytes", "ocrText", "confidence"],
+      );
+
+  @override
+  Future<List<TimelineGroupDto>> crateApiEphemeralEphemeralLoadPreview() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 11,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_timeline_group_dto,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiEphemeralEphemeralLoadPreviewConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEphemeralEphemeralLoadPreviewConstMeta =>
+      const TaskConstMeta(debugName: "ephemeral_load_preview", argNames: []);
+
+  @override
+  Future<void> crateApiEphemeralEphemeralSweep({required String cacheDir}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(cacheDir, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 12,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiEphemeralEphemeralSweepConstMeta,
+        argValues: [cacheDir],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEphemeralEphemeralSweepConstMeta =>
+      const TaskConstMeta(debugName: "ephemeral_sweep", argNames: ["cacheDir"]);
+
+  @override
+  Future<void> crateApiEphemeralEphemeralWipe() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 13,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiEphemeralEphemeralWipeConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEphemeralEphemeralWipeConstMeta =>
+      const TaskConstMeta(debugName: "ephemeral_wipe", argNames: []);
+
+  @override
   Future<ExportResultDto> crateApiVaultExportTimelineHtml({
     String? fromDate,
     String? toDate,
@@ -360,7 +605,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 7,
+            funcId: 14,
             port: port_,
           );
         },
@@ -393,7 +638,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 8,
+            funcId: 15,
             port: port_,
           );
         },
@@ -420,7 +665,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 9,
+            funcId: 16,
             port: port_,
           );
         },
@@ -452,7 +697,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 10,
+            funcId: 17,
             port: port_,
           );
         },
@@ -482,7 +727,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 11,
+            funcId: 18,
             port: port_,
           );
         },
@@ -518,7 +763,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 12,
+            funcId: 19,
             port: port_,
           );
         },
@@ -548,7 +793,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 13,
+            funcId: 20,
             port: port_,
           );
         },
@@ -575,7 +820,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 14,
+            funcId: 21,
             port: port_,
           );
         },
@@ -602,7 +847,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 15,
+            funcId: 22,
             port: port_,
           );
         },
@@ -636,7 +881,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 16,
+            funcId: 23,
             port: port_,
           );
         },
@@ -665,7 +910,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 17,
+            funcId: 24,
             port: port_,
           );
         },
@@ -693,7 +938,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 18,
+            funcId: 25,
             port: port_,
           );
         },
@@ -723,7 +968,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 19,
+            funcId: 26,
             port: port_,
           );
         },
@@ -751,7 +996,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 20,
+            funcId: 27,
             port: port_,
           );
         },
@@ -778,7 +1023,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 21,
+            funcId: 28,
             port: port_,
           );
         },
@@ -808,7 +1053,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 22,
+            funcId: 29,
             port: port_,
           );
         },
@@ -848,6 +1093,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ConsentDto dco_decode_box_autoadd_consent_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_consent_dto(raw);
+  }
+
+  @protected
   DocumentSummaryDto dco_decode_box_autoadd_document_summary_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_document_summary_dto(raw);
@@ -877,6 +1128,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   PlatformInt64 dco_decode_box_autoadd_i_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_i_64(raw);
+  }
+
+  @protected
+  ConsentDto dco_decode_consent_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return ConsentDto(
+      utcTs: dco_decode_String(arr[0]),
+      consentTextVersion: dco_decode_String(arr[1]),
+      signaturePngBase64: dco_decode_opt_String(arr[2]),
+      method: dco_decode_String(arr[3]),
+      sessionId: dco_decode_String(arr[4]),
+    );
   }
 
   @protected
@@ -1162,6 +1428,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ConsentDto sse_decode_box_autoadd_consent_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_consent_dto(deserializer));
+  }
+
+  @protected
   DocumentSummaryDto sse_decode_box_autoadd_document_summary_dto(
     SseDeserializer deserializer,
   ) {
@@ -1193,6 +1465,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   PlatformInt64 sse_decode_box_autoadd_i_64(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_i_64(deserializer));
+  }
+
+  @protected
+  ConsentDto sse_decode_consent_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_utcTs = sse_decode_String(deserializer);
+    var var_consentTextVersion = sse_decode_String(deserializer);
+    var var_signaturePngBase64 = sse_decode_opt_String(deserializer);
+    var var_method = sse_decode_String(deserializer);
+    var var_sessionId = sse_decode_String(deserializer);
+    return ConsentDto(
+      utcTs: var_utcTs,
+      consentTextVersion: var_consentTextVersion,
+      signaturePngBase64: var_signaturePngBase64,
+      method: var_method,
+      sessionId: var_sessionId,
+    );
   }
 
   @protected
@@ -1542,6 +1831,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_consent_dto(
+    ConsentDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_consent_dto(self, serializer);
+  }
+
+  @protected
   void sse_encode_box_autoadd_document_summary_dto(
     DocumentSummaryDto self,
     SseSerializer serializer,
@@ -1578,6 +1876,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_64(self, serializer);
+  }
+
+  @protected
+  void sse_encode_consent_dto(ConsentDto self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.utcTs, serializer);
+    sse_encode_String(self.consentTextVersion, serializer);
+    sse_encode_opt_String(self.signaturePngBase64, serializer);
+    sse_encode_String(self.method, serializer);
+    sse_encode_String(self.sessionId, serializer);
   }
 
   @protected

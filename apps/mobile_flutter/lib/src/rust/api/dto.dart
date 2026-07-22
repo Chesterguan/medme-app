@@ -9,7 +9,46 @@ import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'dto.freezed.dart';
 
 // These functions are ignored because they are not marked as `pub`: `from_encounter`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`
+
+/// 拍前同意记录(医生代拍病人纸质材料流程,Phase 1):由 `ephemeral_create_share`
+/// 塞进加密分享包(见 `api::ephemeral`,转换成 `medme_share::share::ShareConsent`)。
+/// `method` 为 "signature" 时 `signature_png_base64` 应为 `Some`(手写签名 PNG 的
+/// base64);"press_hold"(按住 3 秒确认的兜底手势)时为 `None`。
+class ConsentDto {
+  final String utcTs;
+  final String consentTextVersion;
+  final String? signaturePngBase64;
+  final String method;
+  final String sessionId;
+
+  const ConsentDto({
+    required this.utcTs,
+    required this.consentTextVersion,
+    this.signaturePngBase64,
+    required this.method,
+    required this.sessionId,
+  });
+
+  @override
+  int get hashCode =>
+      utcTs.hashCode ^
+      consentTextVersion.hashCode ^
+      signaturePngBase64.hashCode ^
+      method.hashCode ^
+      sessionId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ConsentDto &&
+          runtimeType == other.runtimeType &&
+          utcTs == other.utcTs &&
+          consentTextVersion == other.consentTextVersion &&
+          signaturePngBase64 == other.signaturePngBase64 &&
+          method == other.method &&
+          sessionId == other.sessionId;
+}
 
 /// 文档详情:类型/日期(在 document 里)+ 来源文件 + 识别文本。
 class DocumentDetailDto {

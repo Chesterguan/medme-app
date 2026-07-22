@@ -58,6 +58,9 @@ dependencies:
   # 把亮度锁死在最高。pub.dev 满分维护度、165 赞、月下载 18万+,选成熟包
   # 而不是自己写 platform channel。
   screen_brightness: ^2.1.11
+  # 医生代拍病人流程(Phase 1):拍前同意的手写签名捕获。成熟稳定包(6.x 系列,
+  # 非 bleeding-edge),`CustomPainter` 手绘签名板 + 导出 PNG,不引入原生依赖。
+  signature: ^6.3.0
 
 dev_dependencies:
   flutter_test:

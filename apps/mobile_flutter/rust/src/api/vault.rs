@@ -39,16 +39,21 @@ static DEMO_DATA: include_dir::Dir<'_> = include_dir::include_dir!("$CARGO_MANIF
 /// Vault 一起存(`reset_vault` 需要同时读写这几样)。`data_dir` 是 App 沙盒 data
 /// 目录,存 `device_id` 文件,也是 `ingest_bytes`/`load_demo_data` 的临时文件落点
 /// (镜像 Tauri 版用 `app_cache_dir()` 存一次性导入临时文件的做法)。
-struct VaultState {
-    vault: Vault,
+/// `pub(crate)`(而非模块私有):`api::ephemeral` 的临时会话 cell 复用同一个结构体 +
+/// 同一套 `*_core` 自由函数(ingest/load_archive/create_share),两个 cell 共用医疗
+/// 逻辑、不重复维护;彼此完全独立的 `static` 实例,互不可见对方数据。
+pub(crate) struct VaultState {
+    pub(crate) vault: Vault,
     /// 真相(`objects/` + `log/`)所在目录:本机 `<docs_dir>/vault`,或(开了 iCloud
-    /// 同步且容器可用时)iCloud 容器 `<container>/Documents/vault`。
-    truth_root: PathBuf,
-    db_path: PathBuf,
-    device_id: String,
+    /// 同步且容器可用时)iCloud 容器 `<container>/Documents/vault`。临时会话:
+    /// `<cache_dir>/ephemeral-<随机>/vault`。
+    pub(crate) truth_root: PathBuf,
+    pub(crate) db_path: PathBuf,
+    pub(crate) device_id: String,
     /// App 沙盒 Documents 目录;本机保险箱固定 `<docs_dir>/vault`(关 iCloud 时复制回这)。
-    docs_dir: PathBuf,
-    data_dir: PathBuf,
+    /// 临时会话不涉及 iCloud/多成员,此字段固定等于会话根目录,仅为满足结构体共用。
+    pub(crate) docs_dir: PathBuf,
+    pub(crate) data_dir: PathBuf,
 }
 
 static VAULT: OnceLock<Mutex<Option<VaultState>>> = OnceLock::new();
@@ -187,49 +192,54 @@ fn open_resilient_with_fallback(
     }
 }
 
+/// [`load_archive`] 的核心逻辑,吃 `&VaultState` —— `api::ephemeral` 的
+/// `ephemeral_load_preview` 复用同一份(临时会话的预览时间线,同一套 core-model
+/// 查询,别复制医疗逻辑)。
+pub(crate) fn load_archive_core(state: &VaultState) -> anyhow::Result<Vec<TimelineGroupDto>> {
+    let v = &state.vault;
+    v.rebuild_encounters()
+        .map_err(|e| anyhow::anyhow!(e.to_string()))?; // 幂等
+    let mut groups: Vec<(Option<String>, TimelineGroupDto)> = Vec::new();
+    for (enc, docs) in v
+        .encounters_with_docs()
+        .map_err(|e| anyhow::anyhow!(e.to_string()))?
+    {
+        let sort = enc.start_date.map(|d| d.to_rfc3339());
+        let summary = EncounterSummaryDto::from_encounter(&enc, docs.len() as i64);
+        let doc_dtos = docs.iter().map(|d| doc_summary(v, d)).collect();
+        groups.push((
+            sort,
+            TimelineGroupDto::Encounter {
+                encounter: summary,
+                docs: doc_dtos,
+            },
+        ));
+    }
+    for d in v
+        .standalone_documents()
+        .map_err(|e| anyhow::anyhow!(e.to_string()))?
+    {
+        let sort = d.doc_date.map(|x| x.to_rfc3339());
+        groups.push((
+            sort,
+            TimelineGroupDto::Document {
+                doc: doc_summary(v, &d),
+            },
+        ));
+    }
+    groups.sort_by(|a, b| match (&a.0, &b.0) {
+        (Some(x), Some(y)) => y.cmp(x),
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => std::cmp::Ordering::Equal,
+    });
+    Ok(groups.into_iter().map(|(_, g)| g).collect())
+}
+
 /// 健康档案时间线:就诊组 + 独立文档,按日期倒序(无日期最后)。与桌面/Tauri
 /// 移动端的 `load_archive` 同构——复用同一套 core-model 查询。
 pub fn load_archive() -> anyhow::Result<Vec<TimelineGroupDto>> {
-    with_state(|state| {
-        let v = &state.vault;
-        v.rebuild_encounters()
-            .map_err(|e| anyhow::anyhow!(e.to_string()))?; // 幂等
-        let mut groups: Vec<(Option<String>, TimelineGroupDto)> = Vec::new();
-        for (enc, docs) in v
-            .encounters_with_docs()
-            .map_err(|e| anyhow::anyhow!(e.to_string()))?
-        {
-            let sort = enc.start_date.map(|d| d.to_rfc3339());
-            let summary = EncounterSummaryDto::from_encounter(&enc, docs.len() as i64);
-            let doc_dtos = docs.iter().map(|d| doc_summary(v, d)).collect();
-            groups.push((
-                sort,
-                TimelineGroupDto::Encounter {
-                    encounter: summary,
-                    docs: doc_dtos,
-                },
-            ));
-        }
-        for d in v
-            .standalone_documents()
-            .map_err(|e| anyhow::anyhow!(e.to_string()))?
-        {
-            let sort = d.doc_date.map(|x| x.to_rfc3339());
-            groups.push((
-                sort,
-                TimelineGroupDto::Document {
-                    doc: doc_summary(v, &d),
-                },
-            ));
-        }
-        groups.sort_by(|a, b| match (&a.0, &b.0) {
-            (Some(x), Some(y)) => y.cmp(x),
-            (Some(_), None) => std::cmp::Ordering::Less,
-            (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => std::cmp::Ordering::Equal,
-        });
-        Ok(groups.into_iter().map(|(_, g)| g).collect())
-    })
+    with_state(load_archive_core)
 }
 
 /// 文档详情:类型/日期 + 来源文件 + 识别文本。与桌面/Tauri 移动端的
@@ -420,11 +430,13 @@ pub fn ingest_file(path: String) -> anyhow::Result<ImportOutcomeDto> {
     })
 }
 
-/// 采集(字节直传):Flutter 侧从相机/相册/文件选择器拿到的字节 + 原始文件名。
-/// 落到沙盒 data 目录下的一次性临时文件(保留扩展名——`pipeline::mime_for` 靠
-/// 扩展名判 MIME/PDF/DICOM)→ 跑 ingest → 重建分组 → 删临时文件。镜像 Tauri 版
-/// `ingest_bytes`,只是临时文件目录用 `data_dir`(FRB 没有 `app_cache_dir()`)。
-pub fn ingest_bytes(filename: String, data: Vec<u8>) -> anyhow::Result<ImportOutcomeDto> {
+/// [`ingest_bytes`] 的核心逻辑,吃 `&VaultState` —— `api::ephemeral` 的
+/// `ephemeral_ingest_bytes` 复用同一份(临时会话落自己的 `data_dir`,别复制医疗逻辑)。
+pub(crate) fn ingest_bytes_core(
+    state: &VaultState,
+    filename: String,
+    data: Vec<u8>,
+) -> anyhow::Result<ImportOutcomeDto> {
     if data.is_empty() {
         anyhow::bail!("空文件,未采集到任何数据");
     }
@@ -446,20 +458,26 @@ pub fn ingest_bytes(filename: String, data: Vec<u8>) -> anyhow::Result<ImportOut
         format!("{base}.jpg")
     };
 
-    with_state(|state| {
-        let stamp = chrono::Utc::now().format("%Y%m%d%H%M%S%f");
-        let tmp_dir = state.data_dir.join("medme-ingest").join(stamp.to_string());
-        std::fs::create_dir_all(&tmp_dir)?;
-        let tmp_path = tmp_dir.join(&safe_name);
-        std::fs::write(&tmp_path, &data)?;
+    let stamp = chrono::Utc::now().format("%Y%m%d%H%M%S%f");
+    let tmp_dir = state.data_dir.join("medme-ingest").join(stamp.to_string());
+    std::fs::create_dir_all(&tmp_dir)?;
+    let tmp_path = tmp_dir.join(&safe_name);
+    std::fs::write(&tmp_path, &data)?;
 
-        let v = &state.vault;
-        let outcome = ingest_one(v, &tmp_path);
-        v.rebuild_encounters()
-            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
-        let _ = std::fs::remove_dir_all(&tmp_dir); // 尽力清理,失败无妨
-        Ok(outcome)
-    })
+    let v = &state.vault;
+    let outcome = ingest_one(v, &tmp_path);
+    v.rebuild_encounters()
+        .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+    let _ = std::fs::remove_dir_all(&tmp_dir); // 尽力清理,失败无妨
+    Ok(outcome)
+}
+
+/// 采集(字节直传):Flutter 侧从相机/相册/文件选择器拿到的字节 + 原始文件名。
+/// 落到沙盒 data 目录下的一次性临时文件(保留扩展名——`pipeline::mime_for` 靠
+/// 扩展名判 MIME/PDF/DICOM)→ 跑 ingest → 重建分组 → 删临时文件。镜像 Tauri 版
+/// `ingest_bytes`,只是临时文件目录用 `data_dir`(FRB 没有 `app_cache_dir()`)。
+pub fn ingest_bytes(filename: String, data: Vec<u8>) -> anyhow::Result<ImportOutcomeDto> {
+    with_state(|state| ingest_bytes_core(state, filename, data))
 }
 
 /// 扫描版 PDF 的 OCR 回填。`ingest_bytes` 对无文本层的 PDF 只 `store_no_text`
@@ -490,13 +508,11 @@ pub fn backfill_pdf_text(document_id: i64, text: String, confidence: f64) -> any
     })
 }
 
-/// 采集(图片,Flutter 端已识别好文本):原始字节先入 CAS(与 `pipeline::ingest`
-/// 一致,去重同一张图);识别出文字则建 document + ocr_result(backend 按编译目标
-/// 如实标注 `MOBILE_OCR_BACKEND`——iOS=PP-OCRv5/Onnx,安卓=ML Kit;置信度取调用方
-/// 传入值);识别为空则退回文件名元数据(`StoredNoText`),原件仍可见。落库语义逐字
-/// 镜像 Tauri 版 `ingest_image_via_vision`/`ingest_image_via_mlkit`,只是识别文本来自
-/// 参数而非本地再跑一次 OCR。
-pub fn ingest_image_with_text(
+/// [`ingest_image_with_text`] 的核心逻辑,吃 `&VaultState` —— `api::ephemeral` 的
+/// `ephemeral_ingest_image_with_text` 复用同一份(临时会话的图片采集,同一套
+/// 落库语义,别复制医疗逻辑)。
+pub(crate) fn ingest_image_with_text_core(
+    state: &VaultState,
     name: String,
     bytes: Vec<u8>,
     ocr_text: String,
@@ -523,88 +539,101 @@ pub fn ingest_image_with_text(
         format!("{base}.jpg")
     };
 
-    with_state(|state| {
-        let v = &state.vault;
-        let mime = pipeline::mime_for(Path::new(&safe_name));
-        let imp = v
-            .import(&safe_name, mime, &bytes)
-            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
-        let sid = imp.source_file.id;
+    let v = &state.vault;
+    let mime = pipeline::mime_for(Path::new(&safe_name));
+    let imp = v
+        .import(&safe_name, mime, &bytes)
+        .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+    let sid = imp.source_file.id;
 
-        let outcome = if imp.deduped
-            && v.has_document(sid)
-                .map_err(|e| anyhow::anyhow!(e.to_string()))?
-        {
+    let outcome = if imp.deduped
+        && v.has_document(sid)
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?
+    {
+        ImportOutcomeDto {
+            name: safe_name.clone(),
+            source_file_id: sid,
+            status: "deduped".to_string(),
+            doc_type: None,
+            document_id: None,
+            detected_name: None,
+        }
+    } else {
+        let text = ocr_text.trim().to_string();
+        if !text.is_empty() {
+            let doc_type = parser::classify(&text);
+            let (doc_date, doc_date_end) = parser::guess_date_range(&text);
+            let doc = v
+                .add_document(NewDocument {
+                    source_file_id: sid,
+                    doc_type: doc_type.clone(),
+                    doc_date,
+                    doc_date_end,
+                    title: Some(safe_name.clone()),
+                    language: parser::detect_language(&text),
+                    page_count: 1,
+                })
+                .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+            v.add_ocr(NewOcr {
+                document_id: doc.id,
+                page_no: 1,
+                backend: MOBILE_OCR_BACKEND,
+                model_version: MOBILE_OCR_MODEL.into(),
+                text: ocr_text,
+                confidence: Some(confidence),
+            })
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+            let status = if imp.deduped { "backfilled" } else { "new" };
             ImportOutcomeDto {
                 name: safe_name.clone(),
                 source_file_id: sid,
-                status: "deduped".to_string(),
-                doc_type: None,
-                document_id: None,
-                detected_name: None,
+                status: status.to_string(),
+                doc_type: Some(doc_type.as_str().to_string()),
+                document_id: Some(doc.id),
+                detected_name: parser::extract_demographics(&text).name,
             }
         } else {
-            let text = ocr_text.trim().to_string();
-            if !text.is_empty() {
-                let doc_type = parser::classify(&text);
-                let (doc_date, doc_date_end) = parser::guess_date_range(&text);
-                let doc = v
-                    .add_document(NewDocument {
-                        source_file_id: sid,
-                        doc_type: doc_type.clone(),
-                        doc_date,
-                        doc_date_end,
-                        title: Some(safe_name.clone()),
-                        language: parser::detect_language(&text),
-                        page_count: 1,
-                    })
-                    .map_err(|e| anyhow::anyhow!(e.to_string()))?;
-                v.add_ocr(NewOcr {
-                    document_id: doc.id,
-                    page_no: 1,
-                    backend: MOBILE_OCR_BACKEND,
-                    model_version: MOBILE_OCR_MODEL.into(),
-                    text: ocr_text,
-                    confidence: Some(confidence),
+            let (doc_date, doc_date_end) = parser::guess_date_range(&safe_name);
+            let doc_type = parser::classify(&safe_name);
+            let doc = v
+                .add_document(NewDocument {
+                    source_file_id: sid,
+                    doc_type: doc_type.clone(),
+                    doc_date,
+                    doc_date_end,
+                    title: Some(safe_name.clone()),
+                    language: None,
+                    page_count: 1,
                 })
                 .map_err(|e| anyhow::anyhow!(e.to_string()))?;
-                let status = if imp.deduped { "backfilled" } else { "new" };
-                ImportOutcomeDto {
-                    name: safe_name.clone(),
-                    source_file_id: sid,
-                    status: status.to_string(),
-                    doc_type: Some(doc_type.as_str().to_string()),
-                    document_id: Some(doc.id),
-                    detected_name: parser::extract_demographics(&text).name,
-                }
-            } else {
-                let (doc_date, doc_date_end) = parser::guess_date_range(&safe_name);
-                let doc_type = parser::classify(&safe_name);
-                let doc = v
-                    .add_document(NewDocument {
-                        source_file_id: sid,
-                        doc_type: doc_type.clone(),
-                        doc_date,
-                        doc_date_end,
-                        title: Some(safe_name.clone()),
-                        language: None,
-                        page_count: 1,
-                    })
-                    .map_err(|e| anyhow::anyhow!(e.to_string()))?;
-                ImportOutcomeDto {
-                    name: safe_name.clone(),
-                    source_file_id: sid,
-                    status: "stored_no_text".to_string(),
-                    doc_type: Some(doc_type.as_str().to_string()),
-                    document_id: Some(doc.id),
-                    detected_name: None, // 无文本,识别不到名字
-                }
+            ImportOutcomeDto {
+                name: safe_name.clone(),
+                source_file_id: sid,
+                status: "stored_no_text".to_string(),
+                doc_type: Some(doc_type.as_str().to_string()),
+                document_id: Some(doc.id),
+                detected_name: None, // 无文本,识别不到名字
             }
-        };
-        v.rebuild_encounters()
-            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
-        Ok(outcome)
-    })
+        }
+    };
+    v.rebuild_encounters()
+        .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+    Ok(outcome)
+}
+
+/// 采集(图片,Flutter 端已识别好文本):原始字节先入 CAS(与 `pipeline::ingest`
+/// 一致,去重同一张图);识别出文字则建 document + ocr_result(backend 按编译目标
+/// 如实标注 `MOBILE_OCR_BACKEND`——iOS=PP-OCRv5/Onnx,安卓=ML Kit;置信度取调用方
+/// 传入值);识别为空则退回文件名元数据(`StoredNoText`),原件仍可见。落库语义逐字
+/// 镜像 Tauri 版 `ingest_image_via_vision`/`ingest_image_via_mlkit`,只是识别文本来自
+/// 参数而非本地再跑一次 OCR。
+pub fn ingest_image_with_text(
+    name: String,
+    bytes: Vec<u8>,
+    ocr_text: String,
+    confidence: f32,
+) -> anyhow::Result<ImportOutcomeDto> {
+    with_state(|state| ingest_image_with_text_core(state, name, bytes, ocr_text, confidence))
 }
 
 /// 端到端加密分享:复用 `medme_share::share::build_encrypted_share`,把全部病历
@@ -633,41 +662,61 @@ pub fn build_qr_share_url(base_url: String) -> anyhow::Result<QrShareDto> {
     })
 }
 
-/// 打包成自包含加密 HTML 写进保险箱 `shares/` 目录,返回口令、记录数、字节数与
-/// 文件路径。与桌面/Tauri 移动端同构;安全性说明见 `render_dicom_png` 的 doc
-/// (进程内 DICOM 渲染在移动端是安全的,`codecs` 特性已关)。
-pub fn create_share(expires_days: i64) -> anyhow::Result<ShareResultDto> {
+/// [`create_share`] 的核心逻辑,吃 `&VaultState` —— `api::ephemeral` 的
+/// `ephemeral_create_share` 复用同一份,额外传入 `consent`(拍前同意记录,医生
+/// 代拍流程 Phase 1)时经 [`medme_share::share::build_encrypted_share_with_consent`]
+/// 塞进加密包;`consent=None`(现有 [`create_share`])走 [`medme_share::share::build_encrypted_share`]
+/// 原路径,行为不变。
+pub(crate) fn create_share_core(
+    state: &VaultState,
+    expires_days: i64,
+    consent: Option<medme_share::share::ShareConsent>,
+) -> anyhow::Result<ShareResultDto> {
     let days: u32 = expires_days
         .try_into()
         .map_err(|_| anyhow::anyhow!("expires_days 取值无效:{expires_days}"))?;
 
-    with_state(|state| {
-        let v = &state.vault;
-        let (html, passphrase, record_count) = medme_share::share::build_encrypted_share(
+    let v = &state.vault;
+    let (html, passphrase, record_count) = match consent {
+        None => medme_share::share::build_encrypted_share(
             v,
             days,
             &medme_share::render_dicom_png_in_process,
         )
-        .map_err(|e| anyhow::anyhow!(e))?;
-        let byte_size = html.len() as i64;
-        let sha256 = core_model::cas::sha256_hex(html.as_bytes());
+        .map_err(|e| anyhow::anyhow!(e))?,
+        Some(c) => medme_share::share::build_encrypted_share_with_consent(
+            v,
+            days,
+            &medme_share::render_dicom_png_in_process,
+            c,
+        )
+        .map_err(|e| anyhow::anyhow!(e))?,
+    };
+    let byte_size = html.len() as i64;
+    let sha256 = core_model::cas::sha256_hex(html.as_bytes());
 
-        let shares_dir = state.truth_root.join("shares");
-        std::fs::create_dir_all(&shares_dir)?;
-        let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S");
-        let dest = shares_dir.join(format!("medme-share-{stamp}.html"));
-        std::fs::write(&dest, html)?;
+    let shares_dir = state.truth_root.join("shares");
+    std::fs::create_dir_all(&shares_dir)?;
+    let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S");
+    let dest = shares_dir.join(format!("medme-share-{stamp}.html"));
+    std::fs::write(&dest, html)?;
 
-        let expires = (chrono::Utc::now() + chrono::Duration::days(days as i64)).to_rfc3339();
-        v.record_share(&sha256, record_count, &expires)
-            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
-        Ok(ShareResultDto {
-            passphrase,
-            record_count,
-            byte_size,
-            path: dest.to_string_lossy().to_string(),
-        })
+    let expires = (chrono::Utc::now() + chrono::Duration::days(days as i64)).to_rfc3339();
+    v.record_share(&sha256, record_count, &expires)
+        .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+    Ok(ShareResultDto {
+        passphrase,
+        record_count,
+        byte_size,
+        path: dest.to_string_lossy().to_string(),
     })
+}
+
+/// 打包成自包含加密 HTML 写进保险箱 `shares/` 目录,返回口令、记录数、字节数与
+/// 文件路径。与桌面/Tauri 移动端同构;安全性说明见 `render_dicom_png` 的 doc
+/// (进程内 DICOM 渲染在移动端是安全的,`codecs` 特性已关)。
+pub fn create_share(expires_days: i64) -> anyhow::Result<ShareResultDto> {
+    with_state(|state| create_share_core(state, expires_days, None))
 }
 
 /// 导出时间线:复用 `medme_share::export::build_timeline_html_ranged`,把时间线

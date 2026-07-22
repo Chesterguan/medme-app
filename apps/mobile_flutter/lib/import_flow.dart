@@ -22,7 +22,7 @@ import 'package:mobile_flutter/vault_boot.dart';
 /// 采集/OCR/落库逻辑与原「导入导出」屏一致,只是进度改用模态对话框(从档案触发,
 /// 不再挂在某个屏的持久状态上)。医疗判断全在 Rust core,这里只搬字节 + 调 FFI。
 Future<void> showImportSheet(BuildContext context) async {
-  final choice = await showModalBottomSheet<_ImportChoice>(
+  final choice = await showModalBottomSheet<ImportChoice>(
     context: context,
     showDragHandle: true,
     builder: (context) => SafeArea(
@@ -43,19 +43,19 @@ Future<void> showImportSheet(BuildContext context) async {
             icon: Icons.photo_camera_outlined,
             title: '拍照',
             subtitle: '对着化验单、处方拍一张,自动识别上面的文字',
-            choice: _ImportChoice.camera,
+            choice: ImportChoice.camera,
           ),
           _SheetTile(
             icon: Icons.photo_library_outlined,
             title: '从相册选',
             subtitle: '选一张或多张已经拍好的病历照片',
-            choice: _ImportChoice.gallery,
+            choice: ImportChoice.gallery,
           ),
           _SheetTile(
             icon: Icons.folder_open_outlined,
             title: '选择文件',
             subtitle: 'PDF、图片、TXT',
-            choice: _ImportChoice.files,
+            choice: ImportChoice.files,
           ),
           const SizedBox(height: 8),
         ],
@@ -72,16 +72,20 @@ Future<void> showImportSheet(BuildContext context) async {
   await Future<void>.delayed(const Duration(milliseconds: 350));
   if (!context.mounted) return;
 
-  final items = await _pick(choice);
+  final items = await pickImportItems(choice);
   if (items.isEmpty || !context.mounted) return;
   await _runImport(context, items);
 }
 
-enum _ImportChoice { camera, gallery, files }
+/// 采集来源三选一。`pub`(而非文件私有):医生代拍临时会话
+/// (`screens/proxy/proxy_intake_flow.dart`)复用同一个采集器,别另写一份。
+enum ImportChoice { camera, gallery, files }
 
-Future<List<PendingImport>> _pick(_ImportChoice choice) async {
+/// 按来源拉起系统采集器,返回待处理项。`pub`——供 [showImportSheet] 与医生代拍
+/// 临时会话共用同一套采集逻辑(文档扫描器/相册/文件选择器),别复制。
+Future<List<PendingImport>> pickImportItems(ImportChoice choice) async {
   switch (choice) {
-    case _ImportChoice.camera:
+    case ImportChoice.camera:
       // 走系统文档扫描器(iOS VisionKit / 安卓 ML Kit Document Scanner):自动
       // 画框 + 透视校正,拿到已拉正的图 —— 斜着拍的表格变回横平竖直,OCR 才拼得
       // 回整行。随手斜拍是最常见的输入,这一步质量提升值一次多余的对框操作。
@@ -106,13 +110,13 @@ Future<List<PendingImport>> _pick(_ImportChoice choice) async {
         if (file == null) return const [];
         return [PendingImport(name: file.name, path: file.path, isImage: true)];
       }
-    case _ImportChoice.gallery:
+    case ImportChoice.gallery:
       final files = await ImagePicker().pickMultiImage();
       return [
         for (final f in files)
           PendingImport(name: f.name, path: f.path, isImage: true),
       ];
-    case _ImportChoice.files:
+    case ImportChoice.files:
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType.custom,
@@ -131,39 +135,49 @@ Future<List<PendingImport>> _pick(_ImportChoice choice) async {
   }
 }
 
-Future<void> _runImport(BuildContext context, List<PendingImport> items) async {
-  final progress = ValueNotifier<String>('正在导入 1/${items.length}…');
-  // 模态进度对话框(不可点走);导入结束后由本函数关闭。
-  showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) => AlertDialog(
-      content: Row(
-        children: [
-          const SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(strokeWidth: 2.5),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: ValueListenableBuilder<String>(
-              valueListenable: progress,
-              builder: (context, text, _) => Text(text),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
+/// 一批 [PendingImport] 采集+OCR+落库后的结果:展示行 + 本次新建文档 id → 报告里
+/// 识别到的患者姓名(识别不到为 null)。是否要标「待确认」/自动命名档案由调用方
+/// 决定(正常导入要,医生代拍临时会话不要——那是病人的档案,不进医生自己的
+/// review 队列)。
+class IngestBatchResult {
+  final List<ImportResultRow> rows;
+  final Map<int, String?> newDocs;
+  const IngestBatchResult(this.rows, this.newDocs);
+}
 
+/// 逐项采集:图片走各平台原生 OCR([recognizeImageText])后落库;其它直接按字节
+/// 落库,扫描版 PDF 再补一轮 OCR 回填。这份医疗/OCR 逻辑供正常导入(下面的
+/// `_runImport`)与医生代拍临时会话共用,别复制——落库/回填的 FFI 函数由调用方
+/// 注入([ingestImageWithText]/[ingestBytes] 用于正常导入,`ephemeralIngest*` 用于
+/// 临时会话),[backfillPdfText] 传 `null` 时跳过扫描 PDF 回填这一步(临时会话
+/// Phase 1 暂不做,仅存原件)。[onProgress] 汇报 (已完成份数,总数)。
+Future<IngestBatchResult> ingestPendingItems(
+  List<PendingImport> items, {
+  required Future<ImportOutcomeDto> Function({
+    required String name,
+    required List<int> bytes,
+    required String ocrText,
+    required double confidence,
+  })
+  ingestImageWithText,
+  required Future<ImportOutcomeDto> Function({
+    required String filename,
+    required List<int> data,
+  })
+  ingestBytes,
+  Future<void> Function({
+    required int documentId,
+    required String text,
+    required double confidence,
+  })?
+  backfillPdfText,
+  void Function(int done, int total)? onProgress,
+}) async {
   final rows = <ImportResultRow>[];
-  // 本次新建文档 id → 报告里识别到的患者姓名(识别不到为 null),进「待确认」队列;
-  // 姓名与当前成员不符者会被标红,识别到的姓名还用来自动命名默认档案。
   final newDocs = <int, String?>{};
   for (var i = 0; i < items.length; i++) {
     final item = items[i];
-    progress.value = '正在导入 ${i + 1}/${items.length}…';
+    onProgress?.call(i, items.length);
     try {
       final ImportOutcomeDto outcome;
       var pdfBackfilled = false;
@@ -182,7 +196,8 @@ Future<void> _runImport(BuildContext context, List<PendingImport> items) async {
         outcome = await ingestBytes(filename: item.name, data: bytes);
         // 扫描版 PDF(无文本层 → 仅存原件):移动端未链接 Rust OCR 引擎,改用 pdfx
         // 逐页渲染成 PNG、走能用的原生图片 OCR(Vision/ML Kit)后回填,补齐文本。
-        if (outcome.status == 'stored_no_text' &&
+        if (backfillPdfText != null &&
+            outcome.status == 'stored_no_text' &&
             outcome.documentId != null &&
             item.name.toLowerCase().endsWith('.pdf')) {
           final pdfOcr = await _ocrScannedPdf(item.path);
@@ -212,6 +227,47 @@ Future<void> _runImport(BuildContext context, List<PendingImport> items) async {
       rows.add(rowFromError(item.name, e));
     }
   }
+  onProgress?.call(items.length, items.length);
+  return IngestBatchResult(rows, newDocs);
+}
+
+Future<void> _runImport(BuildContext context, List<PendingImport> items) async {
+  final progress = ValueNotifier<String>('正在导入 1/${items.length}…');
+  // 模态进度对话框(不可点走);导入结束后由本函数关闭。
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => AlertDialog(
+      content: Row(
+        children: [
+          const SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2.5),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: ValueListenableBuilder<String>(
+              valueListenable: progress,
+              builder: (context, text, _) => Text(text),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  final result = await ingestPendingItems(
+    items,
+    ingestImageWithText: ingestImageWithText,
+    ingestBytes: ingestBytes,
+    backfillPdfText: backfillPdfText,
+    onProgress: (done, total) => progress.value = '正在导入 ${done + 1}/$total…',
+  );
+  final rows = result.rows;
+  // 本次新建文档 id → 报告里识别到的患者姓名(识别不到为 null),进「待确认」队列;
+  // 姓名与当前成员不符者会被标红,识别到的姓名还用来自动命名默认档案。
+  final newDocs = result.newDocs;
 
   // 本次新建的文档显式加入「待确认」队列(健康档案顶部据此置顶让用户核对)。
   if (newDocs.isNotEmpty) {
@@ -408,7 +464,7 @@ class _SheetTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
-  final _ImportChoice choice;
+  final ImportChoice choice;
 
   @override
   Widget build(BuildContext context) {

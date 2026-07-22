@@ -166,6 +166,19 @@ pub struct ExportResultDto {
     pub path: String,
 }
 
+/// 拍前同意记录(医生代拍病人纸质材料流程,Phase 1):由 `ephemeral_create_share`
+/// 塞进加密分享包(见 `api::ephemeral`,转换成 `medme_share::share::ShareConsent`)。
+/// `method` 为 "signature" 时 `signature_png_base64` 应为 `Some`(手写签名 PNG 的
+/// base64);"press_hold"(按住 3 秒确认的兜底手势)时为 `None`。
+#[derive(Debug, Clone)]
+pub struct ConsentDto {
+    pub utc_ts: String,
+    pub consent_text_version: String,
+    pub signature_png_base64: Option<String>,
+    pub method: String, // "signature" | "press_hold"
+    pub session_id: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct PatientProfileDto {
     pub name: Option<String>,

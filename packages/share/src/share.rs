@@ -54,6 +54,24 @@ const SHARE_IMAGING_CAP: usize = 40 * 1024 * 1024; // 40 MB / study
 /// 检查都在其卡片留说明,并汇总进 payload.degraded。
 const SHARE_TOTAL_CAP: usize = 300 * 1024 * 1024; // 300 MB total
 
+/// 拍前同意记录(医生代拍病人纸质材料流程,Phase 1)。仅当调用方经
+/// [`build_encrypted_share_with_consent`] 传入时才会被写进 payload 的 `consent`
+/// 字段(见 [`build_encrypted_share_inner`])——[`build_encrypted_share`] 本身签名/
+/// 行为不变,现有分享/桌面调用方逐字节不受影响。
+#[derive(Debug, Clone)]
+pub struct ShareConsent {
+    /// 同意时刻(UTC RFC3339)。
+    pub utc_ts: String,
+    /// 同意告知文案的版本号,便于日后文案变更时区分「在哪版文案下同意的」。
+    pub consent_text_version: String,
+    /// 手写签名 PNG 的 base64;`method` 为按住确认(无签名图像)时为 `None`。
+    pub signature_png_base64: Option<String>,
+    /// "signature" | "press_hold"。
+    pub method: String,
+    /// 本次临时会话 id,便于医生/病人事后核对「哪一次代建档」。
+    pub session_id: String,
+}
+
 /// 决定某影像检查内嵌方式的结果(便于单测直接断言分档逻辑)。
 #[derive(Debug, PartialEq)]
 enum ImagingTier {
@@ -84,6 +102,28 @@ pub fn build_encrypted_share(
     v: &Vault,
     expires_days: u32,
     render_dicom_png: crate::DicomPngRenderer,
+) -> Result<(String, String, i64), String> {
+    build_encrypted_share_inner(v, expires_days, render_dicom_png, None)
+}
+
+/// 同 [`build_encrypted_share`],但额外把一份拍前同意记录([`ShareConsent`])写进
+/// 加密 payload 的 `consent` 字段(医生代拍病人纸质材料流程,Phase 1)。严格加法:
+/// [`build_encrypted_share`] 本身不变——它就是本函数传 `consent=None` 的特例,两者
+/// 共用同一套装配逻辑([`build_encrypted_share_inner`]),不重复维护。
+pub fn build_encrypted_share_with_consent(
+    v: &Vault,
+    expires_days: u32,
+    render_dicom_png: crate::DicomPngRenderer,
+    consent: ShareConsent,
+) -> Result<(String, String, i64), String> {
+    build_encrypted_share_inner(v, expires_days, render_dicom_png, Some(consent))
+}
+
+fn build_encrypted_share_inner(
+    v: &Vault,
+    expires_days: u32,
+    render_dicom_png: crate::DicomPngRenderer,
+    consent: Option<ShareConsent>,
 ) -> Result<(String, String, i64), String> {
     let records = crate::export::gather_records(v)?;
     let profile = pipeline::patient_profile(v).map_err(|e| e.to_string())?;
@@ -257,6 +297,18 @@ pub fn build_encrypted_share(
         || has_content("allergies")
     {
         payload["summary"] = summary;
+    }
+
+    // 拍前同意记录(医生代拍流程,Phase 1):严格加法,仅当调用方传入了 `consent`
+    // 才插入这个键;`build_encrypted_share`(consent=None)因此逐字节不受影响。
+    if let Some(c) = &consent {
+        payload["consent"] = serde_json::json!({
+            "utc_ts": c.utc_ts,
+            "consent_text_version": c.consent_text_version,
+            "signature_png_base64": c.signature_png_base64,
+            "method": c.method,
+            "session_id": c.session_id,
+        });
     }
     let plaintext = serde_json::to_vec(&payload).map_err(|e| format!("serialize payload: {e}"))?;
 
@@ -907,5 +959,52 @@ mod tests {
         assert_eq!(studies.len(), 1);
         assert_eq!(studies[0]["finding"], "右肺上叶小结节,建议随访。");
         assert_eq!(studies[0]["evidence"], serde_json::json!([0]));
+    }
+
+    /// 加法证明:`build_encrypted_share`(不传 consent)的 payload 里绝不应出现
+    /// `consent` 键——它就是 `build_encrypted_share_with_consent(..., None)` 的特例,
+    /// 现有分享/桌面调用方逐字节不受影响。
+    #[test]
+    fn build_encrypted_share_omits_consent_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Vault::open(dir.path()).unwrap();
+        vault.import("a.txt", "text/plain", b"x").unwrap();
+        let (html, pass, _n) =
+            build_encrypted_share(&vault, 5, &crate::render_dicom_png_in_process).unwrap();
+        let payload = decrypt_payload(&html, &pass);
+        assert!(
+            payload.get("consent").is_none(),
+            "未传 consent 时 payload 不应带 consent 键"
+        );
+    }
+
+    /// 医生代拍流程(Phase 1):`build_encrypted_share_with_consent` 应把同意记录
+    /// 逐字段写进 payload.consent,供医生/病人事后核对「谁、何时、以何种方式同意」。
+    #[test]
+    fn build_encrypted_share_with_consent_embeds_consent_record() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Vault::open(dir.path()).unwrap();
+        vault.import("a.txt", "text/plain", b"x").unwrap();
+        let consent = ShareConsent {
+            utc_ts: "2026-07-22T10:00:00Z".into(),
+            consent_text_version: "v1".into(),
+            signature_png_base64: Some("iVBORw0KGgo=".into()),
+            method: "signature".into(),
+            session_id: "sess-123".into(),
+        };
+        let (html, pass, _n) = build_encrypted_share_with_consent(
+            &vault,
+            5,
+            &crate::render_dicom_png_in_process,
+            consent,
+        )
+        .unwrap();
+        let payload = decrypt_payload(&html, &pass);
+        let c = &payload["consent"];
+        assert_eq!(c["utc_ts"], "2026-07-22T10:00:00Z");
+        assert_eq!(c["consent_text_version"], "v1");
+        assert_eq!(c["signature_png_base64"], "iVBORw0KGgo=");
+        assert_eq!(c["method"], "signature");
+        assert_eq!(c["session_id"], "sess-123");
     }
 }

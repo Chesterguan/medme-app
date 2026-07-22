@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:share_plus/share_plus.dart';
 
-import 'package:mobile_flutter/src/rust/api/dto.dart';
 import 'package:mobile_flutter/src/rust/api/vault.dart';
 import 'package:mobile_flutter/theme.dart';
+import 'package:mobile_flutter/widgets/share_result_dialog.dart';
 
 import 'qr_share_screen.dart';
+import 'proxy/proxy_intake_flow.dart';
 
 /// 底部导航一级 tab「导出·分享」—— 把病历导出成可打印文件(可按日期区间筛选),或
 /// 端到端加密分享给医生。手机端只做「轻」的导出/筛选;全文搜索、趋势等「重」功能在
@@ -223,7 +223,7 @@ class _ExportScreenState extends State<ExportScreen> {
         _busy = false;
         _progress = null;
       });
-      await _showShareResult(result);
+      await showShareResultDialog(context, result, shareOrigin: _shareOrigin);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -232,97 +232,6 @@ class _ExportScreenState extends State<ExportScreen> {
       });
       await _showError('生成分享失败', '$e');
     }
-  }
-
-  Future<void> _showShareResult(ShareResultDto result) async {
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('加密分享已生成'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '共 ${result.recordCount} 份记录,已打包为端到端加密文件。',
-              style: const TextStyle(fontSize: 13.5, color: MedMe.faint),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              '把文件发给医生,口令请用不同渠道另发(比如短信、电话告知);'
-              '对方打开文件、输入口令即可查看,数据始终端到端加密。',
-              style: TextStyle(fontSize: 13.5, color: MedMe.faint, height: 1.5),
-            ),
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: MedMe.bg,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: MedMe.line),
-              ),
-              child: Row(
-                children: [
-                  const Text(
-                    '口令',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: MedMe.faint,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      result.passphrase,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: '复制口令',
-                    icon: const Icon(Icons.copy, size: 18),
-                    onPressed: () async {
-                      await Clipboard.setData(
-                        ClipboardData(text: result.passphrase),
-                      );
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(
-                          context,
-                        ).showSnackBar(const SnackBar(content: Text('口令已复制')));
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('关闭'),
-          ),
-          FilledButton.icon(
-            icon: const Icon(Icons.ios_share),
-            label: const Text('分享文件'),
-            onPressed: () async {
-              await SharePlus.instance.share(
-                ShareParams(
-                  files: [XFile(result.path)],
-                  subject: 'MedMe 加密病历',
-                  sharePositionOrigin: _shareOrigin(),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _showError(String title, String message) => showDialog<void>(
@@ -379,6 +288,27 @@ class _ExportScreenState extends State<ExportScreen> {
                 buttonLabel: '生成加密分享',
                 onPressed: _busy ? null : _startEncryptedShare,
               ),
+              const SizedBox(height: 22),
+              const Divider(height: 1, color: MedMe.line),
+              const SizedBox(height: 22),
+              // 医生/护士专用:代病人拍下纸质材料、当场生成加密文件交给病人本人,
+              // 用完即焚——独立橙色 chrome 的全屏流程,一眼分清「这不是我的箱」。
+              _ActionCard(
+                icon: Icons.medical_information_outlined,
+                accentColor: MedMe.proxyOrange,
+                title: '为病人代建档',
+                subtitle: '医生/护士专用:当面拍下病人的纸质病历,当场生成加密文件交给病人本人,'
+                    '不会存进你自己的档案,用完即焚。',
+                buttonLabel: '开始为病人代建档',
+                onPressed: _busy
+                    ? null
+                    : () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          fullscreenDialog: true,
+                          builder: (_) => const ProxyIntakeFlow(),
+                        ),
+                      ),
+              ),
             ],
           ),
           if (_busy)
@@ -412,7 +342,8 @@ class _ExportScreenState extends State<ExportScreen> {
   }
 }
 
-/// 导出/分享的大动作卡:图标 + 标题 + 说明 + 主按钮。
+/// 导出/分享的大动作卡:图标 + 标题 + 说明 + 主按钮。[accentColor] 默认品牌 teal;
+/// 「为病人代建档」传警示橙,与普通导出/分享动作在视觉上就有区分。
 class _ActionCard extends StatelessWidget {
   const _ActionCard({
     required this.icon,
@@ -420,6 +351,7 @@ class _ActionCard extends StatelessWidget {
     required this.subtitle,
     required this.buttonLabel,
     required this.onPressed,
+    this.accentColor = MedMe.teal,
   });
 
   final IconData icon;
@@ -427,6 +359,7 @@ class _ActionCard extends StatelessWidget {
   final String subtitle;
   final String buttonLabel;
   final VoidCallback? onPressed;
+  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
@@ -438,7 +371,7 @@ class _ActionCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, color: MedMe.teal, size: 26),
+                Icon(icon, color: accentColor, size: 26),
                 const SizedBox(width: 10),
                 Text(
                   title,
@@ -463,6 +396,7 @@ class _ActionCard extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: accentColor),
                 onPressed: onPressed,
                 child: Text(buttonLabel),
               ),
