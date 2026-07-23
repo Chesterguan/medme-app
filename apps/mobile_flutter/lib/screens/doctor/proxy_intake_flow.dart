@@ -23,10 +23,12 @@ const int kProxyShareExpiresDays = 30;
 enum _ProxyPhase { consent, capture, preview, delivering }
 
 /// 「为病人代建档」全屏流程(医生/护士专用,Phase 1:本地交付,不含云)。
-/// 同意(签名/按住确认)→ 临时会话(即焚)→ 拍摄纸质材料 → 预览 → 生成加密文件
-/// 交付给病人 → 即焚退出。全程只碰独立的 Rust `vault_ephemeral` cell
-/// ([EphemeralSession]),绝不写入医生自己的档案——橙色 chrome + 顶部常驻横幅是
-/// 每一屏都在的信号,提醒「这不是我的箱」。
+/// 同意(签名/按住确认)→ 临时会话(即焚)→ 采集(拍照/相册/文件,可多轮混合来源
+/// 累加)→ **待确认列表**(每份一行,点进去核对原件+识别内容、逐份点「确认这一份」;
+/// 可随时「继续采集」再累加更多)→ 生成加密文件交付给病人(摘要只统计已确认的
+/// 文档,未确认的原件仍全部进分享包并标注待确认)→ 即焚退出。全程只碰独立的 Rust
+/// `vault_ephemeral` cell([EphemeralSession]),绝不写入医生自己的档案——橙色
+/// chrome + 顶部常驻横幅是每一屏都在的信号,提醒「这不是我的箱」。
 ///
 /// **采集本身走现有 `recognizeImageText`(`ocr_bridge.dart`,iOS/安卓各自原生
 /// OCR)——本文件不碰、不重写任何 OCR 逻辑**,只是把识别结果落进临时会话箱而不是
