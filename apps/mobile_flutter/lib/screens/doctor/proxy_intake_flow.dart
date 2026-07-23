@@ -108,12 +108,36 @@ class _ProxyIntakeFlowState extends State<ProxyIntakeFlow> {
     }
   }
 
-  /// 取消/退出:即焚(若已开始过会话)后关闭整个全屏路由。顶部横幅、同意屏底部
-  /// 「不同意」都走这条路径。
+  /// 取消/退出:即焚(若已开始过会话)后关闭整个全屏路由。同意屏底部「不同意」
+  /// (还没采集任何东西,不必二次确认)、AppBar 返回箭头确认后(见 [_confirmExit])、
+  /// 系统返回手势(`PopScope` 兜底,见 [build])都走这条路径。
   Future<void> _cancelAndExit() async {
     if (_sessionStarted) await EphemeralSession.wipe();
     _delivered = true; // 挡住 dispose 里再 wipe 一次(已经手动 wipe 过)
     if (mounted) Navigator.of(context).pop();
+  }
+
+  /// AppBar 返回箭头点了先确认再退出——即焚会清掉这次代拍已采集的一切,不能像
+  /// 系统返回手势那样悄悄发生。确认了才走 [_cancelAndExit]。
+  Future<void> _confirmExit() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('退出代拍?'),
+        content: const Text('退出会清除这次代拍的数据,确定?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('确定退出'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await _cancelAndExit();
   }
 
   Future<void> _pickCaptureSource() async {
@@ -363,10 +387,22 @@ class _ProxyIntakeFlowState extends State<ProxyIntakeFlow> {
       },
       child: Scaffold(
         backgroundColor: MedMe.bg,
+        // 退出入口:左上返回箭头,点了弹确认(见 `_confirmExit`)。横幅不再兼职
+        // 退出按钮(见 `_ProxyBanner`),避免「看个声明顺手关掉」误触跳回首页。
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            tooltip: '退出代拍',
+            onPressed: _busy ? null : _confirmExit,
+          ),
+        ),
+        // top: false —— 顶部安全区已经由 AppBar 撑开,SafeArea 只需再护住底部
+        // (home indicator 等),不然会在 AppBar 下面多挤出一截空白。
         body: SafeArea(
+          top: false,
           child: Column(
             children: [
-              _ProxyBanner(onClose: _busy ? null : _cancelAndExit),
+              const _ProxyBanner(),
               Expanded(child: _buildBody(context)),
             ],
           ),
@@ -406,23 +442,24 @@ class _ProxyIntakeFlowState extends State<ProxyIntakeFlow> {
   }
 }
 
-/// 顶部常驻横幅:每一屏都在,一眼分清「这不是我的箱」。
+/// 顶部常驻声明横幅:每一屏都在,一眼分清「这不是我的箱」。**不可关闭**——它是
+/// 声明,不是退出入口(退出走 AppBar 左上返回箭头,见 [_ProxyIntakeFlowState._confirmExit])。
+/// 之前版本横幅带个 X,点了会直接取消整个代拍回首页,用户觉得「看个声明顺手关
+/// 掉」不该跳页——去掉 X,声明和退出两件事分开。
 class _ProxyBanner extends StatelessWidget {
-  const _ProxyBanner({required this.onClose});
-
-  final VoidCallback? onClose;
+  const _ProxyBanner();
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
       color: MedMe.proxyOrange,
-      padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
-      child: Row(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: const Row(
         children: [
-          const Icon(Icons.info_outline, color: Colors.white, size: 18),
-          const SizedBox(width: 8),
-          const Expanded(
+          Icon(Icons.info_outline, color: Colors.white, size: 18),
+          SizedBox(width: 8),
+          Expanded(
             child: Text(
               '为他人代建档 · 用完即焚 · 不会存入你的档案',
               style: TextStyle(
@@ -431,11 +468,6 @@ class _ProxyBanner extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
             ),
-          ),
-          IconButton(
-            onPressed: onClose,
-            icon: const Icon(Icons.close, color: Colors.white, size: 20),
-            tooltip: '取消并退出',
           ),
         ],
       ),
