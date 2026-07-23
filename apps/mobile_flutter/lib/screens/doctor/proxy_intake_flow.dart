@@ -218,6 +218,11 @@ class _ProxyIntakeFlowState extends State<ProxyIntakeFlow> {
         context,
       ).showSnackBar(SnackBar(content: Text('有 $failed 份未能处理,可重拍')));
     }
+    // 采集完直接进审阅屏(病情摘要 + 逐份识别内容摊开),不再停在采集屏问「继续 / 去
+    // 预览」——「继续拍摄」是审阅屏上的一个按钮。让「拍完 → 看到审阅」一步到位。
+    if (mounted && _capturedCount > 0) {
+      await _goToPreview();
+    }
   }
 
   /// 加载/刷新审阅屏:就诊时间线 + 病情摘要卡 + 每份文档的识别文本(默认摊开展示,

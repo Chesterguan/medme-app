@@ -7,7 +7,7 @@
 //! it pulls page image XObjects out of the PDF with `lopdf` and OCRs each one.
 
 use anyhow::{Context, Result};
-use image::{DynamicImage, GenericImageView, GrayImage, Luma};
+use image::{DynamicImage, GenericImageView, GrayImage, ImageDecoder, Luma};
 use imageproc::filter::gaussian_blur_f32;
 use imageproc::geometric_transformations::{rotate_about_center, Border, Interpolation};
 use lopdf::{Document, Object};
@@ -160,7 +160,18 @@ fn decode_image_bounded(image_bytes: &[u8]) -> Result<DynamicImage> {
         .with_guessed_format()
         .context("ocr: guess image format")?;
     reader.limits(limits);
-    reader.decode().context("ocr: decode image within limits")
+    // 应用 EXIF 方向:相册/相机胶卷里的照片常带旋转标记(竖拍存成横向像素 + 一个
+    // 「顺时针转 90°」的 EXIF 标记),`image` 默认**不**应用它。不修正就会把照片当
+    // 横躺的像素解码 → PP 识别横躺的字 → 乱码。相机文档扫描器输出的是已摆正的图,
+    // 无此标记,不受影响;无 EXIF / 拿不到方向的普通扫描件按「不变换」处理,同样不变。
+    let mut decoder = reader.into_decoder().context("ocr: build decoder")?;
+    let orientation = decoder
+        .orientation()
+        .unwrap_or(image::metadata::Orientation::NoTransforms);
+    let mut img =
+        DynamicImage::from_decoder(decoder).context("ocr: decode image within limits")?;
+    img.apply_orientation(orientation);
+    Ok(img)
 }
 
 /// Downscale `img` (preserving aspect ratio) so neither dimension exceeds
