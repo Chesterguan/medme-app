@@ -19,7 +19,7 @@ dicom = { path = "../dicom", default-features = false }
 serde_json = { workspace = true }
 sha2.workspace = true
 chrono.workspace = true
-base64 = "0.22"
+base64 = "0.23"
 # 二维码分享:载荷先 gzip 再加密(中文 JSON 压缩率约 65%),查看器侧用浏览器
 # 原生 DecompressionStream 解压,无需额外前端库。
 flate2 = "1"
