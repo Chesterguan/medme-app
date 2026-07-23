@@ -250,3 +250,14 @@ pub struct ProxyMedDto {
     pub dose: Option<String>,
     pub active: bool,
 }
+
+/// 一份文档当前的「已确认」状态(医生代拍待确认列表)。**不**塞进共享的
+/// `DocumentSummaryDto`(`vault.rs` 的正常病人档案列表也用它,这个状态只对医生
+/// 代拍流程有意义)——待确认列表屏用 `document_id` 把这份状态与
+/// `ephemeral_load_preview` 返回的文档列表在 Dart 侧做本地映射。由
+/// `api::vault_ephemeral::ephemeral_confirmed_map` 产出。
+#[derive(Debug, Clone)]
+pub struct ConfirmedStatusDto {
+    pub document_id: i64,
+    pub confirmed: bool,
+}

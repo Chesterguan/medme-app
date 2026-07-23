@@ -19,6 +19,7 @@ use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use base64::engine::general_purpose::{STANDARD as B64, URL_SAFE_NO_PAD as B64URL};
 use base64::Engine as _;
 use core_model::Vault;
+use std::collections::HashSet;
 
 /// 唯一查看器源:自包含分享文件与托管查看器共用同一份 HTML(去重,见 #55)。
 /// index.html 已内联 dicom-parser + 查看器 JS + CSP(script-src 的 sha256 已在其中固化),
@@ -103,7 +104,7 @@ pub fn build_encrypted_share(
     expires_days: u32,
     render_dicom_png: crate::DicomPngRenderer,
 ) -> Result<(String, String, i64), String> {
-    build_encrypted_share_inner(v, expires_days, render_dicom_png, None)
+    build_encrypted_share_inner(v, expires_days, render_dicom_png, None, None)
 }
 
 /// 同 [`build_encrypted_share`],但额外把一份拍前同意记录([`ShareConsent`])写进
@@ -116,7 +117,31 @@ pub fn build_encrypted_share_with_consent(
     render_dicom_png: crate::DicomPngRenderer,
     consent: ShareConsent,
 ) -> Result<(String, String, i64), String> {
-    build_encrypted_share_inner(v, expires_days, render_dicom_png, Some(consent))
+    build_encrypted_share_inner(v, expires_days, render_dicom_png, Some(consent), None)
+}
+
+/// 同 [`build_encrypted_share_with_consent`],但额外传入「已确认」的 document id
+/// 集合(医生代拍病人纸质材料流程,用户拍板的确认工作流):**所有原件仍全部进
+/// 分享包**(未确认的也在,不缺一份),但只有 `confirmed_document_ids` 里的文档参与
+/// `summary`(病情摘要)装配——未确认的内容不该被当成「已核实」汇总给病人;同时
+/// 每条 record 都带一个 `confirmed` 布尔标记(供病人侧 Phase 3「认领后再确认」用,
+/// 本次只加这个字段,不做患者侧交互)。严格加法:不传 confirmed 集合的两个既有
+/// 入口([`build_encrypted_share`]/[`build_encrypted_share_with_consent`])行为不变——
+/// 它们的 records 里不会出现 `confirmed` 键,summary 仍汇总全部文档。
+pub fn build_encrypted_share_with_consent_and_confirmed(
+    v: &Vault,
+    expires_days: u32,
+    render_dicom_png: crate::DicomPngRenderer,
+    consent: ShareConsent,
+    confirmed_document_ids: &HashSet<i64>,
+) -> Result<(String, String, i64), String> {
+    build_encrypted_share_inner(
+        v,
+        expires_days,
+        render_dicom_png,
+        Some(consent),
+        Some(confirmed_document_ids),
+    )
 }
 
 fn build_encrypted_share_inner(
@@ -124,6 +149,7 @@ fn build_encrypted_share_inner(
     expires_days: u32,
     render_dicom_png: crate::DicomPngRenderer,
     consent: Option<ShareConsent>,
+    confirmed_document_ids: Option<&HashSet<i64>>,
 ) -> Result<(String, String, i64), String> {
     let records = crate::export::gather_records(v)?;
     let profile = pipeline::patient_profile(v).map_err(|e| e.to_string())?;
@@ -230,7 +256,7 @@ fn build_encrypted_share_inner(
             }
         }
 
-        records_json.push(serde_json::json!({
+        let mut record_json = serde_json::json!({
             "doc_type": doc.doc_type.as_str(),
             "doc_date": fmt_date(doc.doc_date),
             "doc_date_end": fmt_date(doc.doc_date_end),
@@ -239,7 +265,14 @@ fn build_encrypted_share_inner(
             "images": images,
             "pdf": pdf_data_uri,
             "dicom": dicom_json,
-        }));
+        });
+        // 医生代拍确认工作流(严格加法):只有传入了 confirmed 集合的调用方
+        // (`build_encrypted_share_with_consent_and_confirmed`)才会看到这个键——
+        // 普通分享(桌面/病人自己导出)不传集合,records 形状逐字节不变。
+        if let Some(ids) = confirmed_document_ids {
+            record_json["confirmed"] = serde_json::json!(ids.contains(&doc.id));
+        }
+        records_json.push(record_json);
         record_count += 1;
     }
 
@@ -252,12 +285,17 @@ fn build_encrypted_share_inner(
     }
 
     // ── 医生视图 summary(#37,slice ④)──
-    // 确定性装配疾病泳道 + 趋势。`SourceDoc::index` 必须与 `records_json` 里的下标
-    // 对齐(records 与 records_json 在同一循环里同序推入),证据链才能跳对原件。
+    // 确定性装配疾病泳道 + 趋势。`SourceDoc::index` 必须是该文档在 `records`/
+    // `records_json` 里的**原始**下标(不是过滤后的位置),证据链才能跳对原件——
+    // `.enumerate()` 在 `.filter()` 之前跑,保留的条目 `i` 因此仍是原始位置。
+    // 医生代拍确认工作流:传了 confirmed 集合时,只有已确认的文档参与摘要装配
+    // (未确认的内容不该被当成「已核实」汇总给病人,原文仍完整躺在 records 里);
+    // 不传集合(普通分享)时行为不变,全部文档都参与,与改动前逐字节一致。
     // 临床日期取文档 doc_date 的 naive 日期(无则 None)。
     let docs: Vec<parser::SourceDoc> = records
         .iter()
         .enumerate()
+        .filter(|(_, rec)| confirmed_document_ids.is_none_or(|ids| ids.contains(&rec.doc.id)))
         .map(|(i, rec)| parser::SourceDoc {
             index: i,
             date: rec.doc.doc_date.map(|dt| dt.date_naive()),
@@ -1006,5 +1044,152 @@ mod tests {
         assert_eq!(c["signature_png_base64"], "iVBORw0KGgo=");
         assert_eq!(c["method"], "signature");
         assert_eq!(c["session_id"], "sess-123");
+    }
+
+    /// 加法证明:不传 confirmed 集合的两个既有入口(`build_encrypted_share` /
+    /// `build_encrypted_share_with_consent`)的 records 里绝不应出现 `confirmed`
+    /// 键——它们就是 `build_encrypted_share_with_consent_and_confirmed(..., None)`
+    /// 的特例,现有分享(桌面/病人自己导出/普通医生代拍)逐字节不受影响。
+    #[test]
+    fn build_encrypted_share_omits_confirmed_key_when_not_using_confirmed_variant() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Vault::open(dir.path()).unwrap();
+        vault.import("a.txt", "text/plain", b"x").unwrap();
+
+        let (html, pass, _n) =
+            build_encrypted_share(&vault, 5, &crate::render_dicom_png_in_process).unwrap();
+        let payload = decrypt_payload(&html, &pass);
+        assert!(
+            payload["records"][0].get("confirmed").is_none(),
+            "build_encrypted_share 的 records 不应带 confirmed 键"
+        );
+
+        let consent = ShareConsent {
+            utc_ts: "2026-07-23T09:00:00Z".into(),
+            consent_text_version: "v1".into(),
+            signature_png_base64: None,
+            method: "press_hold".into(),
+            session_id: "sess-no-confirm".into(),
+        };
+        let (html2, pass2, _n2) = build_encrypted_share_with_consent(
+            &vault,
+            5,
+            &crate::render_dicom_png_in_process,
+            consent,
+        )
+        .unwrap();
+        let payload2 = decrypt_payload(&html2, &pass2);
+        assert!(
+            payload2["records"][0].get("confirmed").is_none(),
+            "build_encrypted_share_with_consent(无 confirmed 集合)的 records 不应带 confirmed 键"
+        );
+    }
+
+    /// 医生代拍确认工作流(用户拍板的最终流程):`build_encrypted_share_with_consent_and_confirmed`
+    /// 应 (a) 把两份文档都放进 records(未确认的原件不能少一份),各自的 `confirmed`
+    /// 键如实反映是否在传入集合里;(b) summary 只从已确认的文档装配——未确认那份的
+    /// 诊断不该出现在 problems 里,虽然它的原文仍完整躺在 records[].text 里。
+    #[test]
+    fn build_encrypted_share_with_consent_and_confirmed_marks_records_and_filters_summary() {
+        use core_model::{DocType, NewDocument, NewOcr, OcrBackendKind};
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Vault::open(dir.path()).unwrap();
+
+        let imp1 = vault
+            .import("确认过的.txt", "text/plain", b"data1")
+            .unwrap();
+        let confirmed_doc = vault
+            .add_document(NewDocument {
+                source_file_id: imp1.source_file.id,
+                doc_type: DocType::ClinicalNote,
+                doc_date: Some(chrono::Utc::now()),
+                doc_date_end: None,
+                title: Some("确认过的门诊记录".into()),
+                language: Some("zh".into()),
+                page_count: 1,
+            })
+            .unwrap();
+        vault
+            .add_ocr(NewOcr {
+                document_id: confirmed_doc.id,
+                page_no: 1,
+                backend: OcrBackendKind::Native,
+                model_version: "text-layer".into(),
+                text: "诊断:高血压".into(),
+                confidence: None,
+            })
+            .unwrap();
+
+        let imp2 = vault
+            .import("待确认的.txt", "text/plain", b"data2")
+            .unwrap();
+        let unconfirmed_doc = vault
+            .add_document(NewDocument {
+                source_file_id: imp2.source_file.id,
+                doc_type: DocType::ClinicalNote,
+                doc_date: Some(chrono::Utc::now()),
+                doc_date_end: None,
+                title: Some("待确认的门诊记录".into()),
+                language: Some("zh".into()),
+                page_count: 1,
+            })
+            .unwrap();
+        vault
+            .add_ocr(NewOcr {
+                document_id: unconfirmed_doc.id,
+                page_no: 1,
+                backend: OcrBackendKind::Native,
+                model_version: "text-layer".into(),
+                text: "诊断:甲状腺结节".into(),
+                confidence: None,
+            })
+            .unwrap();
+
+        let mut confirmed_ids = HashSet::new();
+        confirmed_ids.insert(confirmed_doc.id);
+
+        let consent = ShareConsent {
+            utc_ts: "2026-07-23T09:00:00Z".into(),
+            consent_text_version: "v1".into(),
+            signature_png_base64: None,
+            method: "press_hold".into(),
+            session_id: "sess-confirm-filter".into(),
+        };
+        let (html, pass, n) = build_encrypted_share_with_consent_and_confirmed(
+            &vault,
+            7,
+            &crate::render_dicom_png_in_process,
+            consent,
+            &confirmed_ids,
+        )
+        .unwrap();
+        assert_eq!(n, 2, "两份文档(确认+未确认)都应算进 record_count");
+
+        let payload = decrypt_payload(&html, &pass);
+        let records = payload["records"].as_array().unwrap();
+        assert_eq!(records.len(), 2, "未确认的原件也应进分享包");
+
+        let confirmed_record = records
+            .iter()
+            .find(|r| r["title"] == "确认过的门诊记录")
+            .expect("confirmed record present");
+        assert_eq!(confirmed_record["confirmed"], true);
+        let unconfirmed_record = records
+            .iter()
+            .find(|r| r["title"] == "待确认的门诊记录")
+            .expect("unconfirmed record present");
+        assert_eq!(unconfirmed_record["confirmed"], false);
+        // 未确认的原文仍完整保留,不丢信息——只是不参与 summary 装配。
+        assert_eq!(unconfirmed_record["text"], "诊断:甲状腺结节");
+
+        let problems = payload["summary"]["problems"].as_array().unwrap();
+        assert!(
+            problems.iter().any(|p| p["term"] == "高血压"),
+            "已确认文档的诊断应进摘要"
+        );
+        assert!(
+            !problems.iter().any(|p| p["term"] == "甲状腺结节"),
+            "未确认文档的诊断不应进摘要"
+        );
     }
 }

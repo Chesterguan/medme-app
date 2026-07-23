@@ -9,11 +9,11 @@ import 'package:mobile_flutter/ocr_bridge.dart';
 import 'package:mobile_flutter/screens/doctor/consent_screen.dart';
 import 'package:mobile_flutter/screens/doctor/doctor_delivery_count.dart';
 import 'package:mobile_flutter/screens/doctor/doctor_share_result_dialog.dart';
+import 'package:mobile_flutter/screens/doctor/proxy_document_detail.dart';
 import 'package:mobile_flutter/screens/doctor/proxy_summary_card.dart';
 import 'package:mobile_flutter/screens/import_helpers.dart';
 import 'package:mobile_flutter/src/rust/api/dto.dart';
 import 'package:mobile_flutter/theme.dart';
-import 'package:mobile_flutter/widgets/report_content.dart';
 
 /// 代建档分享文件的有效期(天)。这台设备本身用完即焚,这个天数只约束「病人手里
 /// 那份加密文件的口令还能用多久」——给病人留足取回/打开的时间,与正常导出分享的
@@ -45,8 +45,10 @@ class _ProxyIntakeFlowState extends State<ProxyIntakeFlow> {
   ConsentDto? _consent;
   List<TimelineGroupDto> _preview = const [];
   ProxySummaryDto? _summary;
-  // 文档 id → 识别文本,供审阅屏「逐份识别内容」默认摊开展示(不用点开才看到)。
-  Map<int, String> _docTexts = const {};
+  // 文档 id → 是否已确认(用户拍板的最终流程:待确认列表用它渲染「待确认/已确认」
+  // 标签)。查不到的 id 一律按「待确认」处理,与 Rust 侧 `ephemeral_confirmed_map`
+  // 的默认值语义一致。
+  Map<int, bool> _confirmedMap = const {};
   int _capturedCount = 0;
   bool _busy = false;
   String? _progress;
@@ -145,6 +147,19 @@ class _ProxyIntakeFlowState extends State<ProxyIntakeFlow> {
             ),
             ListTile(
               leading: const Icon(
+                Icons.photo_library_outlined,
+                color: MedMe.proxyOrange,
+                size: 28,
+              ),
+              title: const Text('从相册选', style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text(
+                '选一张或多张已经拍好的病历照片',
+                style: TextStyle(color: MedMe.faint),
+              ),
+              onTap: () => Navigator.of(context).pop(ImportChoice.gallery),
+            ),
+            ListTile(
+              leading: const Icon(
                 Icons.folder_open_outlined,
                 color: MedMe.proxyOrange,
                 size: 28,
@@ -225,8 +240,10 @@ class _ProxyIntakeFlowState extends State<ProxyIntakeFlow> {
     }
   }
 
-  /// 加载/刷新审阅屏:就诊时间线 + 病情摘要卡 + 每份文档的识别文本(默认摊开展示,
-  /// 不用点开)。采集完成后、以及每次删除一份文档后都调这个来刷新三样。
+  /// 加载/刷新待确认列表:就诊时间线(铺平成文档清单)+ 病情摘要卡(只统计已确认
+  /// 文档)+ 每份文档的确认状态。采集完成后、以及每次从详情页返回(确认/删除/重拍)
+  /// 后都调这个来刷新——单一数据源,不另维护一套局部更新逻辑。`_capturedCount`
+  /// 顺带用这次拿到的真实文档数覆盖,不再靠调用方手动加减去维持同步。
   Future<void> _goToPreview() async {
     setState(() {
       _busy = true;
@@ -234,22 +251,18 @@ class _ProxyIntakeFlowState extends State<ProxyIntakeFlow> {
     });
     try {
       final groups = await EphemeralSession.loadPreview();
-      final docs = _PreviewStep.flatten(groups);
+      final docs = _PendingListStep.flatten(groups);
       final summary = await EphemeralSession.summary();
-      final texts = <int, String>{};
-      for (final d in docs) {
-        try {
-          texts[d.id] = await EphemeralSession.documentText(d.id);
-        } catch (e) {
-          // 单份取文本失败不阻塞其它文档展示;该份退化为只显示标题/类型。
-          debugPrint('[doctor-proxy] 取文档 ${d.id} 识别文本失败: $e');
-        }
-      }
+      final confirmedList = await EphemeralSession.confirmedMap();
+      final confirmedMap = <int, bool>{
+        for (final c in confirmedList) c.documentId: c.confirmed,
+      };
       if (!mounted) return;
       setState(() {
         _preview = groups;
         _summary = summary;
-        _docTexts = texts;
+        _confirmedMap = confirmedMap;
+        _capturedCount = docs.length;
         _busy = false;
         _progress = null;
         _phase = _ProxyPhase.preview;
@@ -264,45 +277,25 @@ class _ProxyIntakeFlowState extends State<ProxyIntakeFlow> {
     }
   }
 
-  /// 删掉审阅屏里收错/拍花的一份(确认后不可撤销)。删完重新走 [_goToPreview]
-  /// 刷新摘要卡 + 文档列表 —— 与「拍完了,去预览」共用同一条加载路径,不另维护
-  /// 一套局部更新逻辑。
-  Future<void> _deleteDocument(DocumentSummaryDto doc) async {
-    final label = doc.title ?? (kDocTypeLabel[doc.docType] ?? doc.docType);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('删除这份?'),
-        content: Text('「$label」会从这次代拍里移除,原始照片/文件一并删除,不可撤销。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: MedMe.danger),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('删除'),
-          ),
-        ],
+  /// 点进一份的详情页:核对原件 + 识别内容,「确认这一份」/ 删除 / 重拍都在那一屏
+  /// 完成(见 `proxy_document_detail.dart`)。回来后按详情页汇报的结果决定下一步:
+  /// 有变化(确认或删除)就刷新列表;是「重拍」则刷新后紧接着重新弹采集入口——
+  /// 复用现有的 [_pickCaptureSource]/[_ingest] 链路,不在详情页重复一遍采集逻辑。
+  Future<void> _openDocument(DocumentSummaryDto doc) async {
+    final result = await Navigator.of(context).push<ProxyDetailResult>(
+      MaterialPageRoute(
+        builder: (_) => ProxyDocumentDetailScreen(
+          docId: doc.id,
+          initiallyConfirmed: _confirmedMap[doc.id] ?? false,
+        ),
       ),
     );
-    if (confirmed != true || !mounted) return;
-    setState(() {
-      _busy = true;
-      _progress = '正在删除…';
-    });
-    try {
-      await EphemeralSession.deleteDocument(doc.id);
-      if (_capturedCount > 0) _capturedCount--;
-      await _goToPreview();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _progress = null;
-      });
-      await _showError('删除失败', '$e');
+    if (!mounted || result == null || result == ProxyDetailResult.none) {
+      return;
+    }
+    await _goToPreview();
+    if (result == ProxyDetailResult.retake) {
+      await _pickCaptureSource();
     }
   }
 
@@ -393,15 +386,15 @@ class _ProxyIntakeFlowState extends State<ProxyIntakeFlow> {
           onDone: _capturedCount > 0 ? _goToPreview : null,
         );
       case _ProxyPhase.preview:
-        return _PreviewStep(
+        return _PendingListStep(
           groups: _preview,
           summary: _summary,
-          docTexts: _docTexts,
+          confirmedMap: _confirmedMap,
           busy: _busy,
           progress: _progress,
           onCaptureMore: _pickCaptureSource,
           onDeliver: _deliver,
-          onDeleteDocument: _deleteDocument,
+          onOpenDocument: _openDocument,
         );
       case _ProxyPhase.delivering:
         return const Center(
@@ -545,28 +538,32 @@ class _CaptureStep extends StatelessWidget {
   }
 }
 
-class _PreviewStep extends StatelessWidget {
-  const _PreviewStep({
+/// 待确认列表:采集完进这一屏。渲染风格复用 `archive_screen.dart` 的时间线
+/// 列表(图标+类型色块、标题、日期、副标题),每份一行,不再像上一版那样把识别
+/// 内容摊开在列表里——点进一份才看原件 + 识别内容(见 `proxy_document_detail.dart`),
+/// 列表本身只负责「核对拍了什么、哪些还没点开确认」。
+class _PendingListStep extends StatelessWidget {
+  const _PendingListStep({
     required this.groups,
     required this.summary,
-    required this.docTexts,
+    required this.confirmedMap,
     required this.busy,
     required this.progress,
     required this.onCaptureMore,
     required this.onDeliver,
-    required this.onDeleteDocument,
+    required this.onOpenDocument,
   });
 
   final List<TimelineGroupDto> groups;
   final ProxySummaryDto? summary;
-  final Map<int, String> docTexts;
+  final Map<int, bool> confirmedMap;
   final bool busy;
   final String? progress;
   final VoidCallback onCaptureMore;
   final VoidCallback onDeliver;
-  final ValueChanged<DocumentSummaryDto> onDeleteDocument;
+  final ValueChanged<DocumentSummaryDto> onOpenDocument;
 
-  /// 铺平就诊组/独立文档为一份纯清单——预览屏只需要「拍了什么」,不需要档案屏
+  /// 铺平就诊组/独立文档为一份纯清单——待确认列表只需要「拍了什么」,不需要档案屏
   /// 那套就诊分组展示。与 `archive_screen.dart` 的展开模式同一匹配写法。
   static List<DocumentSummaryDto> flatten(List<TimelineGroupDto> groups) {
     final out = <DocumentSummaryDto>[];
@@ -584,6 +581,7 @@ class _PreviewStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final docs = flatten(groups);
+    final confirmedCount = docs.where((d) => confirmedMap[d.id] ?? false).length;
     final s = summary;
     return Stack(
       children: [
@@ -594,7 +592,7 @@ class _PreviewStep extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  '核对一下,共 ${docs.length} 份',
+                  '共 ${docs.length} 份 · 已确认 $confirmedCount 份',
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                 ),
               ),
@@ -607,14 +605,15 @@ class _PreviewStep extends StatelessWidget {
                   : ListView(
                       padding: const EdgeInsets.only(bottom: 16),
                       children: [
-                        // 病情摘要卡(选项 b 的核心):在治的病/关键化验/在用药,
-                        // 不必点开就看到。没有任何结构化问题(如全是原始未分类图片)
-                        // 时组件自身收起为零高度,不占地方。
+                        // 病情摘要卡:在治的病/关键化验/在用药,只统计「已确认」的
+                        // 文档(见 `EphemeralSession.summary`)。没有任何结构化问题
+                        // (尚无文档被确认,或全是原始未分类图片)时组件自身收起为
+                        // 零高度,不占地方。
                         if (s != null) ProxySummaryCard(summary: s),
                         const Padding(
                           padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
                           child: Text(
-                            '逐份识别内容',
+                            '逐份核对',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
@@ -625,10 +624,10 @@ class _PreviewStep extends StatelessWidget {
                         for (final d in docs)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                            child: _DocumentCard(
+                            child: _PendingRow(
                               doc: d,
-                              text: docTexts[d.id],
-                              onDelete: busy ? null : () => onDeleteDocument(d),
+                              confirmed: confirmedMap[d.id] ?? false,
+                              onTap: busy ? null : () => onOpenDocument(d),
                             ),
                           ),
                       ],
@@ -641,7 +640,7 @@ class _PreviewStep extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: busy ? null : onCaptureMore,
-                      child: const Text('再拍一份'),
+                      child: const Text('继续采集'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -688,57 +687,106 @@ class _PreviewStep extends StatelessWidget {
   }
 }
 
-/// 逐份文档卡:标题/类型/日期 + 删除 + 识别内容(复用 `widgets/report_content.dart`
-/// 的 `ReportContent`,化验渲染成表格)。**默认展开**(`initiallyExpanded: true`)——
-/// 「即便不点开也要看到」,长文本仍可点标题行折叠收起,不强制占满整屏。
-class _DocumentCard extends StatelessWidget {
-  const _DocumentCard({required this.doc, required this.text, required this.onDelete});
+/// 待确认列表一行:类型图标 + 标题/日期/类型 + 「待确认/已确认」状态标签。样式
+/// 参照 `archive_screen.dart` 的时间线行(图标底色块 + 标题/副标题两行),状态标签
+/// 配色沿用该文件 `_PendingCard`(待确认=danger 红)与 `document_detail.dart`
+/// `_ConfBadge` 高档(已确认=绿,`#047857`/`#ECFDF5`)的既有色值,不另发明一套。
+class _PendingRow extends StatelessWidget {
+  const _PendingRow({
+    required this.doc,
+    required this.confirmed,
+    required this.onTap,
+  });
 
   final DocumentSummaryDto doc;
-  /// 识别文本;仍在加载时为 `null`(显示小转圈,不阻塞其它卡片先渲染出来)。
-  final String? text;
-  final VoidCallback? onDelete;
+  final bool confirmed;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final label = kDocTypeLabel[doc.docType] ?? doc.docType;
     final date = _fmtDate(doc.docDate);
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Theme(
-        // 去掉 ExpansionTile 默认的顶/底分割线,贴合卡片圆角边框。
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          initiallyExpanded: true,
-          title: Text(
-            doc.title ?? label,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5),
+    return Material(
+      color: MedMe.panel,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: confirmed ? MedMe.line : MedMe.danger.withValues(alpha: 0.5),
+            ),
           ),
-          subtitle: Text(
-            date.isEmpty ? label : '$label · $date',
-            style: const TextStyle(fontSize: 12, color: MedMe.faint),
-          ),
-          trailing: IconButton(
-            icon: const Icon(Icons.delete_outline, color: MedMe.danger, size: 20),
-            tooltip: '删除这份',
-            onPressed: onDelete,
-          ),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          expandedCrossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (text == null)
-              const Padding(
-                padding: EdgeInsets.only(top: 4),
-                child: SizedBox(
-                  height: 18,
-                  width: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: MedMe.proxyOrangeSoft,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              )
-            else
-              ReportContent(text: text!, docType: doc.docType),
-          ],
+                child: const Icon(
+                  Icons.description_outlined,
+                  size: 19,
+                  color: MedMe.proxyOrange,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      doc.title ?? label,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      date.isEmpty ? label : '$label · $date',
+                      style: const TextStyle(fontSize: 12.5, color: MedMe.faint),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              _StatusBadge(confirmed: confirmed),
+              const SizedBox(width: 4),
+              const Icon(Icons.chevron_right, size: 20, color: MedMe.faint),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({required this.confirmed});
+
+  final bool confirmed;
+
+  @override
+  Widget build(BuildContext context) {
+    final (bg, fg, text) = confirmed
+        ? (const Color(0xFFECFDF5), const Color(0xFF047857), '已确认')
+        : (MedMe.danger.withValues(alpha: 0.1), MedMe.danger, '待确认');
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: fg),
       ),
     );
   }

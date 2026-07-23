@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:path_provider/path_provider.dart';
 
 import 'package:mobile_flutter/src/rust/api/dto.dart';
@@ -62,6 +64,34 @@ class EphemeralSession {
   /// [loadPreview] + [summary] 刷新展示。
   static Future<void> deleteDocument(int documentId) =>
       rust_ephemeral.ephemeralDeleteDocument(documentId: documentId);
+
+  /// 标记/取消一份文档「已确认」(详情页「确认这一份」,整份确认,不细到每一项)。
+  static Future<void> setConfirmed({
+    required int documentId,
+    required bool confirmed,
+  }) => rust_ephemeral.ephemeralSetConfirmed(
+    documentId: documentId,
+    confirmed: confirmed,
+  );
+
+  /// 当前会话箱里每份文档的确认状态。只含**显式确认过**的文档;待确认列表屏对
+  /// 查不到的 document_id 一律按「待确认」处理。
+  static Future<List<ConfirmedStatusDto>> confirmedMap() =>
+      rust_ephemeral.ephemeralConfirmedMap();
+
+  /// 一份文档详情(待确认列表「点进一份」的详情页):类型/日期 + 来源文件元信息 +
+  /// 识别文本 + 置信度。签名与 `vault.dart` 的 `getDocument` 一致。
+  static Future<DocumentDetailDto> getDocument(int documentId) =>
+      rust_ephemeral.ephemeralGetDocument(documentId: documentId);
+
+  /// 一份来源文件的原始字节(详情页「查看原件」渲染图片/PDF)。**不**经 iCloud
+  /// 物化——临时会话目录永远是本地磁盘,不会被逐出,见 Rust 侧函数注释。
+  static Future<Uint8List> readSourceBytes(int sourceFileId) =>
+      rust_ephemeral.ephemeralReadSourceBytes(sourceFileId: sourceFileId);
+
+  /// 渲染一份 DICOM 来源文件的锚点切片为 PNG。
+  static Future<Uint8List> renderDicomPng(int sourceFileId) =>
+      rust_ephemeral.ephemeralRenderDicomPng(sourceFileId: sourceFileId);
 
   /// 打包成加密分享件(带拍前同意记录),写进**临时会话箱**——不是医生自己的档案。
   static Future<ShareResultDto> createShare({

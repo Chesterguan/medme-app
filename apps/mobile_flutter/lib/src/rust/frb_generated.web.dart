@@ -53,6 +53,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 dco_decode_box_autoadd_i_64(dynamic raw);
 
   @protected
+  ConfirmedStatusDto dco_decode_confirmed_status_dto(dynamic raw);
+
+  @protected
   ConsentDto dco_decode_consent_dto(dynamic raw);
 
   @protected
@@ -84,6 +87,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ImportOutcomeDto dco_decode_import_outcome_dto(dynamic raw);
+
+  @protected
+  List<ConfirmedStatusDto> dco_decode_list_confirmed_status_dto(dynamic raw);
 
   @protected
   List<DocumentSummaryDto> dco_decode_list_document_summary_dto(dynamic raw);
@@ -198,6 +204,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 sse_decode_box_autoadd_i_64(SseDeserializer deserializer);
 
   @protected
+  ConfirmedStatusDto sse_decode_confirmed_status_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ConsentDto sse_decode_consent_dto(SseDeserializer deserializer);
 
   @protected
@@ -235,6 +246,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ImportOutcomeDto sse_decode_import_outcome_dto(SseDeserializer deserializer);
+
+  @protected
+  List<ConfirmedStatusDto> sse_decode_list_confirmed_status_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<DocumentSummaryDto> sse_decode_list_document_summary_dto(
@@ -372,6 +388,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_confirmed_status_dto(
+    ConfirmedStatusDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_consent_dto(ConsentDto self, SseSerializer serializer);
 
   @protected
@@ -419,6 +441,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_import_outcome_dto(
     ImportOutcomeDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_confirmed_status_dto(
+    List<ConfirmedStatusDto> self,
     SseSerializer serializer,
   );
 

@@ -9,7 +9,30 @@ import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'dto.freezed.dart';
 
 // These functions are ignored because they are not marked as `pub`: `from_encounter`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`
+
+/// 一份文档当前的「已确认」状态(医生代拍待确认列表)。**不**塞进共享的
+/// `DocumentSummaryDto`(`vault.rs` 的正常病人档案列表也用它,这个状态只对医生
+/// 代拍流程有意义)——待确认列表屏用 `document_id` 把这份状态与
+/// `ephemeral_load_preview` 返回的文档列表在 Dart 侧做本地映射。由
+/// `api::vault_ephemeral::ephemeral_confirmed_map` 产出。
+class ConfirmedStatusDto {
+  final PlatformInt64 documentId;
+  final bool confirmed;
+
+  const ConfirmedStatusDto({required this.documentId, required this.confirmed});
+
+  @override
+  int get hashCode => documentId.hashCode ^ confirmed.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ConfirmedStatusDto &&
+          runtimeType == other.runtimeType &&
+          documentId == other.documentId &&
+          confirmed == other.confirmed;
+}
 
 /// 拍前同意记录(医生代拍病人纸质材料流程):病人同意的方式(手写签名 / 按住
 /// 确认)、时刻、文案版本。由 `screens/doctor/consent_screen.dart` 产出,经

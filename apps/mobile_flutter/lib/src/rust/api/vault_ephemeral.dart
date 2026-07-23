@@ -70,16 +70,67 @@ Future<void> ephemeralDeleteDocument({required PlatformInt64 documentId}) =>
 
 /// 「病情摘要卡」:在治的病 + 关键化验 + 在用药,给医生三十秒看懂这次代拍收上来的
 /// 大局。复用 `parser::assemble_summary`——与生成加密分享跑的**同一套**确定性装配
-/// 逻辑(见 `ephemeral_create_share`/`build_encrypted_share_with_consent`),不是另
-/// 写一遍抽取。
+/// 逻辑(见 `ephemeral_create_share`/`build_encrypted_share_with_consent_and_confirmed`),
+/// 不是另写一遍抽取。**只汇总已确认的文档**(用户拍板的最终流程):医生点开一份核对
+/// 无误、点「确认这一份」之前,这份的内容不进摘要——摘要要反映的是「已核实的病情」,
+/// 不是「拍了什么就无脑汇总」。未确认文档的原文仍完整躺在待确认列表的详情页,不丢
+/// 信息,只是不参与这张卡的装配。
 Future<ProxySummaryDto> ephemeralSummary() =>
     RustLib.instance.api.crateApiVaultEphemeralEphemeralSummary();
 
+/// 标记/取消一份文档「已确认」(医生在详情页点「确认这一份」;整份确认,不细到
+/// 每一项)。存进 [`EphemeralState::confirmed`],随 [`ephemeral_wipe`] 一起清空,
+/// 不落盘、不进事件日志。文档不存在也不报错(纯内存 map,置了就置了,采集/预览
+/// 侧据实际文档列表展示,不会凭空多出一行)。
+Future<void> ephemeralSetConfirmed({
+  required PlatformInt64 documentId,
+  required bool confirmed,
+}) => RustLib.instance.api.crateApiVaultEphemeralEphemeralSetConfirmed(
+  documentId: documentId,
+  confirmed: confirmed,
+);
+
+/// 当前临时会话箱里每份文档的确认状态(供待确认列表屏渲染「待确认/已确认」标签)。
+/// 只返回**显式确认过**的文档;未出现在结果里的 document_id 一律按「待确认」处理
+/// (与 [`ephemeral_summary`] 的默认值语义一致)。
+Future<List<ConfirmedStatusDto>> ephemeralConfirmedMap() =>
+    RustLib.instance.api.crateApiVaultEphemeralEphemeralConfirmedMap();
+
+/// 一份文档详情(供待确认列表「点进一份」的详情页):类型/日期 + 来源文件元信息 +
+/// 识别文本 + 置信度。与 `vault.rs::get_document` 同取法(逐段复制),唯一差异是
+/// **没有 iCloud 物化步骤**——临时会话目录是系统临时缓存目录下的一次性子目录,不在
+/// iCloud 同步的 `docs/vault/profiles` 子树下,永远是本地磁盘、不会被 iCloud 逐出。
+Future<DocumentDetailDto> ephemeralGetDocument({
+  required PlatformInt64 documentId,
+}) => RustLib.instance.api.crateApiVaultEphemeralEphemeralGetDocument(
+  documentId: documentId,
+);
+
+/// 一份来源文件的原始字节(详情页「查看原件」渲染图片/PDF)。与
+/// `vault.rs::read_source_bytes` 同逻辑(逐段复制),无需 iCloud 物化(见
+/// [`ephemeral_get_document`] 的说明)。
+Future<Uint8List> ephemeralReadSourceBytes({
+  required PlatformInt64 sourceFileId,
+}) => RustLib.instance.api.crateApiVaultEphemeralEphemeralReadSourceBytes(
+  sourceFileId: sourceFileId,
+);
+
+/// 渲染一份 DICOM 来源文件的锚点切片为 PNG。与 `vault.rs::render_dicom_png` 同逻辑
+/// (逐段复制)。
+Future<Uint8List> ephemeralRenderDicomPng({
+  required PlatformInt64 sourceFileId,
+}) => RustLib.instance.api.crateApiVaultEphemeralEphemeralRenderDicomPng(
+  sourceFileId: sourceFileId,
+);
+
 /// 打包成自包含加密 HTML(带拍前同意记录),写进**临时会话箱**的 `shares/`——
-/// 不是医生自己的 vault。与 `vault.rs::create_share` 同逻辑(逐段复制),唯一
-/// 差异是永远经 `medme_share::share::build_encrypted_share_with_consent` 传入
-/// `consent`(该函数是纯加法,不影响 `vault.rs::create_share` 走的
-/// `build_encrypted_share` 原路径)。
+/// 不是医生自己的 vault。与 `vault.rs::create_share` 同逻辑(逐段复制),差异有二:
+/// (a) 永远经 `medme_share::share::build_encrypted_share_with_consent_and_confirmed`
+/// 传入 `consent`(该函数是纯加法,不影响 `vault.rs::create_share` 走的
+/// `build_encrypted_share` 原路径);(b) 把当前已确认的 document_id 集合一并传入——
+/// **所有原件都进分享包**(未确认的也在,病人拿到手上原件不缺一份),但 payload 里
+/// 只有确认过的那些参与 summary 装配,且每条 record 都带一个 `confirmed` 标记(供
+/// 病人侧 Phase 3 后续「认领后再确认」用,本次只加这个字段、不做患者侧交互)。
 Future<ShareResultDto> ephemeralCreateShare({
   required PlatformInt64 expiresDays,
   required ConsentDto consent,

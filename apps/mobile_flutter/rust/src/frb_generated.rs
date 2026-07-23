@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1540420937;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -612950009;
 
 // Section: executor
 
@@ -297,6 +297,40 @@ fn wire__crate__api__vault_ephemeral__ephemeral_begin_impl(
         },
     )
 }
+fn wire__crate__api__vault_ephemeral__ephemeral_confirmed_map_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ephemeral_confirmed_map",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || {
+                        let output_ok = crate::api::vault_ephemeral::ephemeral_confirmed_map()?;
+                        Ok(output_ok)
+                    })(),
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__vault_ephemeral__ephemeral_create_share_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -402,6 +436,42 @@ fn wire__crate__api__vault_ephemeral__ephemeral_document_text_impl(
                     (move || {
                         let output_ok =
                             crate::api::vault_ephemeral::ephemeral_document_text(api_document_id)?;
+                        Ok(output_ok)
+                    })(),
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__vault_ephemeral__ephemeral_get_document_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ephemeral_get_document",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_document_id = <i64>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || {
+                        let output_ok =
+                            crate::api::vault_ephemeral::ephemeral_get_document(api_document_id)?;
                         Ok(output_ok)
                     })(),
                 )
@@ -519,6 +589,119 @@ fn wire__crate__api__vault_ephemeral__ephemeral_load_preview_impl(
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
                         let output_ok = crate::api::vault_ephemeral::ephemeral_load_preview()?;
+                        Ok(output_ok)
+                    })(),
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__vault_ephemeral__ephemeral_read_source_bytes_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ephemeral_read_source_bytes",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_source_file_id = <i64>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || {
+                        let output_ok = crate::api::vault_ephemeral::ephemeral_read_source_bytes(
+                            api_source_file_id,
+                        )?;
+                        Ok(output_ok)
+                    })(),
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__vault_ephemeral__ephemeral_render_dicom_png_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ephemeral_render_dicom_png",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_source_file_id = <i64>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || {
+                        let output_ok = crate::api::vault_ephemeral::ephemeral_render_dicom_png(
+                            api_source_file_id,
+                        )?;
+                        Ok(output_ok)
+                    })(),
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__vault_ephemeral__ephemeral_set_confirmed_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ephemeral_set_confirmed",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_document_id = <i64>::sse_decode(&mut deserializer);
+            let api_confirmed = <bool>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || {
+                        let output_ok = crate::api::vault_ephemeral::ephemeral_set_confirmed(
+                            api_document_id,
+                            api_confirmed,
+                        )?;
                         Ok(output_ok)
                     })(),
                 )
@@ -1225,6 +1408,18 @@ impl SseDecode for bool {
     }
 }
 
+impl SseDecode for crate::api::dto::ConfirmedStatusDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_documentId = <i64>::sse_decode(deserializer);
+        let mut var_confirmed = <bool>::sse_decode(deserializer);
+        return crate::api::dto::ConfirmedStatusDto {
+            document_id: var_documentId,
+            confirmed: var_confirmed,
+        };
+    }
+}
+
 impl SseDecode for crate::api::dto::ConsentDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -1378,6 +1573,20 @@ impl SseDecode for crate::api::dto::ImportOutcomeDto {
             document_id: var_documentId,
             detected_name: var_detectedName,
         };
+    }
+}
+
+impl SseDecode for Vec<crate::api::dto::ConfirmedStatusDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::dto::ConfirmedStatusDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
     }
 }
 
@@ -1740,78 +1949,108 @@ fn pde_ffi_dispatcher_primary_impl(
             rust_vec_len,
             data_len,
         ),
-        8 => wire__crate__api__vault_ephemeral__ephemeral_create_share_impl(
+        8 => wire__crate__api__vault_ephemeral__ephemeral_confirmed_map_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        9 => wire__crate__api__vault_ephemeral__ephemeral_delete_document_impl(
+        9 => wire__crate__api__vault_ephemeral__ephemeral_create_share_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        10 => wire__crate__api__vault_ephemeral__ephemeral_document_text_impl(
+        10 => wire__crate__api__vault_ephemeral__ephemeral_delete_document_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        11 => wire__crate__api__vault_ephemeral__ephemeral_ingest_bytes_impl(
+        11 => wire__crate__api__vault_ephemeral__ephemeral_document_text_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        12 => wire__crate__api__vault_ephemeral__ephemeral_ingest_image_with_text_impl(
+        12 => wire__crate__api__vault_ephemeral__ephemeral_get_document_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        13 => wire__crate__api__vault_ephemeral__ephemeral_load_preview_impl(
+        13 => wire__crate__api__vault_ephemeral__ephemeral_ingest_bytes_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        14 => wire__crate__api__vault_ephemeral__ephemeral_summary_impl(
+        14 => wire__crate__api__vault_ephemeral__ephemeral_ingest_image_with_text_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        15 => wire__crate__api__vault_ephemeral__ephemeral_sweep_impl(
+        15 => wire__crate__api__vault_ephemeral__ephemeral_load_preview_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        16 => wire__crate__api__vault_ephemeral__ephemeral_wipe_impl(
+        16 => wire__crate__api__vault_ephemeral__ephemeral_read_source_bytes_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        17 => wire__crate__api__vault__export_timeline_html_impl(port, ptr, rust_vec_len, data_len),
-        18 => wire__crate__api__vault__get_document_impl(port, ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__vault__icloud_status_impl(port, ptr, rust_vec_len, data_len),
-        20 => wire__crate__api__vault__ingest_bytes_impl(port, ptr, rust_vec_len, data_len),
-        21 => wire__crate__api__vault__ingest_file_impl(port, ptr, rust_vec_len, data_len),
-        22 => {
+        17 => wire__crate__api__vault_ephemeral__ephemeral_render_dicom_png_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        18 => wire__crate__api__vault_ephemeral__ephemeral_set_confirmed_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        19 => wire__crate__api__vault_ephemeral__ephemeral_summary_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        20 => wire__crate__api__vault_ephemeral__ephemeral_sweep_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        21 => wire__crate__api__vault_ephemeral__ephemeral_wipe_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        22 => wire__crate__api__vault__export_timeline_html_impl(port, ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__vault__get_document_impl(port, ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__vault__icloud_status_impl(port, ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__vault__ingest_bytes_impl(port, ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__vault__ingest_file_impl(port, ptr, rust_vec_len, data_len),
+        27 => {
             wire__crate__api__vault__ingest_image_with_text_impl(port, ptr, rust_vec_len, data_len)
         }
-        23 => wire__crate__api__simple__init_app_impl(port, ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__vault__load_archive_impl(port, ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__vault__load_demo_data_impl(port, ptr, rust_vec_len, data_len),
-        26 => wire__crate__api__vault__open_vault_impl(port, ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__vault__patient_profile_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__vault__read_source_bytes_impl(port, ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__vault__recognize_image_pp_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__vault__render_dicom_png_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__vault__reset_vault_impl(port, ptr, rust_vec_len, data_len),
-        32 => {
+        28 => wire__crate__api__simple__init_app_impl(port, ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__vault__load_archive_impl(port, ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__vault__load_demo_data_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__vault__open_vault_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__vault__patient_profile_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__vault__read_source_bytes_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__vault__recognize_image_pp_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__vault__render_dicom_png_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__vault__reset_vault_impl(port, ptr, rust_vec_len, data_len),
+        37 => {
             wire__crate__api__vault__source_file_object_path_impl(port, ptr, rust_vec_len, data_len)
         }
         _ => unreachable!(),
@@ -1832,6 +2071,27 @@ fn pde_ffi_dispatcher_sync_impl(
 
 // Section: rust2dart
 
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::dto::ConfirmedStatusDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.document_id.into_into_dart().into_dart(),
+            self.confirmed.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::dto::ConfirmedStatusDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::dto::ConfirmedStatusDto>
+    for crate::api::dto::ConfirmedStatusDto
+{
+    fn into_into_dart(self) -> crate::api::dto::ConfirmedStatusDto {
+        self
+    }
+}
 // Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::dto::ConsentDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
@@ -2265,6 +2525,14 @@ impl SseEncode for bool {
     }
 }
 
+impl SseEncode for crate::api::dto::ConfirmedStatusDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i64>::sse_encode(self.document_id, serializer);
+        <bool>::sse_encode(self.confirmed, serializer);
+    }
+}
+
 impl SseEncode for crate::api::dto::ConsentDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -2368,6 +2636,16 @@ impl SseEncode for crate::api::dto::ImportOutcomeDto {
         <Option<String>>::sse_encode(self.doc_type, serializer);
         <Option<i64>>::sse_encode(self.document_id, serializer);
         <Option<String>>::sse_encode(self.detected_name, serializer);
+    }
+}
+
+impl SseEncode for Vec<crate::api::dto::ConfirmedStatusDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::dto::ConfirmedStatusDto>::sse_encode(item, serializer);
+        }
     }
 }
 

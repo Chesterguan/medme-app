@@ -18,6 +18,7 @@
 use crate::api::dto::*;
 use core_model::{DocType, NewDocument, NewOcr, OcrBackendKind, Vault};
 use serde_json::Value;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
@@ -41,6 +42,13 @@ struct EphemeralState {
     vault: Vault,
     truth_root: PathBuf,
     data_dir: PathBuf,
+    /// 医生逐份「确认这一份」的进度:document_id → 是否已确认。不在这个 map 里的
+    /// 文档(刚采集、还没点开核对过)视为**未确认**——查询侧一律用
+    /// `.get(id).copied().unwrap_or(false)`,故采集函数不需要为每份新文档预先插入
+    /// `false`。用普通 `Mutex` 而不是改 `with_ephemeral` 成 `&mut` 版本:这样已有的
+    /// 采集/预览函数(`with_ephemeral` 的现有调用点)一个字节不用动,只有新增的确认
+    /// 相关函数会碰这个字段——内部可变性换来对已工作代码路径的零改动。
+    confirmed: Mutex<HashMap<i64, bool>>,
 }
 
 static EPHEMERAL: OnceLock<Mutex<Option<EphemeralState>>> = OnceLock::new();
@@ -91,6 +99,7 @@ pub fn ephemeral_begin(cache_dir: String) -> anyhow::Result<()> {
         vault,
         truth_root,
         data_dir,
+        confirmed: Mutex::new(HashMap::new()),
     });
     Ok(())
 }
@@ -398,6 +407,8 @@ pub fn ephemeral_delete_document(document_id: i64) -> anyhow::Result<()> {
 /// 故只能重取——见文件顶部「零共享代码」说明;这里只取 summary 装配需要的四个字段,
 /// 不像 `GatheredRecord` 还带 `source_file`)。
 struct EphemeralSourceDoc {
+    /// 供 [`ephemeral_summary`] 按 confirmed map 过滤(未确认的文档不进摘要装配)。
+    document_id: i64,
     date: Option<chrono::NaiveDate>,
     text: String,
     doc_type: Option<String>,
@@ -421,6 +432,7 @@ fn gather_ephemeral_docs(v: &Vault) -> anyhow::Result<Vec<EphemeralSourceDoc>> {
             .ocr_text(entry.document_id)
             .map_err(|e| anyhow::anyhow!(e.to_string()))?;
         out.push(EphemeralSourceDoc {
+            document_id: entry.document_id,
             date: entry.doc_date.map(|dt| dt.date_naive()),
             text,
             doc_type: Some(entry.doc_type.as_str().to_lowercase()),
@@ -567,14 +579,19 @@ fn proxy_summary_from_json(summary: &Value) -> ProxySummaryDto {
 
 /// 「病情摘要卡」:在治的病 + 关键化验 + 在用药,给医生三十秒看懂这次代拍收上来的
 /// 大局。复用 `parser::assemble_summary`——与生成加密分享跑的**同一套**确定性装配
-/// 逻辑(见 `ephemeral_create_share`/`build_encrypted_share_with_consent`),不是另
-/// 写一遍抽取。
+/// 逻辑(见 `ephemeral_create_share`/`build_encrypted_share_with_consent_and_confirmed`),
+/// 不是另写一遍抽取。**只汇总已确认的文档**(用户拍板的最终流程):医生点开一份核对
+/// 无误、点「确认这一份」之前,这份的内容不进摘要——摘要要反映的是「已核实的病情」,
+/// 不是「拍了什么就无脑汇总」。未确认文档的原文仍完整躺在待确认列表的详情页,不丢
+/// 信息,只是不参与这张卡的装配。
 pub fn ephemeral_summary() -> anyhow::Result<ProxySummaryDto> {
     with_ephemeral(|state| {
         let v = &state.vault;
+        let confirmed = state.confirmed.lock().unwrap_or_else(|p| p.into_inner());
         let owned = gather_ephemeral_docs(v)?;
         let docs: Vec<parser::SourceDoc> = owned
             .iter()
+            .filter(|d| confirmed.get(&d.document_id).copied().unwrap_or(false))
             .enumerate()
             .map(|(i, d)| parser::SourceDoc {
                 index: i,
@@ -586,6 +603,101 @@ pub fn ephemeral_summary() -> anyhow::Result<ProxySummaryDto> {
             .collect();
         let summary = parser::assemble_summary(&docs);
         Ok(proxy_summary_from_json(&summary))
+    })
+}
+
+/// 标记/取消一份文档「已确认」(医生在详情页点「确认这一份」;整份确认,不细到
+/// 每一项)。存进 [`EphemeralState::confirmed`],随 [`ephemeral_wipe`] 一起清空,
+/// 不落盘、不进事件日志。文档不存在也不报错(纯内存 map,置了就置了,采集/预览
+/// 侧据实际文档列表展示,不会凭空多出一行)。
+pub fn ephemeral_set_confirmed(document_id: i64, confirmed: bool) -> anyhow::Result<()> {
+    with_ephemeral(|state| {
+        state
+            .confirmed
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .insert(document_id, confirmed);
+        Ok(())
+    })
+}
+
+/// 当前临时会话箱里每份文档的确认状态(供待确认列表屏渲染「待确认/已确认」标签)。
+/// 只返回**显式确认过**的文档;未出现在结果里的 document_id 一律按「待确认」处理
+/// (与 [`ephemeral_summary`] 的默认值语义一致)。
+pub fn ephemeral_confirmed_map() -> anyhow::Result<Vec<ConfirmedStatusDto>> {
+    with_ephemeral(|state| {
+        let map = state.confirmed.lock().unwrap_or_else(|p| p.into_inner());
+        Ok(map
+            .iter()
+            .map(|(&document_id, &confirmed)| ConfirmedStatusDto {
+                document_id,
+                confirmed,
+            })
+            .collect())
+    })
+}
+
+/// 一份文档详情(供待确认列表「点进一份」的详情页):类型/日期 + 来源文件元信息 +
+/// 识别文本 + 置信度。与 `vault.rs::get_document` 同取法(逐段复制),唯一差异是
+/// **没有 iCloud 物化步骤**——临时会话目录是系统临时缓存目录下的一次性子目录,不在
+/// iCloud 同步的 `docs/vault/profiles` 子树下,永远是本地磁盘、不会被 iCloud 逐出。
+pub fn ephemeral_get_document(document_id: i64) -> anyhow::Result<DocumentDetailDto> {
+    with_ephemeral(|state| {
+        let v = &state.vault;
+        let doc = v
+            .document_by_id(document_id)
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?
+            .ok_or_else(|| anyhow::anyhow!("找不到文档 {document_id}"))?;
+        let sf = v
+            .source_file_by_id(doc.source_file_id)
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?
+            .ok_or_else(|| anyhow::anyhow!("来源文件缺失"))?;
+        let ocr_text = v
+            .ocr_text(document_id)
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        let ocr_confidence = v
+            .ocr_confidence(document_id)
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        let ocr_backend = v
+            .ocr_backend(document_id)
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        Ok(DocumentDetailDto {
+            document: doc_summary(v, &doc),
+            source_file: SourceFileMetaDto::from(&sf),
+            ocr_text,
+            ocr_confidence,
+            ocr_backend,
+        })
+    })
+}
+
+/// 一份来源文件的原始字节(详情页「查看原件」渲染图片/PDF)。与
+/// `vault.rs::read_source_bytes` 同逻辑(逐段复制),无需 iCloud 物化(见
+/// [`ephemeral_get_document`] 的说明)。
+pub fn ephemeral_read_source_bytes(source_file_id: i64) -> anyhow::Result<Vec<u8>> {
+    with_ephemeral(|state| {
+        let v = &state.vault;
+        let sf = v
+            .source_file_by_id(source_file_id)
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?
+            .ok_or_else(|| anyhow::anyhow!("找不到来源文件 {source_file_id}"))?;
+        let bytes = std::fs::read(v.root_join(&sf.storage_path))?;
+        Ok(bytes)
+    })
+}
+
+/// 渲染一份 DICOM 来源文件的锚点切片为 PNG。与 `vault.rs::render_dicom_png` 同逻辑
+/// (逐段复制)。
+pub fn ephemeral_render_dicom_png(source_file_id: i64) -> anyhow::Result<Vec<u8>> {
+    with_ephemeral(|state| {
+        let v = &state.vault;
+        let sf = v
+            .source_file_by_id(source_file_id)
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?
+            .ok_or_else(|| anyhow::anyhow!("找不到来源文件 {source_file_id}"))?;
+        let bytes = std::fs::read(v.root_join(&sf.storage_path))?;
+        medme_share::render_dicom_png_in_process(&bytes)
+            .ok_or_else(|| anyhow::anyhow!("无法渲染该 DICOM(暂不支持的压缩格式)"))
     })
 }
 
@@ -602,10 +714,13 @@ impl From<ConsentDto> for medme_share::share::ShareConsent {
 }
 
 /// 打包成自包含加密 HTML(带拍前同意记录),写进**临时会话箱**的 `shares/`——
-/// 不是医生自己的 vault。与 `vault.rs::create_share` 同逻辑(逐段复制),唯一
-/// 差异是永远经 `medme_share::share::build_encrypted_share_with_consent` 传入
-/// `consent`(该函数是纯加法,不影响 `vault.rs::create_share` 走的
-/// `build_encrypted_share` 原路径)。
+/// 不是医生自己的 vault。与 `vault.rs::create_share` 同逻辑(逐段复制),差异有二:
+/// (a) 永远经 `medme_share::share::build_encrypted_share_with_consent_and_confirmed`
+/// 传入 `consent`(该函数是纯加法,不影响 `vault.rs::create_share` 走的
+/// `build_encrypted_share` 原路径);(b) 把当前已确认的 document_id 集合一并传入——
+/// **所有原件都进分享包**(未确认的也在,病人拿到手上原件不缺一份),但 payload 里
+/// 只有确认过的那些参与 summary 装配,且每条 record 都带一个 `confirmed` 标记(供
+/// 病人侧 Phase 3 后续「认领后再确认」用,本次只加这个字段、不做患者侧交互)。
 pub fn ephemeral_create_share(
     expires_days: i64,
     consent: ConsentDto,
@@ -616,12 +731,21 @@ pub fn ephemeral_create_share(
 
     with_ephemeral(|state| {
         let v = &state.vault;
+        let confirmed_ids: HashSet<i64> = state
+            .confirmed
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .iter()
+            .filter(|(_, &c)| c)
+            .map(|(&id, _)| id)
+            .collect();
         let (html, passphrase, record_count) =
-            medme_share::share::build_encrypted_share_with_consent(
+            medme_share::share::build_encrypted_share_with_consent_and_confirmed(
                 v,
                 days,
                 &medme_share::render_dicom_png_in_process,
                 consent.into(),
+                &confirmed_ids,
             )
             .map_err(|e| anyhow::anyhow!(e))?;
         let byte_size = html.len() as i64;
@@ -802,8 +926,36 @@ mod tests {
         let fetched_text = ephemeral_document_text(doc_id).unwrap();
         assert!(fetched_text.contains("糖化血红蛋白"));
 
-        // 摘要卡挂上「2型糖尿病」问题,分组好它的化验(7.9 超参考上限 6.5,标记
-        // 需关注)与用药。
+        // 刚采集、还没点「确认这一份」:摘要不应把它算进去(用户拍板的最终流程——
+        // 摘要只统计已确认的文档),confirmed map 里也查不到这份(未出现 = 待确认)。
+        let summary_before_confirm = ephemeral_summary().unwrap();
+        assert!(
+            summary_before_confirm.problems.is_empty(),
+            "未确认的文档不应进摘要"
+        );
+        let map_before = ephemeral_confirmed_map().unwrap();
+        assert!(
+            !map_before.iter().any(|c| c.document_id == doc_id),
+            "未显式确认过的文档不应出现在 confirmed map 里"
+        );
+
+        // 详情页数据(原件元信息 + 识别文本 + doc_type)与 `ephemeral_document_text`
+        // 取到的文本一致——`ephemeral_get_document` 是同一路数据的完整版。
+        let detail = ephemeral_get_document(doc_id).unwrap();
+        assert_eq!(detail.document.id, doc_id);
+        assert!(detail.ocr_text.contains("糖化血红蛋白"));
+        assert_eq!(detail.source_file.original_name, "出院小结.txt");
+
+        // 医生点「确认这一份」:confirmed map 里出现 true,摘要卡这才挂上
+        // 「2型糖尿病」问题,分组好它的化验(7.9 超参考上限 6.5,标记需关注)与用药。
+        ephemeral_set_confirmed(doc_id, true).unwrap();
+        let map_after = ephemeral_confirmed_map().unwrap();
+        assert!(
+            map_after
+                .iter()
+                .any(|c| c.document_id == doc_id && c.confirmed),
+            "确认后 confirmed map 应带 true"
+        );
         let summary = ephemeral_summary().unwrap();
         let dm = summary
             .problems
@@ -834,8 +986,67 @@ mod tests {
         assert!(
             summary_after.problems.is_empty(),
             "删除后 problems 应为空,实际={:?}",
-            summary_after.problems.iter().map(|p| &p.term).collect::<Vec<_>>()
+            summary_after
+                .problems
+                .iter()
+                .map(|p| &p.term)
+                .collect::<Vec<_>>()
         );
+
+        ephemeral_wipe().unwrap();
+    }
+
+    #[test]
+    fn ephemeral_read_source_bytes_round_trip() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let cache = tempfile::tempdir().unwrap();
+        ephemeral_begin(cache.path().to_string_lossy().to_string()).unwrap();
+
+        let outcome =
+            ephemeral_ingest_bytes("原件.txt".into(), b"hello original bytes".to_vec()).unwrap();
+        let bytes = ephemeral_read_source_bytes(outcome.source_file_id).unwrap();
+        assert_eq!(bytes, b"hello original bytes");
+
+        // 不存在的来源文件 id 应报错,不是 panic。
+        assert!(ephemeral_read_source_bytes(999_999).is_err());
+
+        ephemeral_wipe().unwrap();
+    }
+
+    #[test]
+    fn ephemeral_create_share_includes_unconfirmed_originals_in_record_count() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let cache = tempfile::tempdir().unwrap();
+        ephemeral_begin(cache.path().to_string_lossy().to_string()).unwrap();
+
+        // 两份文档:一份医生核对确认了,一份还没点开看过。
+        let confirmed_outcome = ephemeral_ingest_bytes(
+            "确认过的.txt".into(),
+            "诊断:高血压\n用药:氨氯地平 5mg qd\n".as_bytes().to_vec(),
+        )
+        .unwrap();
+        let confirmed_id = confirmed_outcome.document_id.expect("document created");
+        ephemeral_set_confirmed(confirmed_id, true).unwrap();
+
+        ephemeral_ingest_bytes(
+            "待确认的.txt".into(),
+            "诊断:甲状腺结节\n".as_bytes().to_vec(),
+        )
+        .unwrap();
+
+        let consent = ConsentDto {
+            utc_ts: "2026-07-23T09:00:00Z".into(),
+            consent_text_version: "v1".into(),
+            signature_png_base64: None,
+            method: "press_hold".into(),
+            session_id: "sess-confirm-test".into(),
+        };
+        let result = ephemeral_create_share(7, consent).unwrap();
+        // 两份文档(一份确认、一份未确认)都应算进分享包的记录数——未确认的原件
+        // 照样进包,只是不参与 summary 装配(装配逻辑本身的 confirmed 过滤、payload
+        // 里每条 record 的 confirmed 标记,由 `medme_share::share` 的单测覆盖,见
+        // `packages/share/src/share.rs`)。
+        assert_eq!(result.record_count, 2);
 
         ephemeral_wipe().unwrap();
     }
