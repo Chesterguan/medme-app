@@ -42,6 +42,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double dco_decode_box_autoadd_f_32(dynamic raw);
 
   @protected
+  double dco_decode_box_autoadd_f_64(dynamic raw);
+
+  @protected
   int dco_decode_box_autoadd_i_32(dynamic raw);
 
   @protected
@@ -90,6 +93,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
+  List<ProxyLabDto> dco_decode_list_proxy_lab_dto(dynamic raw);
+
+  @protected
+  List<ProxyLabPointDto> dco_decode_list_proxy_lab_point_dto(dynamic raw);
+
+  @protected
+  List<ProxyMedDto> dco_decode_list_proxy_med_dto(dynamic raw);
+
+  @protected
+  List<ProxyProblemDto> dco_decode_list_proxy_problem_dto(dynamic raw);
+
+  @protected
   List<TimelineGroupDto> dco_decode_list_timeline_group_dto(dynamic raw);
 
   @protected
@@ -102,6 +117,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double? dco_decode_opt_box_autoadd_f_32(dynamic raw);
 
   @protected
+  double? dco_decode_opt_box_autoadd_f_64(dynamic raw);
+
+  @protected
   int? dco_decode_opt_box_autoadd_i_32(dynamic raw);
 
   @protected
@@ -109,6 +127,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PatientProfileDto dco_decode_patient_profile_dto(dynamic raw);
+
+  @protected
+  ProxyLabDto dco_decode_proxy_lab_dto(dynamic raw);
+
+  @protected
+  ProxyLabPointDto dco_decode_proxy_lab_point_dto(dynamic raw);
+
+  @protected
+  ProxyMedDto dco_decode_proxy_med_dto(dynamic raw);
+
+  @protected
+  ProxyProblemDto dco_decode_proxy_problem_dto(dynamic raw);
+
+  @protected
+  ProxySummaryDto dco_decode_proxy_summary_dto(dynamic raw);
 
   @protected
   QrShareDto dco_decode_qr_share_dto(dynamic raw);
@@ -152,6 +185,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   double sse_decode_box_autoadd_f_32(SseDeserializer deserializer);
+
+  @protected
+  double sse_decode_box_autoadd_f_64(SseDeserializer deserializer);
 
   @protected
   int sse_decode_box_autoadd_i_32(SseDeserializer deserializer);
@@ -210,6 +246,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
+  List<ProxyLabDto> sse_decode_list_proxy_lab_dto(SseDeserializer deserializer);
+
+  @protected
+  List<ProxyLabPointDto> sse_decode_list_proxy_lab_point_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ProxyMedDto> sse_decode_list_proxy_med_dto(SseDeserializer deserializer);
+
+  @protected
+  List<ProxyProblemDto> sse_decode_list_proxy_problem_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<TimelineGroupDto> sse_decode_list_timeline_group_dto(
     SseDeserializer deserializer,
   );
@@ -224,6 +276,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double? sse_decode_opt_box_autoadd_f_32(SseDeserializer deserializer);
 
   @protected
+  double? sse_decode_opt_box_autoadd_f_64(SseDeserializer deserializer);
+
+  @protected
   int? sse_decode_opt_box_autoadd_i_32(SseDeserializer deserializer);
 
   @protected
@@ -233,6 +288,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PatientProfileDto sse_decode_patient_profile_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  ProxyLabDto sse_decode_proxy_lab_dto(SseDeserializer deserializer);
+
+  @protected
+  ProxyLabPointDto sse_decode_proxy_lab_point_dto(SseDeserializer deserializer);
+
+  @protected
+  ProxyMedDto sse_decode_proxy_med_dto(SseDeserializer deserializer);
+
+  @protected
+  ProxyProblemDto sse_decode_proxy_problem_dto(SseDeserializer deserializer);
+
+  @protected
+  ProxySummaryDto sse_decode_proxy_summary_dto(SseDeserializer deserializer);
 
   @protected
   QrShareDto sse_decode_qr_share_dto(SseDeserializer deserializer);
@@ -286,6 +356,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_box_autoadd_f_32(double self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_f_64(double self, SseSerializer serializer);
 
   @protected
   void sse_encode_box_autoadd_i_32(int self, SseSerializer serializer);
@@ -363,6 +436,30 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_proxy_lab_dto(
+    List<ProxyLabDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_proxy_lab_point_dto(
+    List<ProxyLabPointDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_proxy_med_dto(
+    List<ProxyMedDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_proxy_problem_dto(
+    List<ProxyProblemDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_timeline_group_dto(
     List<TimelineGroupDto> self,
     SseSerializer serializer,
@@ -381,6 +478,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_box_autoadd_f_32(double? self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_box_autoadd_f_64(double? self, SseSerializer serializer);
+
+  @protected
   void sse_encode_opt_box_autoadd_i_32(int? self, SseSerializer serializer);
 
   @protected
@@ -392,6 +492,30 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_patient_profile_dto(
     PatientProfileDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_proxy_lab_dto(ProxyLabDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_proxy_lab_point_dto(
+    ProxyLabPointDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_proxy_med_dto(ProxyMedDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_proxy_problem_dto(
+    ProxyProblemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_proxy_summary_dto(
+    ProxySummaryDto self,
     SseSerializer serializer,
   );
 

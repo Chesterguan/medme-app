@@ -193,3 +193,60 @@ pub struct ConsentDto {
     /// (不是安全边界——临时会话的一次性随机 device_id 才是,见 `vault_ephemeral.rs`)。
     pub session_id: String,
 }
+
+/// 「病情摘要卡」(医生代拍审阅屏,选项 b):在治的病 + 关键化验 + 在用药,
+/// 三十秒看懂大局。由 `api::vault_ephemeral::ephemeral_summary` 产出——把
+/// `parser::assemble_summary` 的通用 `serde_json::Value`(查看器/加密分享用的同一份
+/// 装配逻辑)映射成 FRB 能直接生成 Dart 绑定的定型结构。**不做 QR 分享那种带宽裁剪**
+/// (`medme_share::qr::trim_summary` 的 `max_problems`/`active_meds_only` 等是为
+/// 二维码容量服务的,审阅屏要的是「拍了什么就看到什么」的完整核对,不是带宽约束)——
+/// 唯一的裁剪是每条化验只保留最近 4 个点,与 `notable_changes`/QR 默认档同一惯例
+/// (给「趋势一眼」用,不是画完整图表)。
+#[derive(Debug, Clone)]
+pub struct ProxySummaryDto {
+    pub problems: Vec<ProxyProblemDto>,
+}
+
+/// 一条在治问题:名字 + 状态,嵌套它的关键化验与在用药。
+#[derive(Debug, Clone)]
+pub struct ProxyProblemDto {
+    pub term: String,
+    /// "在管" | "需关注" | "其他"(未挂上具体疾病的化验/用药落这个桶,见
+    /// `parser::handoff::assemble_summary` 的「其他」bucket)。
+    pub status: String,
+    pub warn: bool,
+    pub labs: Vec<ProxyLabDto>,
+    pub meds: Vec<ProxyMedDto>,
+}
+
+/// 一条化验序列:最近值 + 趋势 + 最近几个点(≤4,时间升序)。没有任何带日期的点
+/// (`assemble_summary` 的 `pts` 只保留带日期的观测)时不产出——审阅屏没法从中读出
+/// 「最近值」,原始识别文字仍在下方「逐份识别内容」区块里,不丢信息。
+#[derive(Debug, Clone)]
+pub struct ProxyLabDto {
+    pub name: String,
+    pub unit: Option<String>,
+    pub latest_value: f64,
+    pub ref_high: Option<f64>,
+    pub ref_low: Option<f64>,
+    /// "up" | "down" | "flat" | "single"(只有一个带日期的点,不足以判断趋势)。
+    pub trend: String,
+    pub recent_points: Vec<ProxyLabPointDto>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ProxyLabPointDto {
+    /// "YYYY-MM"。
+    pub month: String,
+    pub value: f64,
+}
+
+/// 一条在用药:名 + 最近一次提到的剂量(若识别到)+ 是否在用。字段名 `active`
+/// 而不是 `assemble_summary` json 里的 `on`——后者是 Dart 的保留字上下文关键字,
+/// FRB codegen 会把它改名成 `on_`,不如从 Rust 侧就用一个干净的名字。
+#[derive(Debug, Clone)]
+pub struct ProxyMedDto {
+    pub name: String,
+    pub dose: Option<String>,
+    pub active: bool,
+}

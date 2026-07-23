@@ -20,6 +20,12 @@ crate-type = ["cdylib", "staticlib"]
 flutter_rust_bridge = "=2.12.0"
 anyhow = "1"
 chrono = "0.4"
+# `api::vault_ephemeral::ephemeral_summary` 把 `parser::assemble_summary` 的
+# `serde_json::Value` 映射成定型 FRB DTO(`ProxySummaryDto`),需要直接命名
+# `serde_json::Value`——`parser`/`medme-share` 都已传递依赖它,但 Rust 2018+
+# 要求能 `use` 的 crate 是直接依赖,故显式声明(版本与根 workspace `Cargo.toml`
+# 的 `serde_json = "1"` 一致)。
+serde_json = "1"
 # 随应用二进制打包示例数据集(见 api::vault::DEMO_DATA / load_demo_data)。
 include_dir = "0.7"
 # 复用现有 Rust 数据核(与桌面同一保险箱格式 → 同步互通)。

@@ -9,9 +9,11 @@ import 'package:mobile_flutter/ocr_bridge.dart';
 import 'package:mobile_flutter/screens/doctor/consent_screen.dart';
 import 'package:mobile_flutter/screens/doctor/doctor_delivery_count.dart';
 import 'package:mobile_flutter/screens/doctor/doctor_share_result_dialog.dart';
+import 'package:mobile_flutter/screens/doctor/proxy_summary_card.dart';
 import 'package:mobile_flutter/screens/import_helpers.dart';
 import 'package:mobile_flutter/src/rust/api/dto.dart';
 import 'package:mobile_flutter/theme.dart';
+import 'package:mobile_flutter/widgets/report_content.dart';
 
 /// 代建档分享文件的有效期(天)。这台设备本身用完即焚,这个天数只约束「病人手里
 /// 那份加密文件的口令还能用多久」——给病人留足取回/打开的时间,与正常导出分享的
@@ -42,6 +44,9 @@ class _ProxyIntakeFlowState extends State<ProxyIntakeFlow> {
   bool _delivered = false;
   ConsentDto? _consent;
   List<TimelineGroupDto> _preview = const [];
+  ProxySummaryDto? _summary;
+  // 文档 id → 识别文本,供审阅屏「逐份识别内容」默认摊开展示(不用点开才看到)。
+  Map<int, String> _docTexts = const {};
   int _capturedCount = 0;
   bool _busy = false;
   String? _progress;
@@ -215,6 +220,8 @@ class _ProxyIntakeFlowState extends State<ProxyIntakeFlow> {
     }
   }
 
+  /// 加载/刷新审阅屏:就诊时间线 + 病情摘要卡 + 每份文档的识别文本(默认摊开展示,
+  /// 不用点开)。采集完成后、以及每次删除一份文档后都调这个来刷新三样。
   Future<void> _goToPreview() async {
     setState(() {
       _busy = true;
@@ -222,9 +229,22 @@ class _ProxyIntakeFlowState extends State<ProxyIntakeFlow> {
     });
     try {
       final groups = await EphemeralSession.loadPreview();
+      final docs = _PreviewStep.flatten(groups);
+      final summary = await EphemeralSession.summary();
+      final texts = <int, String>{};
+      for (final d in docs) {
+        try {
+          texts[d.id] = await EphemeralSession.documentText(d.id);
+        } catch (e) {
+          // 单份取文本失败不阻塞其它文档展示;该份退化为只显示标题/类型。
+          debugPrint('[doctor-proxy] 取文档 ${d.id} 识别文本失败: $e');
+        }
+      }
       if (!mounted) return;
       setState(() {
         _preview = groups;
+        _summary = summary;
+        _docTexts = texts;
         _busy = false;
         _progress = null;
         _phase = _ProxyPhase.preview;
@@ -236,6 +256,48 @@ class _ProxyIntakeFlowState extends State<ProxyIntakeFlow> {
         _progress = null;
       });
       await _showError('加载预览失败', '$e');
+    }
+  }
+
+  /// 删掉审阅屏里收错/拍花的一份(确认后不可撤销)。删完重新走 [_goToPreview]
+  /// 刷新摘要卡 + 文档列表 —— 与「拍完了,去预览」共用同一条加载路径,不另维护
+  /// 一套局部更新逻辑。
+  Future<void> _deleteDocument(DocumentSummaryDto doc) async {
+    final label = doc.title ?? (kDocTypeLabel[doc.docType] ?? doc.docType);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除这份?'),
+        content: Text('「$label」会从这次代拍里移除,原始照片/文件一并删除,不可撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: MedMe.danger),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() {
+      _busy = true;
+      _progress = '正在删除…';
+    });
+    try {
+      await EphemeralSession.deleteDocument(doc.id);
+      if (_capturedCount > 0) _capturedCount--;
+      await _goToPreview();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _progress = null;
+      });
+      await _showError('删除失败', '$e');
     }
   }
 
@@ -328,10 +390,13 @@ class _ProxyIntakeFlowState extends State<ProxyIntakeFlow> {
       case _ProxyPhase.preview:
         return _PreviewStep(
           groups: _preview,
+          summary: _summary,
+          docTexts: _docTexts,
           busy: _busy,
           progress: _progress,
           onCaptureMore: _pickCaptureSource,
           onDeliver: _deliver,
+          onDeleteDocument: _deleteDocument,
         );
       case _ProxyPhase.delivering:
         return const Center(
@@ -478,21 +543,27 @@ class _CaptureStep extends StatelessWidget {
 class _PreviewStep extends StatelessWidget {
   const _PreviewStep({
     required this.groups,
+    required this.summary,
+    required this.docTexts,
     required this.busy,
     required this.progress,
     required this.onCaptureMore,
     required this.onDeliver,
+    required this.onDeleteDocument,
   });
 
   final List<TimelineGroupDto> groups;
+  final ProxySummaryDto? summary;
+  final Map<int, String> docTexts;
   final bool busy;
   final String? progress;
   final VoidCallback onCaptureMore;
   final VoidCallback onDeliver;
+  final ValueChanged<DocumentSummaryDto> onDeleteDocument;
 
   /// 铺平就诊组/独立文档为一份纯清单——预览屏只需要「拍了什么」,不需要档案屏
   /// 那套就诊分组展示。与 `archive_screen.dart` 的展开模式同一匹配写法。
-  static List<DocumentSummaryDto> _flatten(List<TimelineGroupDto> groups) {
+  static List<DocumentSummaryDto> flatten(List<TimelineGroupDto> groups) {
     final out = <DocumentSummaryDto>[];
     for (final g in groups) {
       switch (g) {
@@ -507,7 +578,8 @@ class _PreviewStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final docs = _flatten(groups);
+    final docs = flatten(groups);
+    final s = summary;
     return Stack(
       children: [
         Column(
@@ -527,20 +599,34 @@ class _PreviewStep extends StatelessWidget {
                   ? const Center(
                       child: Text('还没有拍摄任何内容', style: TextStyle(color: MedMe.faint)),
                     )
-                  : ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: docs.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 8),
-                      itemBuilder: (context, i) {
-                        final d = docs[i];
-                        final label = kDocTypeLabel[d.docType] ?? d.docType;
-                        return Card(
-                          child: ListTile(
-                            title: Text(d.title ?? label),
-                            subtitle: Text(label),
+                  : ListView(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      children: [
+                        // 病情摘要卡(选项 b 的核心):在治的病/关键化验/在用药,
+                        // 不必点开就看到。没有任何结构化问题(如全是原始未分类图片)
+                        // 时组件自身收起为零高度,不占地方。
+                        if (s != null) ProxySummaryCard(summary: s),
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
+                          child: Text(
+                            '逐份识别内容',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: MedMe.faint,
+                            ),
                           ),
-                        );
-                      },
+                        ),
+                        for (final d in docs)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            child: _DocumentCard(
+                              doc: d,
+                              text: docTexts[d.id],
+                              onDelete: busy ? null : () => onDeleteDocument(d),
+                            ),
+                          ),
+                      ],
                     ),
             ),
             Padding(
@@ -595,4 +681,69 @@ class _PreviewStep extends StatelessWidget {
       ],
     );
   }
+}
+
+/// 逐份文档卡:标题/类型/日期 + 删除 + 识别内容(复用 `widgets/report_content.dart`
+/// 的 `ReportContent`,化验渲染成表格)。**默认展开**(`initiallyExpanded: true`)——
+/// 「即便不点开也要看到」,长文本仍可点标题行折叠收起,不强制占满整屏。
+class _DocumentCard extends StatelessWidget {
+  const _DocumentCard({required this.doc, required this.text, required this.onDelete});
+
+  final DocumentSummaryDto doc;
+  /// 识别文本;仍在加载时为 `null`(显示小转圈,不阻塞其它卡片先渲染出来)。
+  final String? text;
+  final VoidCallback? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = kDocTypeLabel[doc.docType] ?? doc.docType;
+    final date = _fmtDate(doc.docDate);
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        // 去掉 ExpansionTile 默认的顶/底分割线,贴合卡片圆角边框。
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: true,
+          title: Text(
+            doc.title ?? label,
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5),
+          ),
+          subtitle: Text(
+            date.isEmpty ? label : '$label · $date',
+            style: const TextStyle(fontSize: 12, color: MedMe.faint),
+          ),
+          trailing: IconButton(
+            icon: const Icon(Icons.delete_outline, color: MedMe.danger, size: 20),
+            tooltip: '删除这份',
+            onPressed: onDelete,
+          ),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          expandedCrossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (text == null)
+              const Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            else
+              ReportContent(text: text!, docType: doc.docType),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// "YYYY-MM-DD",与 `document_detail.dart` 的同名私有 helper 同一格式(各文件私有,
+/// 不跨文件共享——两处都很小,重复比新增一个公共 util 文件更简单)。
+String _fmtDate(String? iso) {
+  if (iso == null || iso.isEmpty) return '';
+  final d = DateTime.tryParse(iso);
+  if (d == null) return '';
+  return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }

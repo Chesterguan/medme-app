@@ -9,7 +9,7 @@ import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'dto.freezed.dart';
 
 // These functions are ignored because they are not marked as `pub`: `from_encounter`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`
 
 /// 拍前同意记录(医生代拍病人纸质材料流程):病人同意的方式(手写签名 / 按住
 /// 确认)、时刻、文案版本。由 `screens/doctor/consent_screen.dart` 产出,经
@@ -336,6 +336,159 @@ class PatientProfileDto {
           birthDate == other.birthDate &&
           age == other.age &&
           recordCount == other.recordCount;
+}
+
+/// 一条化验序列:最近值 + 趋势 + 最近几个点(≤4,时间升序)。没有任何带日期的点
+/// (`assemble_summary` 的 `pts` 只保留带日期的观测)时不产出——审阅屏没法从中读出
+/// 「最近值」,原始识别文字仍在下方「逐份识别内容」区块里,不丢信息。
+class ProxyLabDto {
+  final String name;
+  final String? unit;
+  final double latestValue;
+  final double? refHigh;
+  final double? refLow;
+
+  /// "up" | "down" | "flat" | "single"(只有一个带日期的点,不足以判断趋势)。
+  final String trend;
+  final List<ProxyLabPointDto> recentPoints;
+
+  const ProxyLabDto({
+    required this.name,
+    this.unit,
+    required this.latestValue,
+    this.refHigh,
+    this.refLow,
+    required this.trend,
+    required this.recentPoints,
+  });
+
+  @override
+  int get hashCode =>
+      name.hashCode ^
+      unit.hashCode ^
+      latestValue.hashCode ^
+      refHigh.hashCode ^
+      refLow.hashCode ^
+      trend.hashCode ^
+      recentPoints.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ProxyLabDto &&
+          runtimeType == other.runtimeType &&
+          name == other.name &&
+          unit == other.unit &&
+          latestValue == other.latestValue &&
+          refHigh == other.refHigh &&
+          refLow == other.refLow &&
+          trend == other.trend &&
+          recentPoints == other.recentPoints;
+}
+
+class ProxyLabPointDto {
+  /// "YYYY-MM"。
+  final String month;
+  final double value;
+
+  const ProxyLabPointDto({required this.month, required this.value});
+
+  @override
+  int get hashCode => month.hashCode ^ value.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ProxyLabPointDto &&
+          runtimeType == other.runtimeType &&
+          month == other.month &&
+          value == other.value;
+}
+
+/// 一条在用药:名 + 最近一次提到的剂量(若识别到)+ 是否在用。字段名 `active`
+/// 而不是 `assemble_summary` json 里的 `on`——后者是 Dart 的保留字上下文关键字,
+/// FRB codegen 会把它改名成 `on_`,不如从 Rust 侧就用一个干净的名字。
+class ProxyMedDto {
+  final String name;
+  final String? dose;
+  final bool active;
+
+  const ProxyMedDto({required this.name, this.dose, required this.active});
+
+  @override
+  int get hashCode => name.hashCode ^ dose.hashCode ^ active.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ProxyMedDto &&
+          runtimeType == other.runtimeType &&
+          name == other.name &&
+          dose == other.dose &&
+          active == other.active;
+}
+
+/// 一条在治问题:名字 + 状态,嵌套它的关键化验与在用药。
+class ProxyProblemDto {
+  final String term;
+
+  /// "在管" | "需关注" | "其他"(未挂上具体疾病的化验/用药落这个桶,见
+  /// `parser::handoff::assemble_summary` 的「其他」bucket)。
+  final String status;
+  final bool warn;
+  final List<ProxyLabDto> labs;
+  final List<ProxyMedDto> meds;
+
+  const ProxyProblemDto({
+    required this.term,
+    required this.status,
+    required this.warn,
+    required this.labs,
+    required this.meds,
+  });
+
+  @override
+  int get hashCode =>
+      term.hashCode ^
+      status.hashCode ^
+      warn.hashCode ^
+      labs.hashCode ^
+      meds.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ProxyProblemDto &&
+          runtimeType == other.runtimeType &&
+          term == other.term &&
+          status == other.status &&
+          warn == other.warn &&
+          labs == other.labs &&
+          meds == other.meds;
+}
+
+/// 「病情摘要卡」(医生代拍审阅屏,选项 b):在治的病 + 关键化验 + 在用药,
+/// 三十秒看懂大局。由 `api::vault_ephemeral::ephemeral_summary` 产出——把
+/// `parser::assemble_summary` 的通用 `serde_json::Value`(查看器/加密分享用的同一份
+/// 装配逻辑)映射成 FRB 能直接生成 Dart 绑定的定型结构。**不做 QR 分享那种带宽裁剪**
+/// (`medme_share::qr::trim_summary` 的 `max_problems`/`active_meds_only` 等是为
+/// 二维码容量服务的,审阅屏要的是「拍了什么就看到什么」的完整核对,不是带宽约束)——
+/// 唯一的裁剪是每条化验只保留最近 4 个点,与 `notable_changes`/QR 默认档同一惯例
+/// (给「趋势一眼」用,不是画完整图表)。
+class ProxySummaryDto {
+  final List<ProxyProblemDto> problems;
+
+  const ProxySummaryDto({required this.problems});
+
+  @override
+  int get hashCode => problems.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ProxySummaryDto &&
+          runtimeType == other.runtimeType &&
+          problems == other.problems;
 }
 
 /// 二维码分享结果:一条可直接编码成二维码的 URL、带上的疾病数、以及是否仍在

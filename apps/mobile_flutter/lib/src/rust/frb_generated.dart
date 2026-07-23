@@ -68,7 +68,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => 1504453563;
+  int get rustContentHash => -1540420937;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -105,6 +105,14 @@ abstract class RustLibApi extends BaseApi {
     required ConsentDto consent,
   });
 
+  Future<void> crateApiVaultEphemeralEphemeralDeleteDocument({
+    required PlatformInt64 documentId,
+  });
+
+  Future<String> crateApiVaultEphemeralEphemeralDocumentText({
+    required PlatformInt64 documentId,
+  });
+
   Future<ImportOutcomeDto> crateApiVaultEphemeralEphemeralIngestBytes({
     required String filename,
     required List<int> data,
@@ -118,6 +126,8 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<List<TimelineGroupDto>> crateApiVaultEphemeralEphemeralLoadPreview();
+
+  Future<ProxySummaryDto> crateApiVaultEphemeralEphemeralSummary();
 
   Future<void> crateApiVaultEphemeralEphemeralSweep({required String cacheDir});
 
@@ -438,6 +448,72 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiVaultEphemeralEphemeralDeleteDocument({
+    required PlatformInt64 documentId,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_i_64(documentId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 9,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiVaultEphemeralEphemeralDeleteDocumentConstMeta,
+        argValues: [documentId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiVaultEphemeralEphemeralDeleteDocumentConstMeta =>
+      const TaskConstMeta(
+        debugName: "ephemeral_delete_document",
+        argNames: ["documentId"],
+      );
+
+  @override
+  Future<String> crateApiVaultEphemeralEphemeralDocumentText({
+    required PlatformInt64 documentId,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_i_64(documentId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 10,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiVaultEphemeralEphemeralDocumentTextConstMeta,
+        argValues: [documentId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiVaultEphemeralEphemeralDocumentTextConstMeta =>
+      const TaskConstMeta(
+        debugName: "ephemeral_document_text",
+        argNames: ["documentId"],
+      );
+
+  @override
   Future<ImportOutcomeDto> crateApiVaultEphemeralEphemeralIngestBytes({
     required String filename,
     required List<int> data,
@@ -451,7 +527,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 9,
+            funcId: 11,
             port: port_,
           );
         },
@@ -490,7 +566,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 10,
+            funcId: 12,
             port: port_,
           );
         },
@@ -521,7 +597,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 11,
+            funcId: 13,
             port: port_,
           );
         },
@@ -540,6 +616,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "ephemeral_load_preview", argNames: []);
 
   @override
+  Future<ProxySummaryDto> crateApiVaultEphemeralEphemeralSummary() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 14,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_proxy_summary_dto,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiVaultEphemeralEphemeralSummaryConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiVaultEphemeralEphemeralSummaryConstMeta =>
+      const TaskConstMeta(debugName: "ephemeral_summary", argNames: []);
+
+  @override
   Future<void> crateApiVaultEphemeralEphemeralSweep({
     required String cacheDir,
   }) {
@@ -551,7 +654,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 12,
+            funcId: 15,
             port: port_,
           );
         },
@@ -578,7 +681,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 13,
+            funcId: 16,
             port: port_,
           );
         },
@@ -610,7 +713,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 14,
+            funcId: 17,
             port: port_,
           );
         },
@@ -643,7 +746,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 15,
+            funcId: 18,
             port: port_,
           );
         },
@@ -670,7 +773,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 16,
+            funcId: 19,
             port: port_,
           );
         },
@@ -702,7 +805,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 17,
+            funcId: 20,
             port: port_,
           );
         },
@@ -732,7 +835,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 18,
+            funcId: 21,
             port: port_,
           );
         },
@@ -768,7 +871,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 19,
+            funcId: 22,
             port: port_,
           );
         },
@@ -798,7 +901,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 20,
+            funcId: 23,
             port: port_,
           );
         },
@@ -825,7 +928,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 21,
+            funcId: 24,
             port: port_,
           );
         },
@@ -852,7 +955,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 22,
+            funcId: 25,
             port: port_,
           );
         },
@@ -886,7 +989,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 23,
+            funcId: 26,
             port: port_,
           );
         },
@@ -915,7 +1018,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 24,
+            funcId: 27,
             port: port_,
           );
         },
@@ -943,7 +1046,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 25,
+            funcId: 28,
             port: port_,
           );
         },
@@ -973,7 +1076,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 26,
+            funcId: 29,
             port: port_,
           );
         },
@@ -1001,7 +1104,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 27,
+            funcId: 30,
             port: port_,
           );
         },
@@ -1028,7 +1131,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 28,
+            funcId: 31,
             port: port_,
           );
         },
@@ -1058,7 +1161,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 29,
+            funcId: 32,
             port: port_,
           );
         },
@@ -1119,6 +1222,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   double dco_decode_box_autoadd_f_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as double;
+  }
+
+  @protected
+  double dco_decode_box_autoadd_f_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as double;
   }
@@ -1284,6 +1393,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<ProxyLabDto> dco_decode_list_proxy_lab_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_proxy_lab_dto).toList();
+  }
+
+  @protected
+  List<ProxyLabPointDto> dco_decode_list_proxy_lab_point_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_proxy_lab_point_dto).toList();
+  }
+
+  @protected
+  List<ProxyMedDto> dco_decode_list_proxy_med_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_proxy_med_dto).toList();
+  }
+
+  @protected
+  List<ProxyProblemDto> dco_decode_list_proxy_problem_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_proxy_problem_dto).toList();
+  }
+
+  @protected
   List<TimelineGroupDto> dco_decode_list_timeline_group_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_timeline_group_dto).toList();
@@ -1314,6 +1447,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  double? dco_decode_opt_box_autoadd_f_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_f_64(raw);
+  }
+
+  @protected
   int? dco_decode_opt_box_autoadd_i_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_i_32(raw);
@@ -1338,6 +1477,72 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       age: dco_decode_opt_String(arr[3]),
       recordCount: dco_decode_i_64(arr[4]),
     );
+  }
+
+  @protected
+  ProxyLabDto dco_decode_proxy_lab_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    return ProxyLabDto(
+      name: dco_decode_String(arr[0]),
+      unit: dco_decode_opt_String(arr[1]),
+      latestValue: dco_decode_f_64(arr[2]),
+      refHigh: dco_decode_opt_box_autoadd_f_64(arr[3]),
+      refLow: dco_decode_opt_box_autoadd_f_64(arr[4]),
+      trend: dco_decode_String(arr[5]),
+      recentPoints: dco_decode_list_proxy_lab_point_dto(arr[6]),
+    );
+  }
+
+  @protected
+  ProxyLabPointDto dco_decode_proxy_lab_point_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return ProxyLabPointDto(
+      month: dco_decode_String(arr[0]),
+      value: dco_decode_f_64(arr[1]),
+    );
+  }
+
+  @protected
+  ProxyMedDto dco_decode_proxy_med_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return ProxyMedDto(
+      name: dco_decode_String(arr[0]),
+      dose: dco_decode_opt_String(arr[1]),
+      active: dco_decode_bool(arr[2]),
+    );
+  }
+
+  @protected
+  ProxyProblemDto dco_decode_proxy_problem_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return ProxyProblemDto(
+      term: dco_decode_String(arr[0]),
+      status: dco_decode_String(arr[1]),
+      warn: dco_decode_bool(arr[2]),
+      labs: dco_decode_list_proxy_lab_dto(arr[3]),
+      meds: dco_decode_list_proxy_med_dto(arr[4]),
+    );
+  }
+
+  @protected
+  ProxySummaryDto dco_decode_proxy_summary_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 1)
+      throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
+    return ProxySummaryDto(problems: dco_decode_list_proxy_problem_dto(arr[0]));
   }
 
   @protected
@@ -1458,6 +1663,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   double sse_decode_box_autoadd_f_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_f_32(deserializer));
+  }
+
+  @protected
+  double sse_decode_box_autoadd_f_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_f_64(deserializer));
   }
 
   @protected
@@ -1649,6 +1860,62 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<ProxyLabDto> sse_decode_list_proxy_lab_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <ProxyLabDto>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_proxy_lab_dto(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<ProxyLabPointDto> sse_decode_list_proxy_lab_point_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <ProxyLabPointDto>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_proxy_lab_point_dto(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<ProxyMedDto> sse_decode_list_proxy_med_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <ProxyMedDto>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_proxy_med_dto(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<ProxyProblemDto> sse_decode_list_proxy_problem_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <ProxyProblemDto>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_proxy_problem_dto(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   List<TimelineGroupDto> sse_decode_list_timeline_group_dto(
     SseDeserializer deserializer,
   ) {
@@ -1693,6 +1960,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  double? sse_decode_opt_box_autoadd_f_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_f_64(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
   int? sse_decode_opt_box_autoadd_i_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -1731,6 +2009,70 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       age: var_age,
       recordCount: var_recordCount,
     );
+  }
+
+  @protected
+  ProxyLabDto sse_decode_proxy_lab_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_name = sse_decode_String(deserializer);
+    var var_unit = sse_decode_opt_String(deserializer);
+    var var_latestValue = sse_decode_f_64(deserializer);
+    var var_refHigh = sse_decode_opt_box_autoadd_f_64(deserializer);
+    var var_refLow = sse_decode_opt_box_autoadd_f_64(deserializer);
+    var var_trend = sse_decode_String(deserializer);
+    var var_recentPoints = sse_decode_list_proxy_lab_point_dto(deserializer);
+    return ProxyLabDto(
+      name: var_name,
+      unit: var_unit,
+      latestValue: var_latestValue,
+      refHigh: var_refHigh,
+      refLow: var_refLow,
+      trend: var_trend,
+      recentPoints: var_recentPoints,
+    );
+  }
+
+  @protected
+  ProxyLabPointDto sse_decode_proxy_lab_point_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_month = sse_decode_String(deserializer);
+    var var_value = sse_decode_f_64(deserializer);
+    return ProxyLabPointDto(month: var_month, value: var_value);
+  }
+
+  @protected
+  ProxyMedDto sse_decode_proxy_med_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_name = sse_decode_String(deserializer);
+    var var_dose = sse_decode_opt_String(deserializer);
+    var var_active = sse_decode_bool(deserializer);
+    return ProxyMedDto(name: var_name, dose: var_dose, active: var_active);
+  }
+
+  @protected
+  ProxyProblemDto sse_decode_proxy_problem_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_term = sse_decode_String(deserializer);
+    var var_status = sse_decode_String(deserializer);
+    var var_warn = sse_decode_bool(deserializer);
+    var var_labs = sse_decode_list_proxy_lab_dto(deserializer);
+    var var_meds = sse_decode_list_proxy_med_dto(deserializer);
+    return ProxyProblemDto(
+      term: var_term,
+      status: var_status,
+      warn: var_warn,
+      labs: var_labs,
+      meds: var_meds,
+    );
+  }
+
+  @protected
+  ProxySummaryDto sse_decode_proxy_summary_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_problems = sse_decode_list_proxy_problem_dto(deserializer);
+    return ProxySummaryDto(problems: var_problems);
   }
 
   @protected
@@ -1866,6 +2208,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_box_autoadd_f_32(double self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_f_32(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_f_64(double self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_f_64(self, serializer);
   }
 
   @protected
@@ -2031,6 +2379,54 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_proxy_lab_dto(
+    List<ProxyLabDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_proxy_lab_dto(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_proxy_lab_point_dto(
+    List<ProxyLabPointDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_proxy_lab_point_dto(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_proxy_med_dto(
+    List<ProxyMedDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_proxy_med_dto(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_proxy_problem_dto(
+    List<ProxyProblemDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_proxy_problem_dto(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_timeline_group_dto(
     List<TimelineGroupDto> self,
     SseSerializer serializer,
@@ -2073,6 +2469,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_opt_box_autoadd_f_64(double? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_f_64(self, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_opt_box_autoadd_i_32(int? self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -2106,6 +2512,58 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_opt_String(self.birthDate, serializer);
     sse_encode_opt_String(self.age, serializer);
     sse_encode_i_64(self.recordCount, serializer);
+  }
+
+  @protected
+  void sse_encode_proxy_lab_dto(ProxyLabDto self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.name, serializer);
+    sse_encode_opt_String(self.unit, serializer);
+    sse_encode_f_64(self.latestValue, serializer);
+    sse_encode_opt_box_autoadd_f_64(self.refHigh, serializer);
+    sse_encode_opt_box_autoadd_f_64(self.refLow, serializer);
+    sse_encode_String(self.trend, serializer);
+    sse_encode_list_proxy_lab_point_dto(self.recentPoints, serializer);
+  }
+
+  @protected
+  void sse_encode_proxy_lab_point_dto(
+    ProxyLabPointDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.month, serializer);
+    sse_encode_f_64(self.value, serializer);
+  }
+
+  @protected
+  void sse_encode_proxy_med_dto(ProxyMedDto self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.name, serializer);
+    sse_encode_opt_String(self.dose, serializer);
+    sse_encode_bool(self.active, serializer);
+  }
+
+  @protected
+  void sse_encode_proxy_problem_dto(
+    ProxyProblemDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.term, serializer);
+    sse_encode_String(self.status, serializer);
+    sse_encode_bool(self.warn, serializer);
+    sse_encode_list_proxy_lab_dto(self.labs, serializer);
+    sse_encode_list_proxy_med_dto(self.meds, serializer);
+  }
+
+  @protected
+  void sse_encode_proxy_summary_dto(
+    ProxySummaryDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_proxy_problem_dto(self.problems, serializer);
   }
 
   @protected

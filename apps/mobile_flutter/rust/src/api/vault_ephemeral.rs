@@ -17,6 +17,7 @@
 //! 的 git diff 恒为 0。
 use crate::api::dto::*;
 use core_model::{DocType, NewDocument, NewOcr, OcrBackendKind, Vault};
+use serde_json::Value;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
@@ -368,6 +369,226 @@ pub fn ephemeral_load_preview() -> anyhow::Result<Vec<TimelineGroupDto>> {
     })
 }
 
+/// 一份文档的识别文本(供审阅屏「逐份识别内容」摊开展示,复用
+/// `widgets/report_content.dart` 的 `ReportContent` 渲染)。与 `vault.rs::get_document`
+/// 同取法(逐段复制:只取 `ocr_text` 一项,不需要 `DocumentDetailDto` 的其它字段)。
+pub fn ephemeral_document_text(document_id: i64) -> anyhow::Result<String> {
+    with_ephemeral(|state| {
+        state
+            .vault
+            .ocr_text(document_id)
+            .map_err(|e| anyhow::anyhow!(e.to_string()))
+    })
+}
+
+/// 删掉这次代拍收错/拍花的一份文档。与 `vault.rs::delete_document` 同逻辑(逐字
+/// 复制):追加 `DocumentDeleted` 事件 → 重放,原始字节留在 CAS。调用方(审阅屏)
+/// 删后需自行重新拉 `ephemeral_load_preview` + `ephemeral_summary` 刷新展示。
+pub fn ephemeral_delete_document(document_id: i64) -> anyhow::Result<()> {
+    with_ephemeral(|state| {
+        state
+            .vault
+            .delete_document(document_id)
+            .map_err(|e| anyhow::anyhow!(e.to_string()))
+    })
+}
+
+/// 一份文档的最小必要信息,供 [`gather_ephemeral_docs`] 喂给 `parser::assemble_summary`
+/// (镜像 `medme_share::export::GatheredRecord`,但那是 `pub(crate)`、不同 crate 不可见,
+/// 故只能重取——见文件顶部「零共享代码」说明;这里只取 summary 装配需要的四个字段,
+/// 不像 `GatheredRecord` 还带 `source_file`)。
+struct EphemeralSourceDoc {
+    date: Option<chrono::NaiveDate>,
+    text: String,
+    doc_type: Option<String>,
+    title: Option<String>,
+}
+
+/// 按病程正序(旧→新,无日期最后)遍历临时会话箱,取出每份文档的识别文本 ——
+/// 与 `medme_share::share::build_encrypted_share_inner` 装配 `parser::SourceDoc` 前
+/// 的取法同构(`v.timeline()` 倒序翻正 + 无日期挪到末尾),让审阅屏这里跑的是与
+/// 「生成分享」完全一致的 `assemble_summary` 输入顺序,不是另一套排序。
+fn gather_ephemeral_docs(v: &Vault) -> anyhow::Result<Vec<EphemeralSourceDoc>> {
+    let mut entries = v.timeline().map_err(|e| anyhow::anyhow!(e.to_string()))?;
+    entries.reverse();
+    let (mut dated, undated): (Vec<_>, Vec<_>) =
+        entries.into_iter().partition(|e| e.doc_date.is_some());
+    dated.extend(undated);
+
+    let mut out = Vec::with_capacity(dated.len());
+    for entry in &dated {
+        let text = v
+            .ocr_text(entry.document_id)
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        out.push(EphemeralSourceDoc {
+            date: entry.doc_date.map(|dt| dt.date_naive()),
+            text,
+            doc_type: Some(entry.doc_type.as_str().to_lowercase()),
+            title: entry.title.clone(),
+        });
+    }
+    Ok(out)
+}
+
+/// 一条 `pts` 里 `["YYYY-MM", value]` 的其中一点。
+fn proxy_lab_from_json(v: &Value) -> ProxyLabDto {
+    let name = v
+        .get("name")
+        .and_then(|x| x.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let unit = v
+        .get("unit")
+        .and_then(|x| x.as_str())
+        .map(|s| s.to_string());
+    let ref_high = v.get("refHigh").and_then(|x| x.as_f64());
+    let ref_low = v.get("refLow").and_then(|x| x.as_f64());
+
+    let pts: Vec<(String, f64)> = v
+        .get("pts")
+        .and_then(|x| x.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|p| {
+                    let a = p.as_array()?;
+                    let month = a.first()?.as_str()?.to_string();
+                    let value = a.get(1)?.as_f64()?;
+                    Some((month, value))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    // 只留最近 4 个点——与 `notable_changes`/QR 分享默认档(`QrLimits::max_points_per_lab`)
+    // 同一惯例,给「趋势一眼」用,不是画完整图表(见 `ProxySummaryDto` 文档)。
+    let start = pts.len().saturating_sub(4);
+    let recent_points: Vec<ProxyLabPointDto> = pts[start..]
+        .iter()
+        .map(|(month, value)| ProxyLabPointDto {
+            month: month.clone(),
+            value: *value,
+        })
+        .collect();
+
+    let trend = match (pts.first(), pts.last()) {
+        (Some(first), Some(last)) if pts.len() >= 2 => {
+            if last.1 > first.1 {
+                "up"
+            } else if last.1 < first.1 {
+                "down"
+            } else {
+                "flat"
+            }
+        }
+        _ => "single",
+    }
+    .to_string();
+
+    ProxyLabDto {
+        name,
+        unit,
+        latest_value: pts.last().map(|(_, v)| *v).unwrap_or(0.0),
+        ref_high,
+        ref_low,
+        trend,
+        recent_points,
+    }
+}
+
+fn proxy_med_from_json(v: &Value) -> ProxyMedDto {
+    ProxyMedDto {
+        name: v
+            .get("name")
+            .and_then(|x| x.as_str())
+            .unwrap_or_default()
+            .to_string(),
+        dose: v
+            .get("dose")
+            .and_then(|x| x.as_str())
+            .map(|s| s.to_string()),
+        active: v.get("on").and_then(|x| x.as_bool()).unwrap_or(false),
+    }
+}
+
+/// 把 `parser::assemble_summary` 的通用 `Value` 映射成 [`ProxySummaryDto`]。只取
+/// 病情摘要卡要的三块(在治的病/关键化验/在用药);`assemble_summary` 的 `imaging`/
+/// `pathology`/`allergies`/`notable_changes` 键不在这张卡的范围内(审阅屏另有「逐份
+/// 识别内容」区块摊开原文,不丢信息)。**保留「其他」桶**(未挂上具体疾病的化验/
+/// 用药落这里)而不是过滤掉——它仍是一条有名字有内容的 `problems[]` 项,过滤会在没
+/// 人要求的前提下丢数据。
+fn proxy_summary_from_json(summary: &Value) -> ProxySummaryDto {
+    let problems = summary
+        .get("problems")
+        .and_then(|p| p.as_array())
+        .map(|arr| {
+            arr.iter()
+                .map(|p| {
+                    let term = p
+                        .get("term")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or_default()
+                        .to_string();
+                    let status = p
+                        .get("status")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or_default()
+                        .to_string();
+                    let warn = p.get("warn").and_then(|x| x.as_bool()).unwrap_or(false);
+                    let labs = p
+                        .get("labs")
+                        .and_then(|x| x.as_array())
+                        .map(|a| {
+                            a.iter()
+                                .map(proxy_lab_from_json)
+                                // 一个带日期的点都没有 → 没法读出「最近值」,略去
+                                // (原始识别文字仍在「逐份识别内容」区块,不丢信息)。
+                                .filter(|l| !l.recent_points.is_empty())
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    let meds = p
+                        .get("meds")
+                        .and_then(|x| x.as_array())
+                        .map(|a| a.iter().map(proxy_med_from_json).collect())
+                        .unwrap_or_default();
+                    ProxyProblemDto {
+                        term,
+                        status,
+                        warn,
+                        labs,
+                        meds,
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    ProxySummaryDto { problems }
+}
+
+/// 「病情摘要卡」:在治的病 + 关键化验 + 在用药,给医生三十秒看懂这次代拍收上来的
+/// 大局。复用 `parser::assemble_summary`——与生成加密分享跑的**同一套**确定性装配
+/// 逻辑(见 `ephemeral_create_share`/`build_encrypted_share_with_consent`),不是另
+/// 写一遍抽取。
+pub fn ephemeral_summary() -> anyhow::Result<ProxySummaryDto> {
+    with_ephemeral(|state| {
+        let v = &state.vault;
+        let owned = gather_ephemeral_docs(v)?;
+        let docs: Vec<parser::SourceDoc> = owned
+            .iter()
+            .enumerate()
+            .map(|(i, d)| parser::SourceDoc {
+                index: i,
+                date: d.date,
+                text: &d.text,
+                doc_type: d.doc_type.clone(),
+                title: d.title.clone(),
+            })
+            .collect();
+        let summary = parser::assemble_summary(&docs);
+        Ok(proxy_summary_from_json(&summary))
+    })
+}
+
 impl From<ConsentDto> for medme_share::share::ShareConsent {
     fn from(c: ConsentDto) -> Self {
         medme_share::share::ShareConsent {
@@ -558,6 +779,63 @@ mod tests {
         let result = ephemeral_create_share(7, consent).unwrap();
         assert!(result.byte_size > 0);
         assert!(!result.passphrase.is_empty());
+
+        ephemeral_wipe().unwrap();
+    }
+
+    #[test]
+    fn ephemeral_summary_document_text_and_delete_round_trip() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let cache = tempfile::tempdir().unwrap();
+        ephemeral_begin(cache.path().to_string_lossy().to_string()).unwrap();
+
+        // 一份出院小结:诊断段(条件抽取,不看 doc_type)+ 化验/用药段(按 #148 的
+        // 按段路由从整份出院小结里抽出,不需要整份 doc_type 是 lab_report/prescription)。
+        let text = "生化检验报告单\n检验日期 2024-06-01\n糖化血红蛋白 7.9 % 4-6.5\n\
+出院诊断:2型糖尿病\n出院医嘱:\n二甲双胍 0.5g bid\n";
+        let outcome =
+            ephemeral_ingest_bytes("出院小结.txt".into(), text.as_bytes().to_vec()).unwrap();
+        assert_eq!(outcome.status, "new");
+        let doc_id = outcome.document_id.expect("document created");
+
+        // 识别文本原样可单独取(供审阅屏「逐份识别内容」摊开展示)。
+        let fetched_text = ephemeral_document_text(doc_id).unwrap();
+        assert!(fetched_text.contains("糖化血红蛋白"));
+
+        // 摘要卡挂上「2型糖尿病」问题,分组好它的化验(7.9 超参考上限 6.5,标记
+        // 需关注)与用药。
+        let summary = ephemeral_summary().unwrap();
+        let dm = summary
+            .problems
+            .iter()
+            .find(|p| p.term == "2型糖尿病")
+            .expect("2型糖尿病 problem present");
+        assert_eq!(dm.status, "需关注");
+        assert!(dm.warn);
+        let hba1c = dm
+            .labs
+            .iter()
+            .find(|l| l.name == "糖化血红蛋白")
+            .expect("HbA1c grouped under diabetes");
+        assert_eq!(hba1c.latest_value, 7.9);
+        assert_eq!(hba1c.ref_high, Some(6.5));
+        assert_eq!(hba1c.trend, "single", "只有一个带日期的点,判不出趋势");
+        assert_eq!(hba1c.recent_points.len(), 1);
+        let met = dm
+            .meds
+            .iter()
+            .find(|m| m.name == "二甲双胍")
+            .expect("metformin grouped under diabetes");
+        assert!(met.active);
+
+        // 删掉这唯一一份文档后,摘要与识别文本都应清空/报错(不是仍留着旧数据)。
+        ephemeral_delete_document(doc_id).unwrap();
+        let summary_after = ephemeral_summary().unwrap();
+        assert!(
+            summary_after.problems.is_empty(),
+            "删除后 problems 应为空,实际={:?}",
+            summary_after.problems.iter().map(|p| &p.term).collect::<Vec<_>>()
+        );
 
         ephemeral_wipe().unwrap();
     }

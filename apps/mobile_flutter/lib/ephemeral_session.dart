@@ -50,6 +50,19 @@ class EphemeralSession {
   static Future<List<TimelineGroupDto>> loadPreview() =>
       rust_ephemeral.ephemeralLoadPreview();
 
+  /// 「病情摘要卡」:在治的病 + 关键化验 + 在用药,给医生三十秒看懂这次代拍收上来
+  /// 的大局。复用 `parser::assemble_summary`——与生成加密分享同一套确定性装配。
+  static Future<ProxySummaryDto> summary() => rust_ephemeral.ephemeralSummary();
+
+  /// 一份文档的识别文本(供审阅屏「逐份识别内容」摊开展示,喂给 `ReportContent`)。
+  static Future<String> documentText(int documentId) =>
+      rust_ephemeral.ephemeralDocumentText(documentId: documentId);
+
+  /// 删掉这次代拍收错/拍花的一份文档(不可撤销)。调用方需自行重新拉
+  /// [loadPreview] + [summary] 刷新展示。
+  static Future<void> deleteDocument(int documentId) =>
+      rust_ephemeral.ephemeralDeleteDocument(documentId: documentId);
+
   /// 打包成加密分享件(带拍前同意记录),写进**临时会话箱**——不是医生自己的档案。
   static Future<ShareResultDto> createShare({
     required int expiresDays,

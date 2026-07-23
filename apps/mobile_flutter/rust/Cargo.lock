@@ -3698,6 +3698,7 @@ dependencies = [
  "ocr",
  "parser",
  "pipeline",
+ "serde_json",
  "tempfile",
 ]
 

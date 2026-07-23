@@ -7,8 +7,8 @@ import '../frb_generated.dart';
 import 'dto.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `detected_name_for`, `doc_summary`, `ephemeral_cell`, `ingest_one`, `with_ephemeral`
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `EphemeralState`
+// These functions are ignored because they are not marked as `pub`: `detected_name_for`, `doc_summary`, `ephemeral_cell`, `gather_ephemeral_docs`, `ingest_one`, `proxy_lab_from_json`, `proxy_med_from_json`, `proxy_summary_from_json`, `with_ephemeral`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `EphemeralSourceDoc`, `EphemeralState`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`
 
 /// 开始一次临时会话:在 `<cache_dir>/ephemeral-<随机>/` 下建全新空箱并打开。
@@ -51,6 +51,29 @@ Future<ImportOutcomeDto> ephemeralIngestImageWithText({
 /// 核对这次代拍收了什么、分类对不对。
 Future<List<TimelineGroupDto>> ephemeralLoadPreview() =>
     RustLib.instance.api.crateApiVaultEphemeralEphemeralLoadPreview();
+
+/// 一份文档的识别文本(供审阅屏「逐份识别内容」摊开展示,复用
+/// `widgets/report_content.dart` 的 `ReportContent` 渲染)。与 `vault.rs::get_document`
+/// 同取法(逐段复制:只取 `ocr_text` 一项,不需要 `DocumentDetailDto` 的其它字段)。
+Future<String> ephemeralDocumentText({required PlatformInt64 documentId}) =>
+    RustLib.instance.api.crateApiVaultEphemeralEphemeralDocumentText(
+      documentId: documentId,
+    );
+
+/// 删掉这次代拍收错/拍花的一份文档。与 `vault.rs::delete_document` 同逻辑(逐字
+/// 复制):追加 `DocumentDeleted` 事件 → 重放,原始字节留在 CAS。调用方(审阅屏)
+/// 删后需自行重新拉 `ephemeral_load_preview` + `ephemeral_summary` 刷新展示。
+Future<void> ephemeralDeleteDocument({required PlatformInt64 documentId}) =>
+    RustLib.instance.api.crateApiVaultEphemeralEphemeralDeleteDocument(
+      documentId: documentId,
+    );
+
+/// 「病情摘要卡」:在治的病 + 关键化验 + 在用药,给医生三十秒看懂这次代拍收上来的
+/// 大局。复用 `parser::assemble_summary`——与生成加密分享跑的**同一套**确定性装配
+/// 逻辑(见 `ephemeral_create_share`/`build_encrypted_share_with_consent`),不是另
+/// 写一遍抽取。
+Future<ProxySummaryDto> ephemeralSummary() =>
+    RustLib.instance.api.crateApiVaultEphemeralEphemeralSummary();
 
 /// 打包成自包含加密 HTML(带拍前同意记录),写进**临时会话箱**的 `shares/`——
 /// 不是医生自己的 vault。与 `vault.rs::create_share` 同逻辑(逐段复制),唯一
